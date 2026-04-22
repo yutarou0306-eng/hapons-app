@@ -8,6 +8,7 @@ const ADMIN_PASS = "rugby2026";
 
 const IMPORTANT_URL = "https://docs.google.com/document/d/1KyBa4FufpoRyB6IpDUPEnv2GrYqwmUQQ2lb95luokFE/edit?usp=drive_link";
 const RULES_URL = "https://docs.google.com/document/d/1vFL3nUWpJrwEzPqPQSg8Dr6bJGcHLTP3ojhD1dl9P18/edit?usp=drive_link";
+const LOGO_SRC = "/logo.jpg";
 
 // ── INITIAL DATA ──
 const initialMembers = [
@@ -39,27 +40,36 @@ const initialFees = [
   { id: 4, month: "2026年4月", amount: 3000, paidCount: 4, totalCount: 6 },
 ];
 
-// ── DESIGN TOKENS ──
+// ── DESIGN TOKENS (Manila Hapons: red, yellow, sakura pink) ──
 const C = {
-  primary: "#1B5E20", accent: "#FFD600", accentDark: "#F9A825",
-  bg: "#F4F6F0", card: "#FFFFFF", text: "#1A2310", textMuted: "#6B7560",
-  border: "#DDE4D6", success: "#2E7D32", danger: "#C62828", warning: "#F57F17",
-  adminBg: "#0D2B0F",
+  primary: "#CC1F1F",
+  primaryDark: "#9B0000",
+  accent: "#F5C800",
+  sakura: "#F4A7B0",
+  sakuraLight: "#FDE8EC",
+  bg: "#FDF8F8",
+  card: "#FFFFFF",
+  text: "#1A0505",
+  textMuted: "#7A5050",
+  border: "#F0DADA",
+  success: "#2E7D32",
+  danger: "#9B0000",
+  warning: "#D4A800",
+  adminBg: "#7A0000",
 };
 
 const S = {
   app: { minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80 },
-  header: { background: `linear-gradient(160deg, ${C.primary} 0%, #0a3d0c 100%)`, padding: "18px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" },
-  logoBox: { width: 44, height: 44, borderRadius: 10, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 900, color: C.primary, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" },
-  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: `1px solid ${C.border}`, display: "flex", zIndex: 100, boxShadow: "0 -2px 12px rgba(0,0,0,0.08)" },
-  navBtn: (active) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px 6px", cursor: "pointer", background: "none", border: "none", color: active ? C.primary : C.textMuted, gap: 2 }),
+  header: { background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: `2px solid ${C.border}`, display: "flex", zIndex: 100, boxShadow: "0 -2px 12px rgba(204,31,31,0.08)" },
+  navBtn: (active) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px 6px", cursor: "pointer", background: active ? C.sakuraLight : "none", border: "none", color: active ? C.primary : C.textMuted, gap: 2 }),
   content: { padding: "16px 16px 0" },
   sectionTitle: { fontSize: 17, fontWeight: 900, color: C.text, margin: "0 0 14px" },
-  card: { background: C.card, borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", border: `1px solid ${C.border}` },
-  badge: (color) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + "20", color }),
+  card: { background: C.card, borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(204,31,31,0.07)", border: `1px solid ${C.border}` },
+  badge: (color) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + "22", color }),
   btn: (variant = "primary", size = "md") => ({
-    background: variant === "primary" ? C.primary : variant === "danger" ? C.danger : variant === "accent" ? C.accent : "transparent",
-    color: variant === "accent" ? C.primary : variant === "ghost" ? C.primary : "#fff",
+    background: variant === "primary" ? C.primary : variant === "danger" ? C.primaryDark : variant === "accent" ? C.accent : "transparent",
+    color: variant === "accent" ? C.primaryDark : variant === "ghost" ? C.primary : "#fff",
     border: variant === "ghost" ? `1.5px solid ${C.primary}` : "none",
     borderRadius: 8, padding: size === "sm" ? "5px 10px" : "9px 18px",
     fontSize: size === "sm" ? 12 : 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
@@ -74,47 +84,27 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState("");
 
   const handleLogin = () => {
-    if (id === ADMIN_ID && pass === ADMIN_PASS) {
-      onLogin("admin");
-    } else if (id === MEMBER_ID && pass === MEMBER_PASS) {
-      onLogin("member");
-    } else {
-      setError("IDまたはパスワードが正しくありません");
-      setPass("");
-    }
+    if (id === ADMIN_ID && pass === ADMIN_PASS) { onLogin("admin"); }
+    else if (id === MEMBER_ID && pass === MEMBER_PASS) { onLogin("member"); }
+    else { setError("IDまたはパスワードが正しくありません"); setPass(""); }
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: `linear-gradient(160deg, ${C.primary} 0%, #0a3d0c 60%, #1a4a1c 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Noto Sans JP', sans-serif" }}>
-      {/* Logo area */}
-      <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{ width: 80, height: 80, borderRadius: 20, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, fontWeight: 900, color: C.primary, margin: "0 auto 16px", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>H</div>
-        <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 900, margin: "0 0 4px", letterSpacing: "0.08em" }}>HAPONS RFC</h1>
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, margin: 0, letterSpacing: "0.1em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
+    <div style={{ minHeight: "100vh", background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 60%, #5A0000 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Noto Sans JP', sans-serif" }}>
+      <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 180, height: "auto", marginBottom: 8, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
       </div>
-
-      {/* Login card */}
       <div style={{ background: C.card, borderRadius: 24, padding: "32px 28px", width: "100%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: "0 0 20px", textAlign: "center" }}>ログイン</h2>
-
         <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>ID</label>
         <input style={S.input} placeholder="IDを入力" value={id} onChange={(e) => setId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-
         <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
         <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-
         {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 12px", fontWeight: 600 }}>⚠ {error}</p>}
-
-        <button style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>
-          ログイン
-        </button>
-
-        <p style={{ fontSize: 11, color: C.textMuted, textAlign: "center", marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>
-          IDとパスワードはコーチにお問い合わせください
-        </p>
+        <button style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
+        <p style={{ fontSize: 11, color: C.textMuted, textAlign: "center", marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>IDとパスワードはコーチにお問い合わせください</p>
       </div>
-
-      <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 32 }}>© 2026 Hapons RFC</p>
+      <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 32 }}>© 2026 Manila Hapons Rugby</p>
     </div>
   );
 }
@@ -167,24 +157,20 @@ function EditModal({ title, fields, data, onSave, onClose }) {
 }
 
 // ── HOME TAB ──
-function HomeTab({ announcements, isAdmin, onAnnouncementUpdate }) {
+function HomeTab({ announcements }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
-
   return (
     <div style={S.content}>
-      {/* Welcome */}
-      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, #0a3d0c 100%)`, color: "#fff", marginBottom: 16 }}>
-        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6, letterSpacing: "0.06em" }}>{today}</div>
-        <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>🏉 HAPONS RFC</div>
-        <div style={{ fontSize: 13, opacity: 0.8 }}>Rugby Football Club · Philippines</div>
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16, textAlign: "center", padding: "20px 16px" }}>
+        <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
+        <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: "0.06em" }}>{today}</div>
       </div>
 
-      {/* Quick links */}
       <h2 style={S.sectionTitle}>クラブ資料</h2>
       <a href={IMPORTANT_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-        <div style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}`, transition: "box-shadow 0.2s" }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
+        <div style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons 重要事項</div>
             <div style={{ fontSize: 12, color: C.textMuted }}>クラブの重要なお知らせ・規則</div>
@@ -194,8 +180,8 @@ function HomeTab({ announcements, isAdmin, onAnnouncementUpdate }) {
       </a>
 
       <a href={RULES_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-        <div style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}`, transition: "box-shadow 0.2s" }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.primary + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📖</div>
+        <div style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div>
             <div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div>
@@ -204,11 +190,8 @@ function HomeTab({ announcements, isAdmin, onAnnouncementUpdate }) {
         </div>
       </a>
 
-      {/* Recent announcements */}
       <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>最新のお知らせ</h2>
-      {latest.length === 0 && (
-        <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>
-      )}
+      {latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
       {latest.map((a) => (
         <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
@@ -229,10 +212,10 @@ function MembersTab({ isAdmin }) {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const posColors = { PR: "#E53935", HO: "#E53935", LO: "#1E88E5", FL: "#43A047", NO8: "#43A047", SH: "#FB8C00", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
+  const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
   const filtered = members.filter((m) => m.name.includes(search) || m.position.includes(search));
   const fields = [
-    { key: "name", label: "氏名" }, { key: "position", label: "ポジション（PR / HO / LO / FL / NO8 / SH / SO / CTR / WTB / FB）" },
+    { key: "name", label: "氏名" }, { key: "position", label: "ポジション（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
     { key: "phone", label: "電話番号" }, { key: "parent", label: "緊急連絡先" },
     { key: "note", label: "備考", type: "textarea" }, { key: "paid", label: "今月の会費納入済み", type: "checkbox" },
   ];
@@ -243,7 +226,6 @@ function MembersTab({ isAdmin }) {
   };
   const del = (id) => { if (window.confirm("このメンバーを削除しますか？")) setMembers(members.filter((m) => m.id !== id)); };
   const togglePaid = (id) => setMembers(members.map((m) => m.id === id ? { ...m, paid: !m.paid } : m));
-
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -261,20 +243,17 @@ function MembersTab({ isAdmin }) {
                 <span style={S.badge(posColors[m.position] || C.textMuted)}>{m.position || "—"}</span>
               </div>
               <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-                📞 {m.phone}　👤 {m.parent}
-                {m.note && <><br />📝 {m.note}</>}
+                📞 {m.phone}　👤 {m.parent}{m.note && <><br />📝 {m.note}</>}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <button onClick={() => togglePaid(m.id)} style={{ padding: "4px 10px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 11, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#C6282820", color: m.paid ? C.success : C.danger }}>
+              <button onClick={() => togglePaid(m.id)} style={{ padding: "4px 10px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 11, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
                 {m.paid ? "✓ 納入済" : "未納入"}
               </button>
-              {isAdmin && (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button style={S.btn("ghost", "sm")} onClick={() => setEditing(m)}>編集</button>
-                  <button style={S.btn("danger", "sm")} onClick={() => del(m.id)}>削除</button>
-                </div>
-              )}
+              {isAdmin && <div style={{ display: "flex", gap: 4 }}>
+                <button style={S.btn("ghost", "sm")} onClick={() => setEditing(m)}>編集</button>
+                <button style={S.btn("danger", "sm")} onClick={() => del(m.id)}>削除</button>
+              </div>}
             </div>
           </div>
         </div>
@@ -299,7 +278,6 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements }) {
     setEditing(null); setShowAdd(false);
   };
   const del = (id) => { if (window.confirm("削除しますか？")) setAnnouncements(announcements.filter((i) => i.id !== id)); };
-
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -307,7 +285,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements }) {
         {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 投稿</button>}
       </div>
       {announcements.map((a) => (
-        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.primary}` : `1px solid ${C.border}` }}>
+        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
@@ -333,7 +311,7 @@ function ScheduleTab({ isAdmin }) {
   const [events, setEvents] = useState(initialEvents);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const typeConfig = { practice: { label: "練習", color: "#1E88E5" }, game: { label: "試合", color: C.primary }, meeting: { label: "会議", color: "#8E24AA" }, tournament: { label: "大会", color: C.danger } };
+  const typeConfig = { practice: { label: "練習", color: "#1E88E5" }, game: { label: "試合", color: C.primary }, meeting: { label: "会議", color: "#8E24AA" }, tournament: { label: "大会", color: "#D4A800" } };
   const fields = [
     { key: "title", label: "タイトル" }, { key: "date", label: "日付", type: "date" },
     { key: "time", label: "時間（例：09:00〜11:00）" }, { key: "location", label: "場所" },
@@ -347,7 +325,6 @@ function ScheduleTab({ isAdmin }) {
   const del = (id) => { if (window.confirm("削除しますか？")) setEvents(events.filter((e) => e.id !== id)); };
   const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
-
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -359,9 +336,9 @@ function ScheduleTab({ isAdmin }) {
         const d = new Date(e.date);
         return (
           <div key={e.id} style={{ ...S.card, display: "flex", gap: 14 }}>
-            <div style={{ minWidth: 50, textAlign: "center", background: C.bg, borderRadius: 10, padding: "8px 4px" }}>
+            <div style={{ minWidth: 50, textAlign: "center", background: C.sakuraLight, borderRadius: 10, padding: "8px 4px" }}>
               <div style={{ fontSize: 11, color: C.textMuted }}>{d.getMonth() + 1}月</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: C.text, lineHeight: 1 }}>{d.getDate()}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.primary, lineHeight: 1 }}>{d.getDate()}</div>
               <div style={{ fontSize: 11, color: C.textMuted }}>({wdays[d.getDay()]})</div>
             </div>
             <div style={{ flex: 1 }}>
@@ -405,23 +382,21 @@ function FeesTab({ isAdmin }) {
     setEditing(null); setShowAdd(false);
   };
   const togglePaid = (id) => setMembers(members.map((m) => m.id === id ? { ...m, paid: !m.paid } : m));
-
   return (
     <div style={S.content}>
       <h2 style={S.sectionTitle}>会費管理</h2>
-      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, #0a3d0c 100%)`, color: "#fff", marginBottom: 16 }}>
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
         <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>今月の納入状況</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 12 }}>
           <span style={{ fontSize: 36, fontWeight: 900 }}>{paidCount}</span>
           <span style={{ opacity: 0.6, marginBottom: 6 }}>/ {total}名</span>
           <span style={{ fontSize: 20, fontWeight: 900, marginLeft: "auto" }}>{pct}%</span>
         </div>
-        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+        <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99, transition: "width 0.4s" }} />
         </div>
         <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8 }}>月額 3,000円　未納：{total - paidCount}名</div>
       </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted }}>過去の納入実績</div>
         {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
@@ -441,7 +416,6 @@ function FeesTab({ isAdmin }) {
           </div>
         </div>
       ))}
-
       <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, margin: "16px 0 8px" }}>今月の会員別状況</div>
       {members.map((m) => (
         <div key={m.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -449,7 +423,7 @@ function FeesTab({ isAdmin }) {
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{m.name}</div>
             <div style={{ fontSize: 12, color: C.textMuted }}>{m.position}　📞 {m.phone}</div>
           </div>
-          <button onClick={() => togglePaid(m.id)} style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#C6282820", color: m.paid ? C.success : C.danger }}>
+          <button onClick={() => togglePaid(m.id)} style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
             {m.paid ? "✓ 納入済" : "未納入"}
           </button>
         </div>
@@ -462,10 +436,9 @@ function FeesTab({ isAdmin }) {
 
 // ── MAIN APP ──
 export default function HaponsApp() {
-  const [role, setRole] = useState(null); // null | "member" | "admin"
+  const [role, setRole] = useState(null);
   const [tab, setTab] = useState("home");
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
-
   const isAdmin = role === "admin";
 
   if (!role) return <LoginScreen onLogin={setRole} />;
@@ -480,44 +453,37 @@ export default function HaponsApp() {
 
   return (
     <div style={S.app}>
-      {/* Header */}
       <div style={S.header}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={S.logoBox}>H</div>
+          <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ height: 40, width: "auto" }} />
           <div>
-            <h1 style={{ color: "#fff", fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "0.06em" }}>HAPONS RFC</h1>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 1, letterSpacing: "0.08em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
+            <h1 style={{ color: "#fff", fontSize: 16, fontWeight: 900, margin: 0, letterSpacing: "0.04em" }}>Manila Hapons</h1>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
           </div>
         </div>
-        <button
-          onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }}
-          style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.8)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
-        >
+        <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
           {isAdmin ? "管理者 ✕" : "ログアウト"}
         </button>
       </div>
 
-      {/* Admin bar */}
       {isAdmin && (
         <div style={{ background: C.adminBg, padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ color: C.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>⚙ 管理者モード — 全コンテンツの編集が可能です</span>
-          <span style={{ background: C.accent, color: C.primary, fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 20 }}>ADMIN</span>
+          <span style={{ background: C.accent, color: C.primaryDark, fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 20 }}>ADMIN</span>
         </div>
       )}
 
-      {/* Content */}
-      {tab === "home" && <HomeTab announcements={announcements} isAdmin={isAdmin} />}
+      {tab === "home" && <HomeTab announcements={announcements} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
       {tab === "fees" && <FeesTab isAdmin={isAdmin} />}
 
-      {/* Bottom Nav */}
       <nav style={S.nav}>
         {tabs.map((t) => (
           <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
             <span style={{ fontSize: 18 }}>{t.icon}</span>
-            <span style={{ fontSize: 9, fontWeight: tab === t.id ? 800 : 400, color: tab === t.id ? C.primary : C.textMuted }}>{t.label}</span>
+            <span style={{ fontSize: 9, fontWeight: tab === t.id ? 800 : 400 }}>{t.label}</span>
           </button>
         ))}
       </nav>
