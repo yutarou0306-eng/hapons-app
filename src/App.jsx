@@ -101,7 +101,7 @@ function LoginScreen({ onLogin }) {
         <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
         <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
         {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 12px", fontWeight: 600 }}>⚠ {error}</p>}
-        <button style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
+        <n style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
         <p style={{ fontSize: 11, color: C.textMuted, textAlign: "center", marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>IDとパスワードはコーチにお問い合わせください</p>
       </div>
       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 32 }}>© 2026 Manila Hapons Rugby</p>
@@ -437,6 +437,7 @@ function FeesTab({ isAdmin }) {
 // ── MAIN APP ──
 export default function HaponsApp() {
   const [role, setRole] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [tab, setTab] = useState("home");
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const isAdmin = role === "admin";
@@ -461,9 +462,20 @@ export default function HaponsApp() {
             <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
           </div>
         </div>
-        <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-          {isAdmin ? "管理者 ✕" : "ログアウト"}
-        </button>
+<div style={{ display: "flex", gap: 6 }}>
+  {isAdmin ? (
+    <button onClick={() => { if (window.confirm("管理者をログアウトしますか？")) setRole("member"); }} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "6px 12px", color: C.primaryDark, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+      管理者 ✕
+    </button>
+  ) : (
+    <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+      管理者ログイン
+    </button>
+  )}
+  <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+    ログアウト
+  </button>
+</div>
       </div>
 
       {isAdmin && (
@@ -487,6 +499,12 @@ export default function HaponsApp() {
           </button>
         ))}
       </nav>
+      {showAdminLogin && (
+  <AdminLoginModal
+    onLogin={() => { setRole("admin"); setShowAdminLogin(false); }}
+    onClose={() => setShowAdminLogin(false)}
+  />
+)}
     </div>
   );
 }
