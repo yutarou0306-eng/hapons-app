@@ -1,4 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// ── SUPABASE ──
+const SUPABASE_URL = "https://opaelfaglzewknhgqufw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wYWVsZmFnbHpld2tuaGdxdWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzIxNzgsImV4cCI6MjA5MjQwODE3OH0.Gv2Udb64zcqQda85mgGOmJKumauuu89YhfHd1LW403A";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── CREDENTIALS ──
 const MEMBER_ID = "hapons";
@@ -16,12 +22,6 @@ const initialMembers = [
   { id: 4, name: "高橋 蓮", position: "LO", phone: "090-4567-8901", parent: "高橋 勇", paid: true, note: "" },
   { id: 5, name: "伊藤 陽太", position: "SO", phone: "090-5678-9012", parent: "伊藤 幸雄", paid: false, note: "" },
   { id: 6, name: "渡辺 悠斗", position: "WTB", phone: "090-6789-0123", parent: "渡辺 隆", paid: true, note: "" },
-];
-
-const initialAnnouncements = [
-  { id: 1, title: "今週土曜日の練習について", body: "雨天中止の可能性があります。当日朝7時にLINEグループにてご連絡します。", date: "2026-04-19", important: true },
-  { id: 2, title: "ユニフォーム注文締切のお知らせ", body: "4月25日までにサイズをコーチ宛にご連絡ください。", date: "2026-04-17", important: false },
-  { id: 3, title: "春季大会エントリー完了", body: "5月10日（日）の春季大会にエントリーしました。詳細は別途お知らせします。", date: "2026-04-15", important: false },
 ];
 
 const initialEvents = [
@@ -70,11 +70,8 @@ const S = {
 function DocViewer({ title, onClose, children }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 150, overflowY: "auto", maxWidth: 480, margin: "0 auto" }}>
-      {/* ヘッダー */}
       <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 }}>
-        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-          ← 戻る
-        </button>
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← 戻る</button>
         <h2 style={{ color: "#fff", fontSize: 14, fontWeight: 900, margin: 0, flex: 1 }}>{title}</h2>
       </div>
       <div style={{ padding: "16px 16px 32px" }}>{children}</div>
@@ -82,7 +79,6 @@ function DocViewer({ title, onClose, children }) {
   );
 }
 
-// ── SECTION HEADER (doc style) ──
 function DocSection({ num, title, children }) {
   return (
     <div style={{ marginBottom: 16 }}>
@@ -109,27 +105,19 @@ function ImportantPage({ onClose }) {
   return (
     <DocViewer title="Hapons 重要事項" onClose={onClose}>
       <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-        2026年1月28日　Manila Hapons 幹事会<br />
-        第三版　2026年2月24日
+        2026年1月28日　Manila Hapons 幹事会／第三版　2026年2月24日
       </div>
-
       <DocSection num="１" title="MJSグラウンド利用開始の経緯">
-        <p style={{ margin: "0 0 10px", fontSize: 13, lineHeight: 1.8 }}>
-          MJSグラウンドは従来、MJSの放課後倶楽部に限られていましたが、2023〜2024年に当時の幹事・赤星さん、小野さんが度重なる陳情と交渉を行い、日本人同好会としての利用が認められました。これによりHaponsは日本人会公認の同好会となりました。
-        </p>
+        <p style={{ margin: "0 0 10px", fontSize: 13, lineHeight: 1.8 }}>MJSグラウンドは従来、MJSの放課後倶楽部に限られていましたが、2023〜2024年に当時の幹事・赤星さん、小野さんが度重なる陳情と交渉を行い、日本人同好会としての利用が認められました。これによりHaponsは日本人会公認の同好会となりました。</p>
         <Item><Bold>利用開始日：</Bold>2024年4月7日（日）15:00〜17:00</Item>
         <Item><Bold>部員資格：</Bold>日本人会会員であることが求められます</Item>
       </DocSection>
-
       <DocSection num="２" title="利用可能施設">
         <Item>MJS グラウンド</Item>
         <Item>第二体育館</Item>
         <Item>第二体育館隣接お手洗い</Item>
-        <div style={{ marginTop: 8, padding: "6px 10px", background: "#FFF3F3", borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 700 }}>
-          ⚠ 対象施設以外への立ち入りは禁止
-        </div>
+        <div style={{ marginTop: 8, padding: "6px 10px", background: "#FFF3F3", borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 700 }}>⚠ 対象施設以外への立ち入りは禁止</div>
       </DocSection>
-
       <DocSection num="３" title="MJSグラウンド利用ルール">
         <Item>MJSグラウンドを利用できるのは<Bold>Manila Hapons且つ日本人会会員</Bold>に限ります</Item>
         <Item>優先順位：学校行事 → 放課後倶楽部 → 郊外部活動</Item>
@@ -141,24 +129,19 @@ function ImportantPage({ onClose }) {
         <Item>施設破損時は当事者が修理費を弁済する責任を負います</Item>
         <Item>Manila Haponsに関わらない活動は禁止（政治・宗教活動等）</Item>
       </DocSection>
-
       <DocSection num="４" title="施設使用料">
         <Item><Bold>グラウンド：</Bold>P1,000／時間</Item>
         <Item><Bold>第二体育館：</Bold>P500／時間＋照明P200／時間</Item>
         <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>※皆様から集めた部費で支払います</div>
       </DocSection>
-
       <DocSection num="５" title="部費・練習参加費">
         <Item><Bold>大人：</Bold>P1,000／月（毎月25日〜月末払）</Item>
         <div style={{ margin: "4px 0 8px 12px", padding: "8px 12px", background: C.sakuraLight, borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
-          振込先：BDO Unibank<br />
-          Manila Hapons <Bold>0000 4121 9449</Bold><br />
-          または会計担当に手渡し・GCash
+          振込先：BDO Unibank<br />Manila Hapons <Bold>0000 4121 9449</Bold><br />または会計担当に手渡し・GCash
         </div>
         <Item><Bold>子供：</Bold>P100／回（兄弟参加の場合は1人分でOK）</Item>
         <Item><Bold>特別練習：</Bold>通常練習に加えP100／回</Item>
       </DocSection>
-
       <DocSection num="６" title="活動停止・退部勧告">
         以下に該当する場合、幹事会の判断により活動停止または退部を勧告することがあります：
         <div style={{ marginTop: 8 }}>
@@ -169,24 +152,17 @@ function ImportantPage({ onClose }) {
           <Item>LINEグループから自主退出した者、または連絡なく2か月以上不参加かつ部費滞納者は自動的に部員名簿から削除</Item>
         </div>
       </DocSection>
-
       <DocSection num="７" title="提出書類">
         <div style={{ fontWeight: 800, color: C.primary, marginBottom: 6 }}>① 部員 → Manila Hapons幹事会</div>
         <Item>入部届兼誓約書</Item>
         <Item>参加同意書（WAIVER）（Jrのみ）</Item>
-
         <div style={{ fontWeight: 800, color: C.primary, margin: "10px 0 6px" }}>② 部員 → MJS</div>
-        <Item>MJSパス＆スティッカー申請書（部長承認済）→ a.lecias@mjs.ph へメール送信<br />
-          <span style={{ fontSize: 12, color: C.textMuted }}>Club Name：Manila Hapons　Club Representative：赤星敦（Akahoshi Atsushi）</span>
-        </Item>
-        <Item>ID SCHOOL PASS申請書（有効期限：4月〜翌年3月、毎年更新）</Item>
-        <Item>Car Sticker（有効期限：4月〜翌年3月、毎年更新）</Item>
+        <Item>MJSパス＆スティッカー申請書 → a.lecias@mjs.ph へメール<br /><span style={{ fontSize: 12, color: C.textMuted }}>Club Name：Manila Hapons　Rep：赤星敦（Akahoshi Atsushi）</span></Item>
+        <Item>ID SCHOOL PASS申請書（毎年4月〜翌年3月更新）</Item>
+        <Item>Car Sticker（毎年4月〜翌年3月更新）</Item>
         <div style={{ marginTop: 6, fontSize: 12, color: C.textMuted }}>※毎年3月中旬を目途に申請すること</div>
       </DocSection>
-
-      <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16 }}>
-        ご不明な点は赤星・栗生までお問い合わせください
-      </div>
+      <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16 }}>ご不明な点は赤星・栗生までお問い合わせください</div>
     </DocViewer>
   );
 }
@@ -196,34 +172,22 @@ function RulesPage({ onClose }) {
   return (
     <DocViewer title="Rules & Guidelines" onClose={onClose}>
       <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-        Manila Hapons Rules and Guidelines<br />
-        施行日：2026年4月1日　初版
+        Manila Hapons Rules and Guidelines／施行日：2026年4月1日　初版
       </div>
-
-      <DocSection num="１" title="目的（Purpose）">
-        本ルールは、Manila HaponsにおいてJr・大人・保護者を含むすべての関係者が、安全で互いを尊重し、ラグビーを楽しめる環境を維持することを目的とする。
-      </DocSection>
-
+      <DocSection num="１" title="目的（Purpose）">本ルールは、Manila HaponsにおいてJr・大人・保護者を含むすべての関係者が、安全で互いを尊重し、ラグビーを楽しめる環境を維持することを目的とする。</DocSection>
       <DocSection num="２" title="適用範囲（Scope of Application）">
         <Item>「本チーム」とはManila Haponsをいう</Item>
         <Item>選手（Jr・大人）、指導者、運営スタッフ、保護者・見学者を含むすべての関係者に適用</Item>
       </DocSection>
-
       <DocSection num="３" title="基本方針（Team Principles）">
         <Item><Bold>Jrチームは「ラグビーを楽しむこと」を基本方針とする</Bold></Item>
         <Item>運動を楽しむこと・ラグビーに親しむことを最優先とし、競技力・勝敗の追求はこれを妨げない範囲で行う</Item>
         <Item>より高いレベルを目指すメンバーにはローカルチーム等の活用を推奨</Item>
         <div style={{ marginTop: 10, fontWeight: 800, color: C.text, marginBottom: 6 }}>行動原則：</div>
-        {["関係者すべてに感謝と敬意をもって接すること",
-          "地域・他チームとの交流を大切にし積極的に関係を築くこと",
-          "挨拶を大きな声で行うこと",
-          "仲間を大切にし互いを尊重すること",
-          "良いプレーや前向きな行動に積極的に声をかけること",
-          "何よりも、ラグビーを楽しむこと"].map((item, i) => (
+        {["関係者すべてに感謝と敬意をもって接すること", "地域・他チームとの交流を大切にし積極的に関係を築くこと", "挨拶を大きな声で行うこと", "仲間を大切にし互いを尊重すること", "良いプレーや前向きな行動に積極的に声をかけること", "何よりも、ラグビーを楽しむこと"].map((item, i) => (
           <Item key={i}>{i + 1}. {item}</Item>
         ))}
       </DocSection>
-
       <DocSection num="４" title="運営体制・役割（Organization and Roles）">
         {[
           { role: "部長", desc: "クラブ方針・日本人学校対応・毎月の施設使用願い等" },
@@ -244,7 +208,6 @@ function RulesPage({ onClose }) {
         ))}
         <div style={{ marginTop: 10, fontSize: 12, color: C.textMuted }}>※総会は年1回、幹事会は月1回開催</div>
       </DocSection>
-
       <DocSection num="５" title="会計（Finance）">
         <Item><Bold>大人部費：</Bold>月額1,000ペソ（翌月から支払い開始）</Item>
         <Item><Bold>支払方法：</Bold>BDO Unibank振込 / GCash / 手渡し</Item>
@@ -254,7 +217,6 @@ function RulesPage({ onClose }) {
         <Item><Bold>第二体育館：</Bold>500ペソ／時間（照明+200ペソ）</Item>
         <Item>3,000ペソ以下の支出は部長の専権事項、超える場合は幹事会の過半数承認が必要</Item>
       </DocSection>
-
       <DocSection num="６" title="運営ルール（Operational Rules）">
         <Item><Bold>部員資格：</Bold>国籍を問わず、日本人会に入会している者</Item>
         <Item><Bold>入部手続：</Bold>入部届の提出と部費支払い開始（Jrは参加同意書も必要）</Item>
@@ -265,34 +227,25 @@ function RulesPage({ onClose }) {
         <Item>雨天時は第二体育館が空いている場合のみ使用可（スパイク不可）</Item>
         <Item>敷地内での飲食・喫煙禁止（水分補給を除く）</Item>
       </DocSection>
-
       <DocSection num="７" title="禁止事項（Prohibited Conduct）">
-        <div style={{ marginBottom: 8, fontWeight: 700, color: C.text }}>以下の行為を禁止します：</div>
         <Item>暴力行為・暴言・威圧的な言動</Item>
         <Item>いじめ・ハラスメント行為（身体的・精神的・言語的なものを含む）</Item>
         <Item>差別的・侮辱的または他者の尊厳を損なう行為</Item>
         <Item>指導者・運営者の指示に従わない行為</Item>
-        <Item>MJS施設利用規則への違反</Item>
-        <Item>許可された場所以外への立ち入り</Item>
+        <Item>MJS施設利用規則への違反・許可された場所以外への立ち入り</Item>
         <Item>政治活動・宗教活動・営利目的の活動</Item>
         <Item>チームの名誉または信用を損なう行為</Item>
         <Item>Jrへの不適切な言動・過度な叱責・威圧的な指導</Item>
       </DocSection>
-
       <DocSection num="８" title="違反時の対応（Disciplinary Measures）">
-        <div style={{ marginBottom: 8 }}>違反の程度に応じ、以下の対応を行います：</div>
         <Item>注意または口頭による指導</Item>
         <Item>書面による注意喚起</Item>
         <Item>一定期間の活動停止</Item>
         <Item>退部の勧告</Item>
-        <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>
-          ※LINEグループ自主退出者・連絡なく2か月以上不参加かつ部費滞納者は自動的に名簿から削除。部費支払い継続者は資格を維持。
-        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>※LINEグループ自主退出者・連絡なく2か月以上不参加かつ部費滞納者は自動的に名簿から削除。部費支払い継続者は資格を維持。</div>
       </DocSection>
-
       <DocSection num="９〜１１" title="改訂・施行日・改訂履歴">
         <Item>本規則はManila Hapons幹事会の決議により改定可能</Item>
-        <Item>改定時は原則として事前にチームメンバーへ周知</Item>
         <Item><Bold>施行日：</Bold>2026年4月1日</Item>
         <Item><Bold>初版：</Bold>2026年4月1日　Rules & Regulation規定</Item>
       </DocSection>
@@ -377,14 +330,6 @@ function EditModal({ title, fields, data, onSave, onClose }) {
               {f.label}
             </label>
           );
-          if (f.type === "select") return (
-            <div key={f.key}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
-              <select style={S.input} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
-                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-          );
           if (f.type === "textarea") return (
             <div key={f.key}>
               <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -417,9 +362,7 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
         <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
         <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: "0.06em" }}>{today}</div>
       </div>
-
       <h2 style={S.sectionTitle}>クラブ資料</h2>
-
       <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
         <div>
@@ -428,7 +371,6 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
         </div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
-
       <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
         <div>
@@ -437,7 +379,6 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
         </div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
-
       <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>最新のお知らせ</h2>
       {latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
       {latest.map((a) => (
@@ -450,6 +391,84 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── ANNOUNCEMENTS TAB (Supabase連携) ──
+function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading }) {
+  const [editing, setEditing] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const fields = [
+    { key: "title", label: "タイトル" },
+    { key: "body", label: "内容", type: "textarea" },
+    { key: "date", label: "日付", type: "date" },
+    { key: "important", label: "重要なお知らせとしてマーク", type: "checkbox" },
+  ];
+
+  const save = async (form) => {
+    setSaving(true);
+    if (showAdd) {
+      const newItem = { title: form.title, body: form.body, date: form.date || new Date().toISOString().slice(0, 10), important: !!form.important };
+      const { data, error } = await supabase.from("announcements").insert([newItem]).select();
+      if (!error && data) setAnnouncements([data[0], ...announcements]);
+    } else {
+      const updated = { title: form.title, body: form.body, date: form.date, important: !!form.important };
+      const { error } = await supabase.from("announcements").update(updated).eq("id", editing.id);
+      if (!error) setAnnouncements(announcements.map((i) => i.id === editing.id ? { ...i, ...updated } : i));
+    }
+    setSaving(false);
+    setEditing(null);
+    setShowAdd(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (!error) setAnnouncements(announcements.filter((i) => i.id !== id));
+  };
+
+  return (
+    <div style={S.content}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>お知らせ</h2>
+        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 投稿</button>}
+      </div>
+
+      {loading && <div style={{ textAlign: "center", color: C.textMuted, padding: 20 }}>読み込み中...</div>}
+
+      {!loading && announcements.length === 0 && (
+        <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>
+      )}
+
+      {announcements.map((a) => (
+        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
+            {a.important && <span style={S.badge(C.primary)}>重要</span>}
+          </div>
+          <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 6px", lineHeight: 1.7 }}>{a.body}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
+            {isAdmin && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={S.btn("ghost", "sm")} onClick={() => setEditing(a)}>編集</button>
+                <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {editing && <EditModal title="お知らせを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
+      {showAdd && <EditModal title="お知らせを投稿" fields={fields} data={{ title: "", body: "", date: "", important: false }} onSave={save} onClose={() => setShowAdd(false)} />}
+      {saving && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: "16px 24px", fontSize: 14, fontWeight: 700 }}>保存中...</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -490,9 +509,7 @@ function MembersTab({ isAdmin }) {
                 <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{m.name}</span>
                 <span style={S.badge(posColors[m.position] || C.textMuted)}>{m.position || "—"}</span>
               </div>
-              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-                📞 {m.phone}　👤 {m.parent}{m.note && <><br />📝 {m.note}</>}
-              </div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>📞 {m.phone}　👤 {m.parent}{m.note && <><br />📝 {m.note}</>}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <button onClick={() => togglePaid(m.id)} style={{ padding: "4px 10px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 11, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
@@ -508,48 +525,6 @@ function MembersTab({ isAdmin }) {
       ))}
       {editing && <EditModal title="メンバーを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="新規メンバー追加" fields={fields} data={{ name: "", position: "", phone: "", parent: "", note: "", paid: false }} onSave={save} onClose={() => setShowAdd(false)} />}
-    </div>
-  );
-}
-
-// ── ANNOUNCEMENTS TAB ──
-function AnnouncementsTab({ isAdmin, announcements, setAnnouncements }) {
-  const [editing, setEditing] = useState(null);
-  const [showAdd, setShowAdd] = useState(false);
-  const fields = [
-    { key: "title", label: "タイトル" }, { key: "body", label: "内容", type: "textarea" },
-    { key: "date", label: "日付", type: "date" }, { key: "important", label: "重要なお知らせとしてマーク", type: "checkbox" },
-  ];
-  const save = (form) => {
-    if (showAdd) setAnnouncements([{ ...form, id: Date.now(), date: form.date || new Date().toISOString().slice(0, 10) }, ...announcements]);
-    else setAnnouncements(announcements.map((i) => i.id === editing.id ? { ...i, ...form } : i));
-    setEditing(null); setShowAdd(false);
-  };
-  const del = (id) => { if (window.confirm("削除しますか？")) setAnnouncements(announcements.filter((i) => i.id !== id)); };
-  return (
-    <div style={S.content}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h2 style={{ ...S.sectionTitle, margin: 0 }}>お知らせ</h2>
-        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 投稿</button>}
-      </div>
-      {announcements.map((a) => (
-        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
-            {a.important && <span style={S.badge(C.primary)}>重要</span>}
-          </div>
-          <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 6px", lineHeight: 1.7 }}>{a.body}</p>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-            {isAdmin && <div style={{ display: "flex", gap: 6 }}>
-              <button style={S.btn("ghost", "sm")} onClick={() => setEditing(a)}>編集</button>
-              <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
-            </div>}
-          </div>
-        </div>
-      ))}
-      {editing && <EditModal title="お知らせを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title="お知らせを投稿" fields={fields} data={{ title: "", body: "", date: "", important: false }} onSave={save} onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
@@ -686,11 +661,26 @@ function FeesTab({ isAdmin }) {
 export default function HaponsApp() {
   const [role, setRole] = useState(null);
   const [tab, setTab] = useState("home");
-  const [announcements, setAnnouncements] = useState(initialAnnouncements);
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showImportant, setShowImportant] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const isAdmin = role === "admin";
+
+  // Supabaseからお知らせを取得
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      setLoadingAnnouncements(true);
+      const { data, error } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("date", { ascending: false });
+      if (!error && data) setAnnouncements(data);
+      setLoadingAnnouncements(false);
+    };
+    fetchAnnouncements();
+  }, []);
 
   if (!role) return <LoginScreen onLogin={setRole} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
@@ -739,7 +729,7 @@ export default function HaponsApp() {
 
       {tab === "home" && <HomeTab announcements={announcements} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
-      {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} />}
+      {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
       {tab === "fees" && <FeesTab isAdmin={isAdmin} />}
 
