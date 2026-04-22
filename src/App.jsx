@@ -40,27 +40,18 @@ const initialFees = [
   { id: 4, month: "2026年4月", amount: 3000, paidCount: 4, totalCount: 6 },
 ];
 
-// ── DESIGN TOKENS (Manila Hapons: red, yellow, sakura pink) ──
+// ── DESIGN TOKENS ──
 const C = {
-  primary: "#CC1F1F",
-  primaryDark: "#9B0000",
-  accent: "#F5C800",
-  sakura: "#F4A7B0",
-  sakuraLight: "#FDE8EC",
-  bg: "#FDF8F8",
-  card: "#FFFFFF",
-  text: "#1A0505",
-  textMuted: "#7A5050",
-  border: "#F0DADA",
-  success: "#2E7D32",
-  danger: "#9B0000",
-  warning: "#D4A800",
+  primary: "#CC1F1F", primaryDark: "#9B0000", accent: "#F5C800",
+  sakura: "#F4A7B0", sakuraLight: "#FDE8EC",
+  bg: "#FDF8F8", card: "#FFFFFF", text: "#1A0505", textMuted: "#7A5050",
+  border: "#F0DADA", success: "#2E7D32", danger: "#9B0000", warning: "#D4A800",
   adminBg: "#7A0000",
 };
 
 const S = {
   app: { minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80 },
-  header: { background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  header: { background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: `2px solid ${C.border}`, display: "flex", zIndex: 100, boxShadow: "0 -2px 12px rgba(204,31,31,0.08)" },
   navBtn: (active) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px 6px", cursor: "pointer", background: active ? C.sakuraLight : "none", border: "none", color: active ? C.primary : C.textMuted, gap: 2 }),
   content: { padding: "16px 16px 0" },
@@ -77,7 +68,7 @@ const S = {
   input: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.bg, color: C.text, boxSizing: "border-box", marginBottom: 8, outline: "none", fontFamily: "inherit" },
 };
 
-// ── LOGIN SCREEN ──
+// ── MEMBER LOGIN SCREEN ──
 function LoginScreen({ onLogin }) {
   const [id, setId] = useState("");
   const [pass, setPass] = useState("");
@@ -92,7 +83,7 @@ function LoginScreen({ onLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 60%, #5A0000 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Noto Sans JP', sans-serif" }}>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 180, height: "auto", marginBottom: 8, filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
+        <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 180, height: "auto", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
       </div>
       <div style={{ background: C.card, borderRadius: 24, padding: "32px 28px", width: "100%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: "0 0 20px", textAlign: "center" }}>ログイン</h2>
@@ -101,10 +92,42 @@ function LoginScreen({ onLogin }) {
         <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
         <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
         {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 12px", fontWeight: 600 }}>⚠ {error}</p>}
-        <n style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
+        <button style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
         <p style={{ fontSize: 11, color: C.textMuted, textAlign: "center", marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>IDとパスワードはコーチにお問い合わせください</p>
       </div>
       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 32 }}>© 2026 Manila Hapons Rugby</p>
+    </div>
+  );
+}
+
+// ── ADMIN LOGIN MODAL ──
+function AdminLoginModal({ onLogin, onClose }) {
+  const [id, setId] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = () => {
+    if (id === ADMIN_ID && pass === ADMIN_PASS) { onLogin(); }
+    else { setError("IDまたはパスワードが正しくありません"); setPass(""); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 32, marginBottom: 6 }}>🔐</div>
+          <h2 style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: 0 }}>管理者ログイン</h2>
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>管理者ID</label>
+        <input style={S.input} placeholder="IDを入力" value={id} onChange={(e) => setId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
+        <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 10px", fontWeight: 600 }}>⚠ {error}</p>}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btn("primary"), flex: 2 }} onClick={handleLogin}>ログイン</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -437,9 +460,9 @@ function FeesTab({ isAdmin }) {
 // ── MAIN APP ──
 export default function HaponsApp() {
   const [role, setRole] = useState(null);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [tab, setTab] = useState("home");
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const isAdmin = role === "admin";
 
   if (!role) return <LoginScreen onLogin={setRole} />;
@@ -454,30 +477,43 @@ export default function HaponsApp() {
 
   return (
     <div style={S.app}>
+      {/* ── HEADER ── */}
       <div style={S.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ height: 40, width: "auto" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ height: 38, width: "auto" }} />
           <div>
-            <h1 style={{ color: "#fff", fontSize: 16, fontWeight: 900, margin: 0, letterSpacing: "0.04em" }}>Manila Hapons</h1>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
+            <h1 style={{ color: "#fff", fontSize: 15, fontWeight: 900, margin: 0, letterSpacing: "0.04em" }}>Manila Hapons</h1>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
           </div>
         </div>
-<div style={{ display: "flex", gap: 6 }}>
-  {isAdmin ? (
-    <button onClick={() => { if (window.confirm("管理者をログアウトしますか？")) setRole("member"); }} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "6px 12px", color: C.primaryDark, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-      管理者 ✕
-    </button>
-  ) : (
-    <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-      管理者ログイン
-    </button>
-  )}
-  <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-    ログアウト
-  </button>
-</div>
+
+        {/* 右側：2つのボタン */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {isAdmin ? (
+            <button
+              onClick={() => { if (window.confirm("管理者モードを終了しますか？")) setRole("member"); }}
+              style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}
+            >
+              管理者 ✕
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAdminLogin(true)}
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}
+            >
+              管理者
+            </button>
+          )}
+          <button
+            onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }}
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}
+          >
+            ログアウト
+          </button>
+        </div>
       </div>
 
+      {/* 管理者バー */}
       {isAdmin && (
         <div style={{ background: C.adminBg, padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ color: C.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>⚙ 管理者モード — 全コンテンツの編集が可能です</span>
@@ -485,12 +521,14 @@ export default function HaponsApp() {
         </div>
       )}
 
+      {/* コンテンツ */}
       {tab === "home" && <HomeTab announcements={announcements} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
       {tab === "fees" && <FeesTab isAdmin={isAdmin} />}
 
+      {/* ボトムナビ */}
       <nav style={S.nav}>
         {tabs.map((t) => (
           <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
@@ -499,12 +537,14 @@ export default function HaponsApp() {
           </button>
         ))}
       </nav>
+
+      {/* 管理者ログインモーダル */}
       {showAdminLogin && (
-  <AdminLoginModal
-    onLogin={() => { setRole("admin"); setShowAdminLogin(false); }}
-    onClose={() => setShowAdminLogin(false)}
-  />
-)}
+        <AdminLoginModal
+          onLogin={() => { setRole("admin"); setShowAdminLogin(false); }}
+          onClose={() => setShowAdminLogin(false)}
+        />
+      )}
     </div>
   );
 }
