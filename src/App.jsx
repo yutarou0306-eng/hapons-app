@@ -8,7 +8,7 @@ const ADMIN_PASS = "rugby2026";
 
 const IMPORTANT_URL = "https://docs.google.com/document/d/1KyBa4FufpoRyB6IpDUPEnv2GrYqwmUQQ2lb95luokFE/edit?usp=drive_link";
 const RULES_URL = "https://docs.google.com/document/d/1vFL3nUWpJrwEzPqPQSg8Dr6bJGcHLTP3ojhD1dl9P18/edit?usp=drive_link";
-const LOGO_SRC = "https://drive.google.com/uc?export=view&id=1xKEPGTSyd63cpcTQTNlBEbGO1ClQ8p-I";
+const LOGO_SRC = "/logo.jpg";
 
 // ── INITIAL DATA ──
 const initialMembers = [
