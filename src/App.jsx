@@ -407,15 +407,102 @@ function MJSPassPage({ onClose }) {
 }
 
 // ── HOME TAB ──
-function HomeTab({ announcements, loading, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass }) {
+function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+  const [photos, setPhotos] = useState([]);
+  const [currentPhoto, setCurrentPhoto] = useState(null);
+  const [showPhotoManager, setShowPhotoManager] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, []);
+
+  const fetchPhotos = async () => {
+    const { data } = await supabase.storage.from("hapons-photos").list("", { sortBy: { column: "created_at", order: "desc" } });
+    if (data && data.length > 0) {
+      setPhotos(data);
+      const random = data[Math.floor(Math.random() * data.length)];
+      const { data: urlData } = supabase.storage.from("hapons-photos").getPublicUrl(random.name);
+      setCurrentPhoto(urlData.publicUrl);
+    }
+  };
+
+  const uploadPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const fileName = `photo_${Date.now()}_${file.name}`;
+    await supabase.storage.from("hapons-photos").upload(fileName, file);
+    await fetchPhotos();
+    setUploading(false);
+  };
+
+  const deletePhoto = async (name) => {
+    if (!window.confirm("この写真を削除しますか？")) return;
+    await supabase.storage.from("hapons-photos").remove([name]);
+    await fetchPhotos();
+    if (photos.length <= 1) setCurrentPhoto(null);
+  };
+
+  const getPhotoUrl = (name) => {
+    const { data } = supabase.storage.from("hapons-photos").getPublicUrl(name);
+    return data.publicUrl;
+  };
+
   return (
     <div style={S.content}>
-      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16, textAlign: "center", padding: "20px 16px" }}>
-        <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
-        <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: "0.06em" }}>{today}</div>
+      {/* ヘッダーカード（写真 or ロゴ） */}
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16, textAlign: "center", padding: "0", overflow: "hidden", position: "relative" }}>
+        {currentPhoto ? (
+          <img src={currentPhoto} alt="Manila Hapons" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ padding: "20px 16px" }}>
+            <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
+          </div>
+        )}
+        <div style={{ padding: "10px 16px", background: "rgba(0,0,0,0.3)" }}>
+          <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: "0.06em" }}>{today}</div>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setShowPhotoManager(true)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            📷 写真管理
+          </button>
+        )}
       </div>
+
+      {/* 写真管理モーダル */}
+      {showPhotoManager && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>📷 ホーム写真管理</h3>
+              <button onClick={() => setShowPhotoManager(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
+              アップロードした写真がホーム画面にランダムで表示されます。
+            </p>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploadPhoto} />
+            <button style={{ ...S.btn("primary"), width: "100%", marginBottom: 16 }} onClick={() => fileInputRef.current.click()} disabled={uploading}>
+              {uploading ? "アップロード中..." : "📤 写真をアップロード"}
+            </button>
+            {photos.length === 0 && <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13, padding: 20 }}>写真がありません</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {photos.map((p) => (
+                <div key={p.name} style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
+                  <img src={getPhotoUrl(p.name)} alt={p.name} style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                  <button onClick={() => deletePhoto(p.name)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(155,0,0,0.85)", border: "none", borderRadius: 6, padding: "3px 8px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 style={S.sectionTitle}>最新のお知らせ</h2>
       {loading && <Loading />}
       {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
@@ -1099,7 +1186,7 @@ export default function HaponsApp() {
         </div>
       )}
 
-      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} />}
+      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
