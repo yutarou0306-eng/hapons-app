@@ -410,58 +410,28 @@ function MJSPassPage({ onClose }) {
 function ClubSongPage({ onClose }) {
   return (
     <DocViewer title="Manila Hapons 部歌" onClose={onClose}>
-      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", textAlign: "center", padding: "24px 16px", marginBottom: 20 }}>
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", textAlign: "center", padding: "20px 16px", marginBottom: 20 }}>
         <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
         <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "0.06em" }}>Manila Hapons 部歌</div>
-        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>MANILA HAPONS RFC</div>
       </div>
 
       <div style={{ ...S.card, padding: "24px 20px" }}>
-        {/* 主将リード */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: C.primary, letterSpacing: "0.08em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ ...S.badge(C.primary) }}>主将リード</span>
+        <div style={{ fontSize: 15, color: C.text, lineHeight: 2.4 }}>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ ...S.badge(C.primary), fontSize: 11, marginBottom: 8, display: "inline-block" }}>主将リード</span><br />
+            フィリピンの地にのぼる　朝日をあびながら
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, lineHeight: 2, paddingLeft: 8, borderLeft: `3px solid ${C.accent}` }}>
-            フィリピンの地にのぼる<br />
-            朝日をあびながら
-          </div>
-        </div>
-
-        {/* 全員 */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: C.success, letterSpacing: "0.08em", marginBottom: 8 }}>
-            <span style={{ ...S.badge(C.success) }}>みんなで</span>
-          </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, lineHeight: 2.2, paddingLeft: 8, borderLeft: `3px solid ${C.success}` }}>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ ...S.badge(C.success), fontSize: 11, marginBottom: 8, display: "inline-block" }}>みんなで</span><br />
             熱い魂と　みなぎる闘志が<br />
             青い海を越え　戦いに挑んでゆく<br />
-            愛する　ラグビーで　何かをつかむため
+            愛する　ラグビーで　何かをつかむため<br />
+            フィリピノ　フィリピノ　マニラ　ハポン（ズ）<br />
+            フィリピノ　フィリピノ　マニラ　ハポン（ズ）<br />
+            走り抜けろ　オー！<br />
+            飛び込んでみろ　オー！<br />
+            勝利のために　前へ！　HAPONS！
           </div>
-        </div>
-
-        {/* サビ */}
-        <div style={{ background: C.sakuraLight, borderRadius: 12, padding: "16px 16px", marginBottom: 24 }}>
-          <div style={{ fontSize: 18, fontWeight: 900, color: C.primary, lineHeight: 2.2, textAlign: "center" }}>
-            フィリピノ　フィリピノ<br />
-            マニラ　ハポン（ズ）<br />
-            フィリピノ　フィリピノ<br />
-            マニラ　ハポン（ズ）
-          </div>
-        </div>
-
-        {/* コール */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[
-            { text: "走り抜けろ　オー！", emoji: "🏃" },
-            { text: "飛び込んでみろ　オー！", emoji: "💨" },
-            { text: "勝利のために　前へ！　HAPONS！", emoji: "🏆" },
-          ].map((line, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: 22 }}>{line.emoji}</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{line.text}</span>
-            </div>
-          ))}
         </div>
       </div>
     </DocViewer>
