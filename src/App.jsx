@@ -406,8 +406,70 @@ function MJSPassPage({ onClose }) {
   );
 }
 
+// ── 部歌ページ ──
+function ClubSongPage({ onClose }) {
+  return (
+    <DocViewer title="Manila Hapons 部歌" onClose={onClose}>
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", textAlign: "center", padding: "24px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "0.06em" }}>Manila Hapons 部歌</div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>MANILA HAPONS RFC</div>
+      </div>
+
+      <div style={{ ...S.card, padding: "24px 20px" }}>
+        {/* 主将リード */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: C.primary, letterSpacing: "0.08em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ ...S.badge(C.primary) }}>主将リード</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, lineHeight: 2, paddingLeft: 8, borderLeft: `3px solid ${C.accent}` }}>
+            フィリピンの地にのぼる<br />
+            朝日をあびながら
+          </div>
+        </div>
+
+        {/* 全員 */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: C.success, letterSpacing: "0.08em", marginBottom: 8 }}>
+            <span style={{ ...S.badge(C.success) }}>みんなで</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, lineHeight: 2.2, paddingLeft: 8, borderLeft: `3px solid ${C.success}` }}>
+            熱い魂と　みなぎる闘志が<br />
+            青い海を越え　戦いに挑んでゆく<br />
+            愛する　ラグビーで　何かをつかむため
+          </div>
+        </div>
+
+        {/* サビ */}
+        <div style={{ background: C.sakuraLight, borderRadius: 12, padding: "16px 16px", marginBottom: 24 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.primary, lineHeight: 2.2, textAlign: "center" }}>
+            フィリピノ　フィリピノ<br />
+            マニラ　ハポン（ズ）<br />
+            フィリピノ　フィリピノ<br />
+            マニラ　ハポン（ズ）
+          </div>
+        </div>
+
+        {/* コール */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { text: "走り抜けろ　オー！", emoji: "🏃" },
+            { text: "飛び込んでみろ　オー！", emoji: "💨" },
+            { text: "勝利のために　前へ！　HAPONS！", emoji: "🏆" },
+          ].map((line, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: C.bg, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 22 }}>{line.emoji}</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{line.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DocViewer>
+  );
+}
+
 // ── HOME TAB ──
-function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass }) {
+function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
   const [photos, setPhotos] = useState([]);
@@ -535,6 +597,11 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
       <div onClick={onOpenMJSPass} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏫</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>MJSパス＆スティッカー申請</div><div style={{ fontSize: 12, color: C.textMuted }}>MJS ID・CAR STICKERの申請方法</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
     </div>
@@ -1148,6 +1215,7 @@ export default function HaponsApp() {
   const [showRules, setShowRules] = useState(false);
   const [showEntryForms, setShowEntryForms] = useState(false);
   const [showMJSPass, setShowMJSPass] = useState(false);
+  const [showClubSong, setShowClubSong] = useState(false);
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -1165,6 +1233,7 @@ export default function HaponsApp() {
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
   if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
+  if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
 
   const tabs = [
     { id: "home", label: "ホーム", icon: "🏠" },
@@ -1201,7 +1270,7 @@ export default function HaponsApp() {
         </div>
       )}
 
-      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} />}
+      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
