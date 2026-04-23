@@ -306,6 +306,53 @@ function HomeTab({ announcements, loading, onOpenImportant, onOpenRules }) {
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
+
+      {/* 入部書類 */}
+      <div style={{ ...S.card, borderLeft: `4px solid ${C.jr}`, marginTop: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>入部希望者はこちらから書類をダウンロード</div>
+          </div>
+        </div>
+
+        {/* 説明文 */}
+        <div style={{ background: C.jrLight, borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.jr, lineHeight: 1.8 }}>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>📌 提出方法</div>
+          下記より書類をダウンロードし、必要事項を記入・署名の上：<br />
+          ① 画像または写真を <span style={{ fontWeight: 800 }}>manilahapons10@gmail.com</span> へ送付<br />
+          ② 原本は主務または保護者担当に直接提出
+        </div>
+
+        {/* 入部届兼誓約書 */}
+        <a href="https://drive.google.com/file/d/1imsUFwo4HHP_mjItKJ76kfCNqpi2Hcqy/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, marginBottom: 8, cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>📄</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>入部届兼誓約書</div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>大人・Jr共通</div>
+              </div>
+            </div>
+            <span style={{ ...S.badge(C.jr), fontSize: 11 }}>ダウンロード</span>
+          </div>
+        </a>
+
+        {/* 参加同意書（Jr向け） */}
+        <a href="https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>📄</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>参加同意書（WAIVER）</div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>Jr のみ　※保護者が記入</div>
+              </div>
+            </div>
+            <span style={{ ...S.badge(C.jr), fontSize: 11 }}>ダウンロード</span>
+          </div>
+        </a>
+      </div>
     </div>
   );
 }
