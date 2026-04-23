@@ -763,9 +763,8 @@ function AttendancePanel({ event, onClose }) {
   const [loading, setLoading] = useState(true);
   const [myName, setMyName] = useState(localStorage.getItem("hapons_name") || "");
   const [myType, setMyType] = useState(localStorage.getItem("hapons_type") || "adult");
-  const [nameInput, setNameInput] = useState("");
-  const [typeInput, setTypeInput] = useState("adult");
-  const [showNameInput, setShowNameInput] = useState(!localStorage.getItem("hapons_name"));
+  const [showNameSelect, setShowNameSelect] = useState(!localStorage.getItem("hapons_name"));
+  const [selectType, setSelectType] = useState("adult");
   const [activeTab, setActiveTab] = useState("adult");
 
   useEffect(() => {
@@ -784,14 +783,15 @@ function AttendancePanel({ event, onClose }) {
     fetchAll();
   }, [event.id]);
 
-  const saveName = () => {
-    if (!nameInput.trim()) return;
-    localStorage.setItem("hapons_name", nameInput.trim());
-    localStorage.setItem("hapons_type", typeInput);
-    setMyName(nameInput.trim());
-    setMyType(typeInput);
-    setShowNameInput(false);
+  const selectName = (name, type) => {
+    localStorage.setItem("hapons_name", name);
+    localStorage.setItem("hapons_type", type);
+    setMyName(name);
+    setMyType(type);
+    setShowNameSelect(false);
   };
+
+  const selectList = selectType === "adult" ? members : jrMembers;
 
   const isAttending = (name, type) => attendances.some((a) => a.member_name === name && a.member_type === type);
 
@@ -824,55 +824,70 @@ function AttendancePanel({ event, onClose }) {
         </div>
 
         <div style={{ padding: "16px 16px 32px" }}>
-          {/* 名前設定 */}
-          {showNameInput ? (
-            <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid ${C.accent}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>あなたの情報を入力してください</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <button onClick={() => setTypeInput("adult")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: `2px solid ${typeInput === "adult" ? C.primary : C.border}`, background: typeInput === "adult" ? C.sakuraLight : C.card, color: typeInput === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+
+          {/* 名前選択画面 */}
+          {showNameSelect ? (
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.accent}`, marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 12 }}>あなたはどちらですか？</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <button onClick={() => setSelectType("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${selectType === "adult" ? C.primary : C.border}`, background: selectType === "adult" ? C.sakuraLight : C.card, color: selectType === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
                   🏉 大人
                 </button>
-                <button onClick={() => setTypeInput("jr")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: `2px solid ${typeInput === "jr" ? C.jr : C.border}`, background: typeInput === "jr" ? C.jrLight : C.card, color: typeInput === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                <button onClick={() => setSelectType("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${selectType === "jr" ? C.jr : C.border}`, background: selectType === "jr" ? C.jrLight : C.card, color: selectType === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
                   ⭐ Jr
                 </button>
               </div>
-              <input style={S.input} placeholder="例：田中 太郎" value={nameInput} onChange={(e) => setNameInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveName()} />
-              <button style={{ ...S.btn("primary"), width: "100%" }} onClick={saveName}>決定</button>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginBottom: 8 }}>名前をタップして選択</div>
+              {loading && <Loading />}
+              {!loading && selectList.length === 0 && (
+                <div style={{ fontSize: 13, color: C.textMuted, textAlign: "center", padding: 12 }}>メンバーが登録されていません</div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {selectList.map((m) => (
+                  <button key={m.id} onClick={() => selectName(m.name_jp, selectType)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                      <div style={{ fontSize: 11, color: C.textMuted }}>{selectType === "adult" ? m.position : m.grade}</div>
+                    </div>
+                    <span style={{ color: C.primary, fontSize: 18 }}>›</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
-            <div style={{ ...S.card, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, color: C.textMuted }}>
-                {myType === "adult" ? "🏉" : "⭐"}　<span style={{ fontWeight: 800, color: C.text }}>{myName}</span>
-              </div>
-              <button onClick={() => { setNameInput(myName); setTypeInput(myType); setShowNameInput(true); }} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>変更</button>
-            </div>
-          )}
-
-          {/* 自分の出席ボタン */}
-          {myName && !showNameInput && (
-            <button
-              onClick={() => toggleAttendance(myName, myType)}
-              style={{
-                width: "100%", padding: "14px", borderRadius: 12, border: "none", cursor: "pointer", marginBottom: 16,
-                background: isAttending(myName, myType) ? C.success : C.primary,
-                color: "#fff", fontSize: 15, fontWeight: 900,
-                boxShadow: isAttending(myName, myType) ? "0 4px 12px rgba(46,125,50,0.3)" : "0 4px 12px rgba(204,31,31,0.3)",
-              }}
-            >
-              {isAttending(myName, myType) ? "✓ 参加登録済み　（タップで取消）" : "参加する"}
-            </button>
-          )}
-
-          {loading && <Loading />}
-
-          {!loading && (
             <>
-              {/* 大人/Jr タブ */}
+              {/* 現在の選択名前 */}
+              <div style={{ ...S.card, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 13, color: C.textMuted }}>
+                  {myType === "adult" ? "🏉" : "⭐"}　<span style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>{myName}</span>
+                </div>
+                <button onClick={() => setShowNameSelect(true)} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>変更</button>
+              </div>
+
+              {/* 参加ボタン */}
+              <button
+                onClick={() => toggleAttendance(myName, myType)}
+                style={{
+                  width: "100%", padding: "16px", borderRadius: 12, border: "none", cursor: "pointer", marginBottom: 16,
+                  background: isAttending(myName, myType) ? C.success : C.primary,
+                  color: "#fff", fontSize: 16, fontWeight: 900,
+                  boxShadow: isAttending(myName, myType) ? "0 4px 12px rgba(46,125,50,0.3)" : "0 4px 12px rgba(204,31,31,0.3)",
+                }}
+              >
+                {isAttending(myName, myType) ? "✓ 参加登録済み　（タップで取消）" : "✋ 参加する"}
+              </button>
+            </>
+          )}
+
+          {/* 大人/Jr タブ（出席状況） */}
+          {!loading && !showNameSelect && (
+            <>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
                   🏉 大人（{adultAttending.length}名参加）
                 </button>
-                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
                   ⭐ Jr（{jrAttending.length}名参加）
                 </button>
               </div>
