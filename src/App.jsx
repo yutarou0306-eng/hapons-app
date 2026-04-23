@@ -527,20 +527,26 @@ function MembersTab({ isAdmin }) {
 // ── ATTENDANCE PANEL ──
 function AttendancePanel({ event, onClose }) {
   const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myName, setMyName] = useState(localStorage.getItem("hapons_name") || "");
+  const [myType, setMyType] = useState(localStorage.getItem("hapons_type") || "adult");
   const [nameInput, setNameInput] = useState("");
+  const [typeInput, setTypeInput] = useState("adult");
   const [showNameInput, setShowNameInput] = useState(!localStorage.getItem("hapons_name"));
+  const [activeTab, setActiveTab] = useState("adult");
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, a] = await Promise.all([
+      const [m, j, a] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, grade").order("created_at"),
         supabase.from("attendances").select("*").eq("event_id", event.id),
       ]);
       if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
       if (a.data) setAttendances(a.data);
       setLoading(false);
     };
@@ -550,29 +556,33 @@ function AttendancePanel({ event, onClose }) {
   const saveName = () => {
     if (!nameInput.trim()) return;
     localStorage.setItem("hapons_name", nameInput.trim());
+    localStorage.setItem("hapons_type", typeInput);
     setMyName(nameInput.trim());
+    setMyType(typeInput);
     setShowNameInput(false);
   };
 
-  const isAttending = (name) => attendances.some((a) => a.member_name === name);
+  const isAttending = (name, type) => attendances.some((a) => a.member_name === name && a.member_type === type);
 
-  const toggleAttendance = async (name) => {
-    const existing = attendances.find((a) => a.member_name === name);
+  const toggleAttendance = async (name, type) => {
+    const existing = attendances.find((a) => a.member_name === name && a.member_type === type);
     if (existing) {
       await supabase.from("attendances").delete().eq("id", existing.id);
       setAttendances(attendances.filter((a) => a.id !== existing.id));
     } else {
-      const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name }]).select();
+      const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
       if (data) setAttendances([...attendances, data[0]]);
     }
   };
 
-  const attending = attendances.map((a) => a.member_name);
-  const notAttending = members.map((m) => m.name_jp).filter((n) => !attending.includes(n));
+  const adultAttending = attendances.filter((a) => a.member_type === "adult").map((a) => a.member_name);
+  const jrAttending = attendances.filter((a) => a.member_type === "jr").map((a) => a.member_name);
+  const adultNotAttending = members.map((m) => m.name_jp).filter((n) => !adultAttending.includes(n));
+  const jrNotAttending = jrMembers.map((m) => m.name_jp).filter((n) => !jrAttending.includes(n));
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
         {/* ヘッダー */}
         <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "16px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -586,29 +596,39 @@ function AttendancePanel({ event, onClose }) {
           {/* 名前設定 */}
           {showNameInput ? (
             <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid ${C.accent}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>あなたの名前を入力してください</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>あなたの情報を入力してください</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <button onClick={() => setTypeInput("adult")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: `2px solid ${typeInput === "adult" ? C.primary : C.border}`, background: typeInput === "adult" ? C.sakuraLight : C.card, color: typeInput === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  🏉 大人
+                </button>
+                <button onClick={() => setTypeInput("jr")} style={{ flex: 1, padding: "8px", borderRadius: 8, border: `2px solid ${typeInput === "jr" ? C.jr : C.border}`, background: typeInput === "jr" ? C.jrLight : C.card, color: typeInput === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  ⭐ Jr
+                </button>
+              </div>
               <input style={S.input} placeholder="例：田中 太郎" value={nameInput} onChange={(e) => setNameInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveName()} />
               <button style={{ ...S.btn("primary"), width: "100%" }} onClick={saveName}>決定</button>
             </div>
           ) : (
             <div style={{ ...S.card, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, color: C.textMuted }}>あなた：<span style={{ fontWeight: 800, color: C.text }}>{myName}</span></div>
-              <button onClick={() => { setNameInput(myName); setShowNameInput(true); }} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>変更</button>
+              <div style={{ fontSize: 13, color: C.textMuted }}>
+                {myType === "adult" ? "🏉" : "⭐"}　<span style={{ fontWeight: 800, color: C.text }}>{myName}</span>
+              </div>
+              <button onClick={() => { setNameInput(myName); setTypeInput(myType); setShowNameInput(true); }} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>変更</button>
             </div>
           )}
 
           {/* 自分の出席ボタン */}
           {myName && !showNameInput && (
             <button
-              onClick={() => toggleAttendance(myName)}
+              onClick={() => toggleAttendance(myName, myType)}
               style={{
                 width: "100%", padding: "14px", borderRadius: 12, border: "none", cursor: "pointer", marginBottom: 16,
-                background: isAttending(myName) ? C.success : C.primary,
+                background: isAttending(myName, myType) ? C.success : C.primary,
                 color: "#fff", fontSize: 15, fontWeight: 900,
-                boxShadow: isAttending(myName) ? "0 4px 12px rgba(46,125,50,0.3)" : "0 4px 12px rgba(204,31,31,0.3)",
+                boxShadow: isAttending(myName, myType) ? "0 4px 12px rgba(46,125,50,0.3)" : "0 4px 12px rgba(204,31,31,0.3)",
               }}
             >
-              {isAttending(myName) ? "✓ 参加登録済み　（タップで取消）" : "参加する"}
+              {isAttending(myName, myType) ? "✓ 参加登録済み　（タップで取消）" : "参加する"}
             </button>
           )}
 
@@ -616,31 +636,58 @@ function AttendancePanel({ event, onClose }) {
 
           {!loading && (
             <>
-              {/* 参加者リスト */}
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.success, marginBottom: 8 }}>
-                  ✓ 参加（{attending.length}名）
-                </div>
-                {attending.length === 0 && <div style={{ fontSize: 12, color: C.textMuted, padding: "8px 0" }}>まだ参加登録者がいません</div>}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {attending.map((name) => (
-                    <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: "#2E7D3220", color: C.success, fontSize: 13, fontWeight: 700 }}>{name}</span>
-                  ))}
-                </div>
+              {/* 大人/Jr タブ */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  🏉 大人（{adultAttending.length}名参加）
+                </button>
+                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "8px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  ⭐ Jr（{jrAttending.length}名参加）
+                </button>
               </div>
 
-              {/* 未回答リスト */}
-              {members.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>
-                    未回答（{notAttending.length}名）
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {notAttending.map((name) => (
-                      <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: C.border, color: C.textMuted, fontSize: 13 }}>{name}</span>
+              {activeTab === "adult" && (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.success, marginBottom: 8 }}>✓ 参加（{adultAttending.length}名）</div>
+                  {adultAttending.length === 0 && <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>まだ参加登録者がいません</div>}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                    {adultAttending.map((name) => (
+                      <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: "#2E7D3220", color: C.success, fontSize: 13, fontWeight: 700 }}>{name}</span>
                     ))}
                   </div>
-                </div>
+                  {members.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>未回答（{adultNotAttending.length}名）</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {adultNotAttending.map((name) => (
+                          <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: C.border, color: C.textMuted, fontSize: 13 }}>{name}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {activeTab === "jr" && (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.success, marginBottom: 8 }}>✓ 参加（{jrAttending.length}名）</div>
+                  {jrAttending.length === 0 && <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>まだ参加登録者がいません</div>}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                    {jrAttending.map((name) => (
+                      <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: "#1565C020", color: C.jr, fontSize: 13, fontWeight: 700 }}>{name}</span>
+                    ))}
+                  </div>
+                  {jrMembers.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>未回答（{jrNotAttending.length}名）</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {jrNotAttending.map((name) => (
+                          <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: C.border, color: C.textMuted, fontSize: 13 }}>{name}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </>
           )}
