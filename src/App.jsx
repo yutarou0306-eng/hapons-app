@@ -423,7 +423,7 @@ function MembersTab({ isAdmin }) {
   const setList = isAdult ? setMembers : setJrMembers;
 
   const adultFields = [
-    { key: "position", label: "Position（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
+    { key: "position", label: "Position" },
     { key: "name_jp", label: "名前" },
     { key: "name_en", label: "Name" },
     { key: "age", label: "年齢", type: "number" },
