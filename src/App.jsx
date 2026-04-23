@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── SUPABASE ──
@@ -11,7 +11,6 @@ const MEMBER_ID = "hapons";
 const MEMBER_PASS = "member2026";
 const ADMIN_ID = "hapons";
 const ADMIN_PASS = "rugby2026";
-
 const LOGO_SRC = "/logo.jpg";
 
 // ── INITIAL DATA ──
@@ -66,6 +65,88 @@ const S = {
   input: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.bg, color: C.text, boxSizing: "border-box", marginBottom: 8, outline: "none", fontFamily: "inherit" },
 };
 
+// ── RICH TEXT EDITOR ──
+function RichTextEditor({ value, onChange }) {
+  const editorRef = useRef(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || "";
+    }
+  }, []);
+
+  const exec = (command, val = null) => {
+    editorRef.current.focus();
+    document.execCommand(command, false, val);
+    onChange(editorRef.current.innerHTML);
+  };
+
+  const setFontSize = (size) => {
+    editorRef.current.focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const sizeMap = { large: "5", medium: "3", small: "1" };
+    document.execCommand("fontSize", false, sizeMap[size]);
+    // fontサイズをスタイルに変換
+    const fonts = editorRef.current.querySelectorAll("font[size]");
+    fonts.forEach((f) => {
+      const s = f.getAttribute("size");
+      const px = s === "5" ? "20px" : s === "3" ? "15px" : "11px";
+      f.removeAttribute("size");
+      f.style.fontSize = px;
+    });
+    onChange(editorRef.current.innerHTML);
+  };
+
+  const toolbarBtnStyle = (active = false) => ({
+    padding: "5px 10px",
+    borderRadius: 6,
+    border: `1px solid ${active ? C.primary : C.border}`,
+    background: active ? C.primary + "15" : C.card,
+    color: active ? C.primary : C.text,
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  });
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {/* ツールバー */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "8px 10px", background: C.bg, border: `1.5px solid ${C.border}`, borderRadius: "10px 10px 0 0", borderBottom: "none" }}>
+        <button style={toolbarBtnStyle()} onClick={() => setFontSize("large")} type="button">大</button>
+        <button style={toolbarBtnStyle()} onClick={() => setFontSize("medium")} type="button">中</button>
+        <button style={toolbarBtnStyle()} onClick={() => setFontSize("small")} type="button">小</button>
+        <div style={{ width: 1, background: C.border, margin: "0 4px" }} />
+        <button style={{ ...toolbarBtnStyle(), fontWeight: 900, fontStyle: "normal" }} onClick={() => exec("bold")} type="button"><b>B</b></button>
+      </div>
+
+      {/* エディタ本体 */}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={() => onChange(editorRef.current.innerHTML)}
+        style={{
+          minHeight: 100,
+          padding: "10px 12px",
+          border: `1.5px solid ${C.border}`,
+          borderRadius: "0 0 10px 10px",
+          fontSize: 14,
+          background: C.card,
+          color: C.text,
+          outline: "none",
+          lineHeight: 1.7,
+          fontFamily: "'Noto Sans JP', sans-serif",
+        }}
+      />
+      <p style={{ fontSize: 11, color: C.textMuted, margin: "4px 0 0" }}>
+        文字を選択してからボタンを押すと書式が適用されます
+      </p>
+    </div>
+  );
+}
+
 // ── DOCUMENT VIEWER ──
 function DocViewer({ title, onClose, children }) {
   return (
@@ -113,9 +194,7 @@ function ImportantPage({ onClose }) {
         <Item><Bold>部員資格：</Bold>日本人会会員であることが求められます</Item>
       </DocSection>
       <DocSection num="２" title="利用可能施設">
-        <Item>MJS グラウンド</Item>
-        <Item>第二体育館</Item>
-        <Item>第二体育館隣接お手洗い</Item>
+        <Item>MJS グラウンド</Item><Item>第二体育館</Item><Item>第二体育館隣接お手洗い</Item>
         <div style={{ marginTop: 8, padding: "6px 10px", background: "#FFF3F3", borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 700 }}>⚠ 対象施設以外への立ち入りは禁止</div>
       </DocSection>
       <DocSection num="３" title="MJSグラウンド利用ルール">
@@ -154,8 +233,7 @@ function ImportantPage({ onClose }) {
       </DocSection>
       <DocSection num="７" title="提出書類">
         <div style={{ fontWeight: 800, color: C.primary, marginBottom: 6 }}>① 部員 → Manila Hapons幹事会</div>
-        <Item>入部届兼誓約書</Item>
-        <Item>参加同意書（WAIVER）（Jrのみ）</Item>
+        <Item>入部届兼誓約書</Item><Item>参加同意書（WAIVER）（Jrのみ）</Item>
         <div style={{ fontWeight: 800, color: C.primary, margin: "10px 0 6px" }}>② 部員 → MJS</div>
         <Item>MJSパス＆スティッカー申請書 → a.lecias@mjs.ph へメール<br /><span style={{ fontSize: 12, color: C.textMuted }}>Club Name：Manila Hapons　Rep：赤星敦（Akahoshi Atsushi）</span></Item>
         <Item>ID SCHOOL PASS申請書（毎年4月〜翌年3月更新）</Item>
@@ -223,7 +301,6 @@ function RulesPage({ onClose }) {
         <Item><Bold>MJS利用資格：</Bold>Manila Haponsの活動として参加する日本人会会員に限る</Item>
         <Item><Bold>入校：</Bold>MJS SCHOOL ID取得必須（未就学児除く）</Item>
         <Item><Bold>駐車：</Bold>CAR STICKER取得必須</Item>
-        <Item><Bold>更新：</Bold>SCHOOL ID・CAR STICKERは毎年3月に更新</Item>
         <Item>雨天時は第二体育館が空いている場合のみ使用可（スパイク不可）</Item>
         <Item>敷地内での飲食・喫煙禁止（水分補給を除く）</Item>
       </DocSection>
@@ -234,14 +311,11 @@ function RulesPage({ onClose }) {
         <Item>指導者・運営者の指示に従わない行為</Item>
         <Item>MJS施設利用規則への違反・許可された場所以外への立ち入り</Item>
         <Item>政治活動・宗教活動・営利目的の活動</Item>
-        <Item>チームの名誉または信用を損なう行為</Item>
         <Item>Jrへの不適切な言動・過度な叱責・威圧的な指導</Item>
       </DocSection>
       <DocSection num="８" title="違反時の対応（Disciplinary Measures）">
-        <Item>注意または口頭による指導</Item>
-        <Item>書面による注意喚起</Item>
-        <Item>一定期間の活動停止</Item>
-        <Item>退部の勧告</Item>
+        <Item>注意または口頭による指導</Item><Item>書面による注意喚起</Item>
+        <Item>一定期間の活動停止</Item><Item>退部の勧告</Item>
         <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>※LINEグループ自主退出者・連絡なく2か月以上不参加かつ部費滞納者は自動的に名簿から削除。部費支払い継続者は資格を維持。</div>
       </DocSection>
       <DocSection num="９〜１１" title="改訂・施行日・改訂履歴">
@@ -313,7 +387,45 @@ function AdminLoginModal({ onLogin, onClose }) {
   );
 }
 
-// ── EDIT MODAL ──
+// ── ANNOUNCEMENT EDIT MODAL ──
+function AnnouncementEditModal({ data, onSave, onClose }) {
+  const [title, setTitle] = useState(data.title || "");
+  const [body, setBody] = useState(data.body || "");
+  const [date, setDate] = useState(data.date || "");
+  const [important, setImportant] = useState(!!data.important);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>お知らせを{data.id ? "編集" : "投稿"}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+        </div>
+
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+        <input style={S.input} placeholder="タイトルを入力" value={title} onChange={(e) => setTitle(e.target.value)} />
+
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>内容</label>
+        <RichTextEditor value={body} onChange={setBody} />
+
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>日付</label>
+        <input style={S.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 16, cursor: "pointer" }}>
+          <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} />
+          重要なお知らせとしてマーク
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btn("primary"), flex: 2 }} onClick={() => onSave({ title, body, date, important })}>保存する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── EDIT MODAL (汎用) ──
 function EditModal({ title, fields, data, onSave, onClose }) {
   const [form, setForm] = useState({ ...data });
   return (
@@ -326,9 +438,16 @@ function EditModal({ title, fields, data, onSave, onClose }) {
         {fields.map((f) => {
           if (f.type === "checkbox") return (
             <label key={f.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 12, cursor: "pointer" }}>
-              <input type="checkbox" checked={!!form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />
-              {f.label}
+              <input type="checkbox" checked={!!form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.label}
             </label>
+          );
+          if (f.type === "select") return (
+            <div key={f.key}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+              <select style={S.input} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
+                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           );
           if (f.type === "textarea") return (
             <div key={f.key}>
@@ -365,18 +484,12 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
       <h2 style={S.sectionTitle}>クラブ資料</h2>
       <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons 重要事項</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>クラブの重要なお知らせ・規則</div>
-        </div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons 重要事項</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブの重要なお知らせ・規則</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
       <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div>
-        </div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
       <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>最新のお知らせ</h2>
@@ -387,7 +500,7 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
           </div>
-          <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }}>{a.body}</p>
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: a.body }} />
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
@@ -395,18 +508,11 @@ function HomeTab({ announcements, onOpenImportant, onOpenRules }) {
   );
 }
 
-// ── ANNOUNCEMENTS TAB (Supabase連携) ──
+// ── ANNOUNCEMENTS TAB ──
 function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading }) {
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const fields = [
-    { key: "title", label: "タイトル" },
-    { key: "body", label: "内容", type: "textarea" },
-    { key: "date", label: "日付", type: "date" },
-    { key: "important", label: "重要なお知らせとしてマーク", type: "checkbox" },
-  ];
 
   const save = async (form) => {
     setSaving(true);
@@ -436,34 +542,26 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>お知らせ</h2>
         {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 投稿</button>}
       </div>
-
       {loading && <div style={{ textAlign: "center", color: C.textMuted, padding: 20 }}>読み込み中...</div>}
-
-      {!loading && announcements.length === 0 && (
-        <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>
-      )}
-
+      {!loading && announcements.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
       {announcements.map((a) => (
         <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
           </div>
-          <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 6px", lineHeight: 1.7 }}>{a.body}</p>
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 6px", lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: a.body }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-            {isAdmin && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button style={S.btn("ghost", "sm")} onClick={() => setEditing(a)}>編集</button>
-                <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
-              </div>
-            )}
+            {isAdmin && <div style={{ display: "flex", gap: 6 }}>
+              <button style={S.btn("ghost", "sm")} onClick={() => setEditing(a)}>編集</button>
+              <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
+            </div>}
           </div>
         </div>
       ))}
-
-      {editing && <EditModal title="お知らせを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title="お知らせを投稿" fields={fields} data={{ title: "", body: "", date: "", important: false }} onSave={save} onClose={() => setShowAdd(false)} />}
+      {editing && <AnnouncementEditModal data={editing} onSave={save} onClose={() => setEditing(null)} />}
+      {showAdd && <AnnouncementEditModal data={{ title: "", body: "", date: "", important: false }} onSave={save} onClose={() => setShowAdd(false)} />}
       {saving && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: C.card, borderRadius: 12, padding: "16px 24px", fontSize: 14, fontWeight: 700 }}>保存中...</div>
@@ -668,18 +766,14 @@ export default function HaponsApp() {
   const [showRules, setShowRules] = useState(false);
   const isAdmin = role === "admin";
 
-  // Supabaseからお知らせを取得
   useEffect(() => {
-    const fetchAnnouncements = async () => {
+    const fetch = async () => {
       setLoadingAnnouncements(true);
-      const { data, error } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("date", { ascending: false });
+      const { data, error } = await supabase.from("announcements").select("*").order("date", { ascending: false });
       if (!error && data) setAnnouncements(data);
       setLoadingAnnouncements(false);
     };
-    fetchAnnouncements();
+    fetch();
   }, []);
 
   if (!role) return <LoginScreen onLogin={setRole} />;
@@ -706,17 +800,11 @@ export default function HaponsApp() {
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {isAdmin ? (
-            <button onClick={() => { if (window.confirm("管理者モードを終了しますか？")) setRole("member"); }} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>
-              管理者 ✕
-            </button>
+            <button onClick={() => { if (window.confirm("管理者モードを終了しますか？")) setRole("member"); }} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
           ) : (
-            <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-              管理者
-            </button>
+            <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>管理者</button>
           )}
-          <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-            ログアウト
-          </button>
+          <button onClick={() => { if (window.confirm("ログアウトしますか？")) { setRole(null); setTab("home"); } }} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>ログアウト</button>
         </div>
       </div>
 
@@ -742,9 +830,7 @@ export default function HaponsApp() {
         ))}
       </nav>
 
-      {showAdminLogin && (
-        <AdminLoginModal onLogin={() => { setRole("admin"); setShowAdminLogin(false); }} onClose={() => setShowAdminLogin(false)} />
-      )}
+      {showAdminLogin && <AdminLoginModal onLogin={() => { setRole("admin"); setShowAdminLogin(false); }} onClose={() => setShowAdminLogin(false)} />}
     </div>
   );
 }
