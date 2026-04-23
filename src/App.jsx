@@ -714,7 +714,11 @@ function MembersTab({ isAdmin }) {
   const save = async (form) => {
     const { id: _id, created_at: _ca, ...rest } = form;
     const payload = { ...rest };
-    if (form.age) payload.age = Number(form.age);
+    if (form.age !== "" && form.age !== null && form.age !== undefined) {
+      payload.age = Number(form.age);
+    } else {
+      payload.age = null;
+    }
     if (showAdd) {
       const { data, error } = await supabase.from(table).insert([payload]).select();
       if (error) { alert("保存に失敗しました：" + error.message); return; }
