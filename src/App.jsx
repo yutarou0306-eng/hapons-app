@@ -38,7 +38,6 @@ const S = {
   input: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.bg, color: C.text, boxSizing: "border-box", marginBottom: 8, outline: "none", fontFamily: "inherit" },
 };
 
-// ── HELPERS ──
 function Loading() {
   return <div style={{ textAlign: "center", color: C.textMuted, padding: 30, fontSize: 13 }}>読み込み中...</div>;
 }
@@ -46,7 +45,6 @@ function Loading() {
 function RichTextEditor({ value, onChange }) {
   const editorRef = useRef(null);
   useEffect(() => { if (editorRef.current) editorRef.current.innerHTML = value || ""; }, []);
-  const exec = (command) => { editorRef.current.focus(); document.execCommand(command, false, null); onChange(editorRef.current.innerHTML); };
   const setFontSize = (size) => {
     editorRef.current.focus();
     document.execCommand("fontSize", false, size === "large" ? "5" : size === "medium" ? "3" : "1");
@@ -54,15 +52,15 @@ function RichTextEditor({ value, onChange }) {
     fonts.forEach((f) => { const s = f.getAttribute("size"); f.removeAttribute("size"); f.style.fontSize = s === "5" ? "20px" : s === "3" ? "15px" : "11px"; });
     onChange(editorRef.current.innerHTML);
   };
-  const tb = (active = false) => ({ padding: "5px 10px", borderRadius: 6, border: `1px solid ${active ? C.primary : C.border}`, background: active ? C.primary + "15" : C.card, color: active ? C.primary : C.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+  const tb = () => ({ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "8px 10px", background: C.bg, border: `1.5px solid ${C.border}`, borderRadius: "10px 10px 0 0", borderBottom: "none" }}>
+      <div style={{ display: "flex", gap: 4, padding: "8px 10px", background: C.bg, border: `1.5px solid ${C.border}`, borderRadius: "10px 10px 0 0", borderBottom: "none" }}>
         <button style={tb()} onClick={() => setFontSize("large")} type="button">大</button>
         <button style={tb()} onClick={() => setFontSize("medium")} type="button">中</button>
         <button style={tb()} onClick={() => setFontSize("small")} type="button">小</button>
         <div style={{ width: 1, background: C.border, margin: "0 4px" }} />
-        <button style={tb()} onClick={() => exec("bold")} type="button"><b>B</b></button>
+        <button style={tb()} onClick={() => { editorRef.current.focus(); document.execCommand("bold"); onChange(editorRef.current.innerHTML); }} type="button"><b>B</b></button>
       </div>
       <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={() => onChange(editorRef.current.innerHTML)}
         style={{ minHeight: 100, padding: "10px 12px", border: `1.5px solid ${C.border}`, borderRadius: "0 0 10px 10px", fontSize: 14, background: C.card, color: C.text, outline: "none", lineHeight: 1.7, fontFamily: "'Noto Sans JP', sans-serif" }} />
@@ -127,7 +125,7 @@ function EditModal({ title, fields, data, onSave, onClose }) {
           return (
             <div key={f.key}>
               <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
-              <input style={S.input} type={f.type || "text"} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+              <input style={S.input} type={f.type || "text"} value={form[f.key] ?? ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
             </div>
           );
         })}
@@ -140,7 +138,7 @@ function EditModal({ title, fields, data, onSave, onClose }) {
   );
 }
 
-// ── IMPORTANT & RULES PAGES ──
+// ── IMPORTANT & RULES ──
 function ImportantPage({ onClose }) {
   return (
     <DocViewer title="Hapons 重要事項" onClose={onClose}>
@@ -157,12 +155,11 @@ function ImportantPage({ onClose }) {
       <DocSection num="３" title="MJSグラウンド利用ルール">
         <Item>MJSグラウンドを利用できるのは<Bold>Manila Hapons且つ日本人会会員</Bold>に限ります</Item>
         <Item>優先順位：学校行事 → 放課後倶楽部 → 郊外部活動</Item>
-        <Item>第二体育館ではラグビー以外の行為は原則禁止（バスケ・バドミントン等NG）</Item>
-        <Item><Bold>MJS SCHOOL ID の取得必須</Bold>（未取得者の入校不可）</Item>
+        <Item>第二体育館ではラグビー以外の行為は原則禁止</Item>
+        <Item><Bold>MJS SCHOOL ID の取得必須</Bold></Item>
         <Item>駐車する場合は<Bold>CAR STICKER の取得必須</Bold></Item>
         <Item>雨天時は第二体育館が空いている場合に限り使用可（スパイク不可）</Item>
         <Item>敷地内での飲食・喫煙禁止（水分補給を除く）</Item>
-        <Item>施設破損時は当事者が修理費を弁済する責任を負います</Item>
       </DocSection>
       <DocSection num="４" title="施設使用料">
         <Item><Bold>グラウンド：</Bold>P1,000／時間</Item>
@@ -199,7 +196,7 @@ function RulesPage({ onClose }) {
     <DocViewer title="Rules & Guidelines" onClose={onClose}>
       <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>Manila Hapons Rules and Guidelines／施行日：2026年4月1日　初版</div>
       <DocSection num="１" title="目的（Purpose）">本ルールは、Manila HaponsにおいてJr・大人・保護者を含むすべての関係者が、安全で互いを尊重し、ラグビーを楽しめる環境を維持することを目的とする。</DocSection>
-      <DocSection num="２" title="適用範囲（Scope of Application）">
+      <DocSection num="２" title="適用範囲">
         <Item>「本チーム」とはManila Haponsをいう</Item>
         <Item>選手（Jr・大人）、指導者、運営スタッフ、保護者・見学者を含むすべての関係者に適用</Item>
       </DocSection>
@@ -208,25 +205,19 @@ function RulesPage({ onClose }) {
         <Item>運動を楽しむこと・ラグビーに親しむことを最優先とし、競技力・勝敗の追求はこれを妨げない範囲で行う</Item>
         {["関係者すべてに感謝と敬意をもって接すること", "地域・他チームとの交流を大切にし積極的に関係を築くこと", "挨拶を大きな声で行うこと", "仲間を大切にし互いを尊重すること", "良いプレーや前向きな行動に積極的に声をかけること", "何よりも、ラグビーを楽しむこと"].map((item, i) => <Item key={i}>{i + 1}. {item}</Item>)}
       </DocSection>
-      <DocSection num="４" title="運営体制・役割（Organization and Roles）">
-        {[{ role: "部長", desc: "クラブ方針・日本人学校対応・毎月の施設使用願い等" }, { role: "キャプテン", desc: "練習開催・中止連絡、コーチ・練習リード（大人）" }, { role: "副キャプテン", desc: "キャプテンサポート・試合リード（大人）" }, { role: "ジュニアコーチ", desc: "開催・中止連絡、コーチ、Jr対外試合調整" }, { role: "主務", desc: "幹事会招集・イベント設定・メンバー名簿管理" }, { role: "会計", desc: "会費徴収・グラウンド代支払・入出金管理" }, { role: "広報", desc: "日本人会・SNS・Facebook・新入部員獲得活動" }, { role: "渉外・対外", desc: "日本人会対応・対外試合・AJRC調整" }, { role: "備品", desc: "倉庫管理・備品確認・ユニフォーム管理" }, { role: "保護者窓口", desc: "議事共有・名簿管理・新入部員受け入れ対応" }].map((r) => (
+      <DocSection num="４" title="運営体制・役割">
+        {[{ role: "部長", desc: "クラブ方針・日本人学校対応・毎月の施設使用願い等" }, { role: "キャプテン", desc: "練習開催・中止連絡、コーチ・練習リード（大人）" }, { role: "副キャプテン", desc: "キャプテンサポート・試合リード（大人）" }, { role: "ジュニアコーチ", desc: "開催・中止連絡、コーチ、Jr対外試合調整" }, { role: "主務", desc: "幹事会招集・イベント設定・メンバー名簿管理" }, { role: "会計", desc: "部費徴収・グラウンド代支払・入出金管理" }, { role: "広報", desc: "日本人会・SNS・Facebook・新入部員獲得活動" }, { role: "渉外・対外", desc: "日本人会対応・対外試合・AJRC調整" }, { role: "備品", desc: "倉庫管理・備品確認・ユニフォーム管理" }, { role: "保護者窓口", desc: "議事共有・名簿管理・新入部員受け入れ対応" }].map((r) => (
           <div key={r.role} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
             <span style={{ ...S.badge(C.primary), flexShrink: 0, marginTop: 2 }}>{r.role}</span>
             <span style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>{r.desc}</span>
           </div>
         ))}
       </DocSection>
-      <DocSection num="５" title="会計（Finance）">
+      <DocSection num="５〜１１" title="会計・運営ルール・禁止事項">
         <Item><Bold>大人部費：</Bold>月額1,000ペソ</Item>
-        <Item><Bold>Jr参加費：</Bold>100ペソ／回（兄弟姉妹は1家庭100ペソ）</Item>
-        <Item><Bold>グラウンド：</Bold>1,000ペソ／時間</Item>
-        <Item><Bold>第二体育館：</Bold>500ペソ／時間（照明+200ペソ）</Item>
-      </DocSection>
-      <DocSection num="６〜１１" title="運営ルール・禁止事項・違反時の対応">
+        <Item><Bold>Jr参加費：</Bold>100ペソ／回</Item>
         <Item><Bold>部員資格：</Bold>国籍を問わず、日本人会に入会している者</Item>
-        <Item><Bold>MJS利用：</Bold>Manila Haponsの活動として参加する日本人会会員に限る</Item>
         <Item>暴力・ハラスメント・差別的言動は禁止</Item>
-        <Item>施設利用規則への違反・許可された場所以外への立ち入り禁止</Item>
         <Item>政治活動・宗教活動・営利目的の活動禁止</Item>
         <Item><Bold>施行日：</Bold>2026年4月1日</Item>
       </DocSection>
@@ -291,8 +282,6 @@ function HomeTab({ announcements, loading, onOpenImportant, onOpenRules }) {
         <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
         <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: "0.06em" }}>{today}</div>
       </div>
-
-      {/* お知らせ（上） */}
       <h2 style={S.sectionTitle}>最新のお知らせ</h2>
       {loading && <Loading />}
       {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
@@ -306,8 +295,6 @@ function HomeTab({ announcements, loading, onOpenImportant, onOpenRules }) {
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
-
-      {/* クラブ資料（下） */}
       <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>クラブ資料</h2>
       <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
@@ -328,17 +315,18 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formState, setFormState] = useState({ title: "", date: "", important: false });
   const [bodyValue, setBodyValue] = useState("");
 
-  const openAdd = () => { setBodyValue(""); setShowAdd(true); };
-  const openEdit = (a) => { setBodyValue(a.body || ""); setEditing(a); };
+  const openAdd = () => { setFormState({ title: "", date: "", important: false }); setBodyValue(""); setShowAdd(true); };
+  const openEdit = (a) => { setFormState({ title: a.title, date: a.date, important: a.important }); setBodyValue(a.body || ""); setEditing(a); };
 
-  const save = async (form) => {
+  const save = async () => {
     setSaving(true);
-    const payload = { title: form.title, body: bodyValue, date: form.date || new Date().toISOString().slice(0, 10), important: !!form.important };
+    const payload = { title: formState.title, body: bodyValue, date: formState.date || new Date().toISOString().slice(0, 10), important: !!formState.important };
     if (showAdd) {
-      const { data, error } = await supabase.from("announcements").insert([payload]).select();
-      if (!error && data) setAnnouncements([data[0], ...announcements]);
+      const { data } = await supabase.from("announcements").insert([payload]).select();
+      if (data) setAnnouncements([data[0], ...announcements]);
     } else {
       await supabase.from("announcements").update(payload).eq("id", editing.id);
       setAnnouncements(announcements.map((i) => i.id === editing.id ? { ...i, ...payload } : i));
@@ -351,12 +339,6 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
     await supabase.from("announcements").delete().eq("id", id);
     setAnnouncements(announcements.filter((i) => i.id !== id));
   };
-
-  const announcementFields = [
-    { key: "title", label: "タイトル" },
-    { key: "date", label: "日付", type: "date" },
-    { key: "important", label: "重要なお知らせとしてマーク", type: "checkbox" },
-  ];
 
   return (
     <div style={S.content}>
@@ -382,7 +364,6 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
           </div>
         </div>
       ))}
-
       {(showAdd || editing) && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
@@ -390,26 +371,19 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>お知らせを{editing ? "編集" : "投稿"}</h3>
               <button onClick={() => { setShowAdd(false); setEditing(null); }} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
             </div>
-            {(() => {
-              const [form, setForm] = useState(editing || { title: "", date: "", important: false });
-              return (
-                <>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
-                  <input style={S.input} value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="タイトルを入力" />
-                  <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>内容</label>
-                  <RichTextEditor value={bodyValue} onChange={setBodyValue} />
-                  <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>日付</label>
-                  <input style={S.input} type="date" value={form.date || ""} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 16, cursor: "pointer" }}>
-                    <input type="checkbox" checked={!!form.important} onChange={(e) => setForm({ ...form, important: e.target.checked })} />重要なお知らせとしてマーク
-                  </label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAdd(false); setEditing(null); }}>キャンセル</button>
-                    <button style={{ ...S.btn("primary"), flex: 2 }} onClick={() => save(form)}>保存する</button>
-                  </div>
-                </>
-              );
-            })()}
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={formState.title} onChange={(e) => setFormState({ ...formState, title: e.target.value })} placeholder="タイトルを入力" />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>内容</label>
+            <RichTextEditor value={bodyValue} onChange={setBodyValue} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>日付</label>
+            <input style={S.input} type="date" value={formState.date} onChange={(e) => setFormState({ ...formState, date: e.target.value })} />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 16, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!formState.important} onChange={(e) => setFormState({ ...formState, important: e.target.checked })} />重要なお知らせとしてマーク
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAdd(false); setEditing(null); }}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={save}>保存する</button>
+            </div>
           </div>
         </div>
       )}
@@ -418,7 +392,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
   );
 }
 
-// ── MEMBERS TAB (大人 + Jr) ──
+// ── MEMBERS TAB ──
 function MembersTab({ isAdmin }) {
   const [activeTab, setActiveTab] = useState("adult");
   const [members, setMembers] = useState([]);
@@ -443,35 +417,35 @@ function MembersTab({ isAdmin }) {
   }, []);
 
   const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
-
-  const adultFields = [
-    { key: "name", label: "氏名" },
-    { key: "position", label: "ポジション（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
-    { key: "phone", label: "電話番号" },
-    { key: "emergency_contact", label: "緊急連絡先" },
-    { key: "note", label: "備考", type: "textarea" },
-    { key: "paid", label: "今月の会費納入済み", type: "checkbox" },
-  ];
-
-  const jrFields = [
-    { key: "name", label: "氏名" },
-    { key: "grade", label: "学年" },
-    { key: "phone", label: "電話番号" },
-    { key: "parent", label: "保護者名" },
-    { key: "note", label: "備考", type: "textarea" },
-    { key: "paid", label: "今月の会費納入済み", type: "checkbox" },
-  ];
-
   const isAdult = activeTab === "adult";
   const table = isAdult ? "members" : "jr_members";
   const list = isAdult ? members : jrMembers;
   const setList = isAdult ? setMembers : setJrMembers;
-  const fields = isAdult ? adultFields : jrFields;
 
-  const filtered = list.filter((m) => m.name?.includes(search) || (isAdult ? m.position?.includes(search) : m.grade?.includes(search)));
+  const adultFields = [
+    { key: "position", label: "ポジション（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
+    { key: "name_jp", label: "名前（日本語）" },
+    { key: "name_en", label: "Name (English)" },
+    { key: "age", label: "年齢", type: "number" },
+    { key: "phone", label: "電話番号" },
+    { key: "mjs_id_submitted", label: "MJS ID 提出済み", type: "checkbox" },
+  ];
+
+  const jrFields = [
+    { key: "name_jp", label: "名前（日本語）" },
+    { key: "name_en", label: "Name (English)" },
+    { key: "grade", label: "学年" },
+    { key: "is_mjs_student", label: "MJSの生徒", type: "checkbox" },
+    { key: "parent_name", label: "保護者氏名" },
+    { key: "phone", label: "電話番号" },
+  ];
+
+  const fields = isAdult ? adultFields : jrFields;
+  const filtered = list.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
 
   const save = async (form) => {
-    const payload = { ...form, paid: !!form.paid };
+    const payload = { ...form };
+    if (form.age) payload.age = Number(form.age);
     if (showAdd) {
       const { data } = await supabase.from(table).insert([payload]).select();
       if (data) setList([...list, data[0]]);
@@ -488,10 +462,8 @@ function MembersTab({ isAdmin }) {
     setList(list.filter((m) => m.id !== id));
   };
 
-  const togglePaid = async (m) => {
-    await supabase.from(table).update({ paid: !m.paid }).eq("id", m.id);
-    setList(list.map((item) => item.id === m.id ? { ...item, paid: !item.paid } : item));
-  };
+  const defaultAdult = { position: "", name_jp: "", name_en: "", age: "", phone: "", mjs_id_submitted: false };
+  const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "" };
 
   return (
     <div style={S.content}>
@@ -500,7 +472,6 @@ function MembersTab({ isAdmin }) {
         {isAdmin && <button style={S.btn(isAdult ? "accent" : "jr", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
       </div>
 
-      {/* タブ切り替え */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <button onClick={() => { setActiveTab("adult"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
           🏉 Haponsメンバー（{members.length}名）
@@ -511,35 +482,36 @@ function MembersTab({ isAdmin }) {
       </div>
 
       {loading && <Loading />}
-
       {!loading && (
         <>
-          <input style={{ ...S.input, marginBottom: 10 }} placeholder={isAdult ? "🔍 名前・ポジションで検索" : "🔍 名前・学年で検索"} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input style={{ ...S.input, marginBottom: 10 }} placeholder="🔍 名前・ポジション・学年で検索" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{filtered.length}名 / 全{list.length}名</div>
-
+          {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>}
           {filtered.map((m) => (
             <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${isAdult ? C.primary : C.jr}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{m.name}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
+                    {m.name_en && <span style={{ fontSize: 12, color: C.textMuted }}>{m.name_en}</span>}
                     {isAdult && m.position && <span style={S.badge(posColors[m.position] || C.textMuted)}>{m.position}</span>}
                     {!isAdult && m.grade && <span style={S.badge(C.jr)}>{m.grade}</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-                    📞 {m.phone}　👤 {isAdult ? m.emergency_contact : m.parent}
-                    {m.note && <><br />📝 {m.note}</>}
+                  <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.8 }}>
+                    {isAdult && m.age && <span>年齢：{m.age}歳　</span>}
+                    📞 {m.phone}<br />
+                    {isAdult
+                      ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
+                      : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span></>
+                    }
                   </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <button onClick={() => togglePaid(m)} style={{ padding: "4px 10px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 11, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
-                    {m.paid ? "✓ 納入済" : "未納入"}
-                  </button>
-                  {isAdmin && <div style={{ display: "flex", gap: 4 }}>
+                {isAdmin && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                     <button style={S.btn("ghost", "sm")} onClick={() => setEditing(m)}>編集</button>
                     <button style={S.btn("danger", "sm")} onClick={() => del(m.id)}>削除</button>
-                  </div>}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -547,7 +519,7 @@ function MembersTab({ isAdmin }) {
       )}
 
       {editing && <EditModal title={`${isAdult ? "メンバー" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? { name: "", position: "", phone: "", emergency_contact: "", note: "", paid: false } : { name: "", grade: "", phone: "", parent: "", note: "", paid: false }} onSave={save} onClose={() => setShowAdd(false)} />}
+      {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
@@ -639,41 +611,30 @@ function ScheduleTab({ isAdmin }) {
 // ── FEES TAB ──
 function FeesTab({ isAdmin }) {
   const [fees, setFees] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [jrMembers, setJrMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [filterMonth, setFilterMonth] = useState("");
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetch = async () => {
       setLoading(true);
-      const [f, m, j] = await Promise.all([
-        supabase.from("fees").select("*").order("created_at", { ascending: false }),
-        supabase.from("members").select("*").order("created_at"),
-        supabase.from("jr_members").select("*").order("created_at"),
-      ]);
-      if (f.data) setFees(f.data);
-      if (m.data) setMembers(m.data);
-      if (j.data) setJrMembers(j.data);
+      const { data } = await supabase.from("fees").select("*").order("payment_date", { ascending: false });
+      if (data) setFees(data);
       setLoading(false);
     };
-    fetchAll();
+    fetch();
   }, []);
-
-  const paidCount = members.filter((m) => m.paid).length;
-  const total = members.length;
-  const pct = total > 0 ? Math.round((paidCount / total) * 100) : 0;
 
   const feeFields = [
     { key: "month", label: "月（例：2026年5月）" },
     { key: "amount", label: "月額（ペソ）", type: "number" },
-    { key: "paid_count", label: "納入人数", type: "number" },
-    { key: "total_count", label: "対象人数", type: "number" },
+    { key: "member_name", label: "名前" },
+    { key: "payment_date", label: "支払日", type: "date" },
   ];
 
   const saveFee = async (form) => {
-    const parsed = { ...form, amount: Number(form.amount), paid_count: Number(form.paid_count), total_count: Number(form.total_count) };
+    const parsed = { ...form, amount: Number(form.amount) };
     if (showAdd) {
       const { data } = await supabase.from("fees").insert([parsed]).select();
       if (data) setFees([data[0], ...fees]);
@@ -684,87 +645,68 @@ function FeesTab({ isAdmin }) {
     setEditing(null); setShowAdd(false);
   };
 
-  const togglePaid = async (m, table) => {
-    await supabase.from(table).update({ paid: !m.paid }).eq("id", m.id);
-    if (table === "members") setMembers(members.map((item) => item.id === m.id ? { ...item, paid: !item.paid } : item));
-    else setJrMembers(jrMembers.map((item) => item.id === m.id ? { ...item, paid: !item.paid } : item));
+  const del = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    await supabase.from("fees").delete().eq("id", id);
+    setFees(fees.filter((f) => f.id !== id));
   };
+
+  const months = [...new Set(fees.map((f) => f.month))].sort().reverse();
+  const filtered = filterMonth ? fees.filter((f) => f.month === filterMonth) : fees;
+  const totalAmount = filtered.reduce((sum, f) => sum + (f.amount || 0), 0);
 
   return (
     <div style={S.content}>
-      <h2 style={S.sectionTitle}>会費管理</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>部費管理</h2>
+        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
+      </div>
+
       {loading && <Loading />}
+
       {!loading && (
         <>
           {/* サマリー */}
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>今月の大人会費納入状況</div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 12 }}>
-              <span style={{ fontSize: 36, fontWeight: 900 }}>{paidCount}</span>
-              <span style={{ opacity: 0.6, marginBottom: 6 }}>/ {total}名</span>
-              <span style={{ fontSize: 20, fontWeight: 900, marginLeft: "auto" }}>{pct}%</span>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99, transition: "width 0.4s" }} />
-            </div>
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8 }}>月額 P1,000　未納：{total - paidCount}名</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>部費支払い実績</div>
+            <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 4 }}>P{totalAmount.toLocaleString()}</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>{filtered.length}件の支払い記録{filterMonth ? `（${filterMonth}）` : "（全期間）"}</div>
           </div>
 
-          {/* 月別実績 */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted }}>過去の納入実績</div>
-            {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
-          </div>
-          {fees.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>実績データがありません</div>}
-          {fees.map((f) => (
+          {/* 月フィルター */}
+          {months.length > 0 && (
+            <div style={{ marginBottom: 12, overflowX: "auto", display: "flex", gap: 6, paddingBottom: 4 }}>
+              <button onClick={() => setFilterMonth("")} style={{ padding: "5px 12px", borderRadius: 20, border: `1.5px solid ${!filterMonth ? C.primary : C.border}`, background: !filterMonth ? C.sakuraLight : C.card, color: !filterMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>全期間</button>
+              {months.map((m) => (
+                <button key={m} onClick={() => setFilterMonth(m)} style={{ padding: "5px 12px", borderRadius: 20, border: `1.5px solid ${filterMonth === m ? C.primary : C.border}`, background: filterMonth === m ? C.sakuraLight : C.card, color: filterMonth === m ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{m}</button>
+              ))}
+            </div>
+          )}
+
+          {/* 支払い一覧 */}
+          {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>部費の支払い記録がありません</div>}
+          {filtered.map((f) => (
             <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.month}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{f.paid_count}/{f.total_count}名 納入</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>{f.month}　支払日：{f.payment_date}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>P{(f.amount * f.paid_count).toLocaleString()}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={S.badge(f.paid_count === f.total_count ? C.success : C.warning)}>{f.paid_count === f.total_count ? "完納" : "一部未納"}</span>
-                  {isAdmin && <button style={S.btn("ghost", "sm")} onClick={() => setEditing(f)}>編集</button>}
-                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: C.primary }}>P{(f.amount || 0).toLocaleString()}</div>
+                {isAdmin && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button style={S.btn("ghost", "sm")} onClick={() => setEditing(f)}>編集</button>
+                    <button style={S.btn("danger", "sm")} onClick={() => del(f.id)}>削除</button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-
-          {/* 大人会員別 */}
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, margin: "16px 0 8px" }}>🏉 Haponsメンバー 今月の状況</div>
-          {members.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>}
-          {members.map((m) => (
-            <div key={m.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{m.name}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{m.position}　📞 {m.phone}</div>
-              </div>
-              <button onClick={() => togglePaid(m, "members")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
-                {m.paid ? "✓ 納入済" : "未納入"}
-              </button>
-            </div>
-          ))}
-
-          {/* Jr会員別 */}
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, margin: "16px 0 8px" }}>⭐ Jr 今月の参加費状況</div>
-          {jrMembers.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>}
-          {jrMembers.map((m) => (
-            <div key={m.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{m.name}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{m.grade}　👤 {m.parent}</div>
-              </div>
-              <button onClick={() => togglePaid(m, "jr_members")} style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: m.paid ? "#2E7D3220" : "#CC1F1F20", color: m.paid ? C.success : C.danger }}>
-                {m.paid ? "✓ 納入済" : "未納入"}
-              </button>
             </div>
           ))}
         </>
       )}
-      {editing && <EditModal title="実績を編集" fields={feeFields} data={editing} onSave={saveFee} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title="実績を追加" fields={feeFields} data={{ month: "", amount: 1000, paid_count: 0, total_count: members.length }} onSave={saveFee} onClose={() => setShowAdd(false)} />}
+
+      {editing && <EditModal title="支払い記録を編集" fields={feeFields} data={editing} onSave={saveFee} onClose={() => setEditing(null)} />}
+      {showAdd && <EditModal title="部費支払いを登録" fields={feeFields} data={{ month: "", amount: 1000, member_name: "", payment_date: new Date().toISOString().slice(0, 10) }} onSave={saveFee} onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
@@ -799,7 +741,7 @@ export default function HaponsApp() {
     { id: "members", label: "メンバー", icon: "🏉" },
     { id: "announcements", label: "お知らせ", icon: "📢" },
     { id: "schedule", label: "日程", icon: "📅" },
-    { id: "fees", label: "会費", icon: "💴" },
+    { id: "fees", label: "部費", icon: "💴" },
   ];
 
   return (
