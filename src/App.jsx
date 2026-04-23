@@ -272,8 +272,142 @@ function AdminLoginModal({ onLogin, onClose }) {
   );
 }
 
+// ── 入部書類ページ ──
+function EntryFormsPage({ onClose }) {
+  return (
+    <DocViewer title="入部書類" onClose={onClose}>
+      <div style={{ background: C.jrLight, border: `1px solid ${C.jr}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.jr, marginBottom: 10 }}>📌 提出方法</div>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.9 }}>
+          下記より書類をダウンロードし、必要事項を記入・署名の上、以下の方法で提出してください。
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, lineHeight: 2 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 6 }}>
+            <span style={{ ...S.badge(C.jr), flexShrink: 0, marginTop: 2 }}>①</span>
+            <span>記入後の書類を<strong>写真または画像</strong>で撮影し、<br /><a href="mailto:manilahapons10@gmail.com" style={{ color: C.jr, fontWeight: 800 }}>manilahapons10@gmail.com</a> へメールで送付</span>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ ...S.badge(C.jr), flexShrink: 0, marginTop: 2 }}>②</span>
+            <span><strong>原本</strong>は主務または保護者担当に直接提出</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 入部届兼誓約書 */}
+      <div style={{ ...S.card, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>入部届兼誓約書</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>大人・Jr共通</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+          入部にあたり、クラブの規則・ルールに同意する旨を記入・署名して提出してください。大人・Jr問わず全員が対象です。
+        </div>
+        <a href="https://drive.google.com/file/d/1imsUFwo4HHP_mjItKJ76kfCNqpi2Hcqy/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
+      </div>
+
+      {/* 参加同意書 */}
+      <div style={S.card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>参加同意書（WAIVER）</div>
+            <div style={{ ...S.badge(C.jr), fontSize: 11 }}>Jr のみ</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+          Jrメンバーの入部には、保護者による参加同意書（WAIVER）の提出が必要です。怪我・SNS等に関する同意書となります。保護者が記入・署名してください。
+        </div>
+        <a href="https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
+      </div>
+    </DocViewer>
+  );
+}
+
+// ── MJSパス＆スティッカーページ ──
+function MJSPassPage({ onClose }) {
+  return (
+    <DocViewer title="MJSパス＆スティッカー申請" onClose={onClose}>
+      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.primary, marginBottom: 8 }}>📌 申請について</div>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.9 }}>
+          MJS（マニラ日本人学校）のグラウンドを利用するには、<strong>SCHOOL ID</strong>および<strong>CAR STICKER</strong>の取得が必要です。毎年3月中旬を目途に更新申請を行ってください。
+        </div>
+      </div>
+
+      {/* 申請手順 */}
+      <div style={{ ...S.card, marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 12 }}>申請手順</div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>1</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            下記より<strong>申請書をダウンロード</strong>し、必要事項を記入する
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>2</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            記入した申請書を<strong>部長（赤星敦）に提出</strong>し、承認サインをもらう
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>3</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            部長承認済みの申請書を添付の上、以下の内容でMJSへメール送信：<br />
+            <div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", marginTop: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ marginBottom: 4 }}>📧 送付先：<a href="mailto:a.lecias@mjs.ph" style={{ color: C.primary, fontWeight: 800 }}>a.lecias@mjs.ph</a></div>
+              <div style={{ marginBottom: 4 }}>📝 メール本文に以下を記載：</div>
+              <div style={{ paddingLeft: 12, color: C.textMuted }}>
+                Club Name：<strong style={{ color: C.text }}>Manila Hapons</strong><br />
+                Club Representative：<strong style={{ color: C.text }}>赤星敦（Akahoshi Atsushi）</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 注意事項 */}
+      <div style={{ background: "#FFF3F3", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.danger, lineHeight: 1.8 }}>
+        ⚠ <strong>SCHOOL IDを取得していないメンバー及び帯同者（未就学児除く）は入校不可</strong>となります。また、校内・正面玄関前路側帯に駐車する場合はCAR STICKERの取得が必須です。
+      </div>
+
+      {/* ダウンロード */}
+      <div style={S.card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>MJSパス＆スティッカー申請書</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>有効期限：4月〜翌年3月（毎年更新）</div>
+          </div>
+        </div>
+        <a href="https://drive.google.com/file/d/1FK-pkBr5RimIT-eFjjBtu1ryNk9-8W3A/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.primary, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
+      </div>
+    </DocViewer>
+  );
+}
+
 // ── HOME TAB ──
-function HomeTab({ announcements, loading, onOpenImportant, onOpenRules }) {
+function HomeTab({ announcements, loading, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
   return (
@@ -306,52 +440,15 @@ function HomeTab({ announcements, loading, onOpenImportant, onOpenRules }) {
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
-
-      {/* 入部書類 */}
-      <div style={{ ...S.card, borderLeft: `4px solid ${C.jr}`, marginTop: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div>
-            <div style={{ fontSize: 12, color: C.textMuted }}>入部希望者はこちらから書類をダウンロード</div>
-          </div>
-        </div>
-
-        {/* 説明文 */}
-        <div style={{ background: C.jrLight, borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 12, color: C.jr, lineHeight: 1.8 }}>
-          <div style={{ fontWeight: 800, marginBottom: 4 }}>📌 提出方法</div>
-          下記より書類をダウンロードし、必要事項を記入・署名の上：<br />
-          ① 画像または写真を <span style={{ fontWeight: 800 }}>manilahapons10@gmail.com</span> へ送付<br />
-          ② 原本は主務または保護者担当に直接提出
-        </div>
-
-        {/* 入部届兼誓約書 */}
-        <a href="https://drive.google.com/file/d/1imsUFwo4HHP_mjItKJ76kfCNqpi2Hcqy/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, marginBottom: 8, cursor: "pointer" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18 }}>📄</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>入部届兼誓約書</div>
-                <div style={{ fontSize: 11, color: C.textMuted }}>大人・Jr共通</div>
-              </div>
-            </div>
-            <span style={{ ...S.badge(C.jr), fontSize: 11 }}>ダウンロード</span>
-          </div>
-        </a>
-
-        {/* 参加同意書（Jr向け） */}
-        <a href="https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18 }}>📄</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>参加同意書（WAIVER）</div>
-                <div style={{ fontSize: 11, color: C.textMuted }}>Jr のみ　※保護者が記入</div>
-              </div>
-            </div>
-            <span style={{ ...S.badge(C.jr), fontSize: 11 }}>ダウンロード</span>
-          </div>
-        </a>
+      <div onClick={onOpenEntryForms} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div><div style={{ fontSize: 12, color: C.textMuted }}>入部届・参加同意書のダウンロード</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMJSPass} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏫</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>MJSパス＆スティッカー申請</div><div style={{ fontSize: 12, color: C.textMuted }}>MJS ID・CAR STICKERの申請方法</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
     </div>
   );
@@ -947,6 +1044,8 @@ export default function HaponsApp() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showImportant, setShowImportant] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showEntryForms, setShowEntryForms] = useState(false);
+  const [showMJSPass, setShowMJSPass] = useState(false);
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -962,6 +1061,8 @@ export default function HaponsApp() {
   if (!role) return <LoginScreen onLogin={setRole} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
+  if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
+  if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
 
   const tabs = [
     { id: "home", label: "ホーム", icon: "🏠" },
@@ -998,7 +1099,7 @@ export default function HaponsApp() {
         </div>
       )}
 
-      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} />}
+      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
