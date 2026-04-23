@@ -423,17 +423,17 @@ function MembersTab({ isAdmin }) {
   const setList = isAdult ? setMembers : setJrMembers;
 
   const adultFields = [
-    { key: "position", label: "ポジション（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
-    { key: "name_jp", label: "名前（日本語）" },
-    { key: "name_en", label: "Name (English)" },
+    { key: "position", label: "Position（PR/HO/LO/FL/NO8/SH/SO/CTR/WTB/FB）" },
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
     { key: "age", label: "年齢", type: "number" },
     { key: "phone", label: "電話番号" },
     { key: "mjs_id_submitted", label: "MJS ID 提出済み", type: "checkbox" },
   ];
 
   const jrFields = [
-    { key: "name_jp", label: "名前（日本語）" },
-    { key: "name_en", label: "Name (English)" },
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
     { key: "grade", label: "学年" },
     { key: "is_mjs_student", label: "MJSの生徒", type: "checkbox" },
     { key: "parent_name", label: "保護者氏名" },
