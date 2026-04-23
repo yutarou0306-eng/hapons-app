@@ -712,13 +712,16 @@ function MembersTab({ isAdmin }) {
   const filtered = list.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
 
   const save = async (form) => {
-    const payload = { ...form };
+    const { id: _id, created_at: _ca, ...rest } = form;
+    const payload = { ...rest };
     if (form.age) payload.age = Number(form.age);
     if (showAdd) {
-      const { data } = await supabase.from(table).insert([payload]).select();
+      const { data, error } = await supabase.from(table).insert([payload]).select();
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
       if (data) setList([...list, data[0]]);
     } else {
-      await supabase.from(table).update(payload).eq("id", editing.id);
+      const { error } = await supabase.from(table).update(payload).eq("id", editing.id);
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
       setList(list.map((m) => m.id === editing.id ? { ...m, ...payload } : m));
     }
     setEditing(null); setShowAdd(false);
@@ -1008,12 +1011,15 @@ function ScheduleTab({ isAdmin }) {
   ];
 
   const save = async (form) => {
+    const { id: _id, created_at: _ca, ...payload } = form;
     if (showAdd) {
-      const { data } = await supabase.from("events").insert([form]).select();
+      const { data, error } = await supabase.from("events").insert([payload]).select();
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
       if (data) setEvents([...events, data[0]].sort((a, b) => a.date.localeCompare(b.date)));
     } else {
-      await supabase.from("events").update(form).eq("id", editing.id);
-      setEvents(events.map((e) => e.id === editing.id ? { ...e, ...form } : e).sort((a, b) => a.date.localeCompare(b.date)));
+      const { error } = await supabase.from("events").update(payload).eq("id", editing.id);
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
+      setEvents(events.map((e) => e.id === editing.id ? { ...e, ...payload } : e).sort((a, b) => a.date.localeCompare(b.date)));
     }
     setEditing(null); setShowAdd(false);
   };
@@ -1097,12 +1103,15 @@ function FeesTab({ isAdmin }) {
   ];
 
   const saveFee = async (form) => {
-    const parsed = { ...form, amount: Number(form.amount) };
+    const { id: _id, created_at: _ca, ...rest } = form;
+    const parsed = { ...rest, amount: Number(form.amount) };
     if (showAdd) {
-      const { data } = await supabase.from("fees").insert([parsed]).select();
+      const { data, error } = await supabase.from("fees").insert([parsed]).select();
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
       if (data) setFees([data[0], ...fees]);
     } else {
-      await supabase.from("fees").update(parsed).eq("id", editing.id);
+      const { error } = await supabase.from("fees").update(parsed).eq("id", editing.id);
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
       setFees(fees.map((f) => f.id === editing.id ? { ...f, ...parsed } : f));
     }
     setEditing(null); setShowAdd(false);
