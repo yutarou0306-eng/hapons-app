@@ -499,7 +499,7 @@ function MembersTab({ isAdmin }) {
                   </div>
                   <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.8 }}>
                     {isAdult && m.age && <span>年齢：{m.age}歳　</span>}
-                    📞 {m.phone}<br />
+                    <a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br />
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span></>
@@ -524,12 +524,139 @@ function MembersTab({ isAdmin }) {
   );
 }
 
+// ── ATTENDANCE PANEL ──
+function AttendancePanel({ event, onClose }) {
+  const [members, setMembers] = useState([]);
+  const [attendances, setAttendances] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [myName, setMyName] = useState(localStorage.getItem("hapons_name") || "");
+  const [nameInput, setNameInput] = useState("");
+  const [showNameInput, setShowNameInput] = useState(!localStorage.getItem("hapons_name"));
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [m, a] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("attendances").select("*").eq("event_id", event.id),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (a.data) setAttendances(a.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, [event.id]);
+
+  const saveName = () => {
+    if (!nameInput.trim()) return;
+    localStorage.setItem("hapons_name", nameInput.trim());
+    setMyName(nameInput.trim());
+    setShowNameInput(false);
+  };
+
+  const isAttending = (name) => attendances.some((a) => a.member_name === name);
+
+  const toggleAttendance = async (name) => {
+    const existing = attendances.find((a) => a.member_name === name);
+    if (existing) {
+      await supabase.from("attendances").delete().eq("id", existing.id);
+      setAttendances(attendances.filter((a) => a.id !== existing.id));
+    } else {
+      const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name }]).select();
+      if (data) setAttendances([...attendances, data[0]]);
+    }
+  };
+
+  const attending = attendances.map((a) => a.member_name);
+  const notAttending = members.map((m) => m.name_jp).filter((n) => !attending.includes(n));
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+        {/* ヘッダー */}
+        <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "16px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ color: "#fff", fontSize: 15, fontWeight: 900 }}>{event.title}</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{event.date}　{event.time}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕</button>
+        </div>
+
+        <div style={{ padding: "16px 16px 32px" }}>
+          {/* 名前設定 */}
+          {showNameInput ? (
+            <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid ${C.accent}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>あなたの名前を入力してください</div>
+              <input style={S.input} placeholder="例：田中 太郎" value={nameInput} onChange={(e) => setNameInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveName()} />
+              <button style={{ ...S.btn("primary"), width: "100%" }} onClick={saveName}>決定</button>
+            </div>
+          ) : (
+            <div style={{ ...S.card, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, color: C.textMuted }}>あなた：<span style={{ fontWeight: 800, color: C.text }}>{myName}</span></div>
+              <button onClick={() => { setNameInput(myName); setShowNameInput(true); }} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>変更</button>
+            </div>
+          )}
+
+          {/* 自分の出席ボタン */}
+          {myName && !showNameInput && (
+            <button
+              onClick={() => toggleAttendance(myName)}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 12, border: "none", cursor: "pointer", marginBottom: 16,
+                background: isAttending(myName) ? C.success : C.primary,
+                color: "#fff", fontSize: 15, fontWeight: 900,
+                boxShadow: isAttending(myName) ? "0 4px 12px rgba(46,125,50,0.3)" : "0 4px 12px rgba(204,31,31,0.3)",
+              }}
+            >
+              {isAttending(myName) ? "✓ 参加登録済み　（タップで取消）" : "参加する"}
+            </button>
+          )}
+
+          {loading && <Loading />}
+
+          {!loading && (
+            <>
+              {/* 参加者リスト */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.success, marginBottom: 8 }}>
+                  ✓ 参加（{attending.length}名）
+                </div>
+                {attending.length === 0 && <div style={{ fontSize: 12, color: C.textMuted, padding: "8px 0" }}>まだ参加登録者がいません</div>}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {attending.map((name) => (
+                    <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: "#2E7D3220", color: C.success, fontSize: 13, fontWeight: 700 }}>{name}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 未回答リスト */}
+              {members.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>
+                    未回答（{notAttending.length}名）
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {notAttending.map((name) => (
+                      <span key={name} style={{ padding: "4px 12px", borderRadius: 20, background: C.border, color: C.textMuted, fontSize: 13 }}>{name}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SCHEDULE TAB ──
 function ScheduleTab({ isAdmin }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
     const fetch = async () => {
@@ -594,16 +721,22 @@ function ScheduleTab({ isAdmin }) {
               </div>
               {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
               {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
-              {isAdmin && <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
-                <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
-              </div>}
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
+                  ✋ 出席登録・確認
+                </button>
+                {isAdmin && <>
+                  <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
+                  <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
+                </>}
+              </div>
             </div>
           </div>
         );
       })}
       {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
+      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     </div>
   );
 }
@@ -738,9 +871,9 @@ export default function HaponsApp() {
 
   const tabs = [
     { id: "home", label: "ホーム", icon: "🏠" },
-    { id: "members", label: "メンバー", icon: "🏉" },
     { id: "announcements", label: "お知らせ", icon: "📢" },
     { id: "schedule", label: "日程", icon: "📅" },
+    { id: "members", label: "メンバー", icon: "🏉" },
     { id: "fees", label: "部費", icon: "💴" },
   ];
 
