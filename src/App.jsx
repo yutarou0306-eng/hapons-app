@@ -1069,106 +1069,213 @@ function ScheduleTab({ isAdmin }) {
 
 // ── FEES TAB ──
 function FeesTab({ isAdmin }) {
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
   const [fees, setFees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
-  const [showAdd, setShowAdd] = useState(false);
-  const [filterMonth, setFilterMonth] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [newMonth, setNewMonth] = useState("");
+  const [newAmount, setNewAmount] = useState(1000);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchAll = async () => {
       setLoading(true);
-      const { data } = await supabase.from("fees").select("*").order("payment_date", { ascending: false });
-      if (data) setFees(data);
+      const [m, j, f] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, grade").order("created_at"),
+        supabase.from("fees").select("*").order("created_at"),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      if (f.data) setFees(f.data);
       setLoading(false);
     };
-    fetch();
+    fetchAll();
   }, []);
 
-  const feeFields = [
-    { key: "month", label: "月（例：2026年5月）" },
-    { key: "amount", label: "月額（ペソ）", type: "number" },
-    { key: "member_name", label: "名前" },
-    { key: "payment_date", label: "支払日", type: "date" },
-  ];
-
-  const saveFee = async (form) => {
-    const { id: _id, created_at: _ca, ...rest } = form;
-    const parsed = { ...rest, amount: Number(form.amount) };
-    if (showAdd) {
-      const { data, error } = await supabase.from("fees").insert([parsed]).select();
-      if (error) { alert("保存に失敗しました：" + error.message); return; }
-      if (data) setFees([data[0], ...fees]);
-    } else {
-      const { error } = await supabase.from("fees").update(parsed).eq("id", editing.id);
-      if (error) { alert("保存に失敗しました：" + error.message); return; }
-      setFees(fees.map((f) => f.id === editing.id ? { ...f, ...parsed } : f));
-    }
-    setEditing(null); setShowAdd(false);
-  };
-
-  const del = async (id) => {
-    if (!window.confirm("削除しますか？")) return;
-    await supabase.from("fees").delete().eq("id", id);
-    setFees(fees.filter((f) => f.id !== id));
-  };
-
+  // 月一覧（ユニーク）
   const months = [...new Set(fees.map((f) => f.month))].sort().reverse();
-  const filtered = filterMonth ? fees.filter((f) => f.month === filterMonth) : fees;
-  const totalAmount = filtered.reduce((sum, f) => sum + (f.amount || 0), 0);
+
+  // 選択月のデータ
+  const monthFees = fees.filter((f) => f.month === selectedMonth);
+  const monthAmount = monthFees.length > 0 ? monthFees[0].amount : 0;
+
+  // 支払済みかチェック
+  const isPaid = (name, type) => monthFees.some((f) => f.member_name === name && f.member_type === type && f.paid);
+  const getPaidRecord = (name, type) => monthFees.find((f) => f.member_name === name && f.member_type === type);
+
+  // 月を新規作成
+  const createMonth = async () => {
+    if (!newMonth.trim()) return;
+    setSaving(true);
+    // 大人メンバー分のレコードを一括作成
+    const records = [
+      ...members.map((m) => ({ month: newMonth.trim(), amount: Number(newAmount), member_name: m.name_jp, member_type: "adult", paid: false, paid_date: null })),
+      ...jrMembers.map((m) => ({ month: newMonth.trim(), amount: Number(newAmount), member_name: m.name_jp, member_type: "jr", paid: false, paid_date: null })),
+    ];
+    const { data, error } = await supabase.from("fees").insert(records).select();
+    if (error) { alert("作成に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) {
+      setFees([...fees, ...data]);
+      setSelectedMonth(newMonth.trim());
+    }
+    setShowMonthModal(false);
+    setNewMonth("");
+    setSaving(false);
+  };
+
+  // 支払済みトグル
+  const togglePaid = async (name, type) => {
+    if (!isAdmin) return;
+    const record = getPaidRecord(name, type);
+    if (!record) return;
+    const newPaid = !record.paid;
+    const newDate = newPaid ? new Date().toISOString().slice(0, 10) : null;
+    const { error } = await supabase.from("fees").update({ paid: newPaid, paid_date: newDate }).eq("id", record.id);
+    if (error) { alert("更新に失敗しました：" + error.message); return; }
+    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: newPaid, paid_date: newDate } : f));
+  };
+
+  const adultFees = monthFees.filter((f) => f.member_type === "adult");
+  const adultPaid = adultFees.filter((f) => f.paid).length;
+  const jrFees = monthFees.filter((f) => f.member_type === "jr");
+  const jrPaid = jrFees.filter((f) => f.paid).length;
+  const totalPaid = adultPaid + jrPaid;
+  const totalMembers = adultFees.length + jrFees.length;
+  const totalAmount = adultPaid * monthAmount;
+  const pct = totalMembers > 0 ? Math.round((totalPaid / totalMembers) * 100) : 0;
 
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>部費管理</h2>
-        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
+        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowMonthModal(true)}>＋ 月を追加</button>}
       </div>
 
       {loading && <Loading />}
 
       {!loading && (
         <>
-          {/* サマリー */}
-          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>部費支払い実績</div>
-            <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 4 }}>P{totalAmount.toLocaleString()}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>{filtered.length}件の支払い記録{filterMonth ? `（${filterMonth}）` : "（全期間）"}</div>
-          </div>
-
-          {/* 月フィルター */}
-          {months.length > 0 && (
-            <div style={{ marginBottom: 12, overflowX: "auto", display: "flex", gap: 6, paddingBottom: 4 }}>
-              <button onClick={() => setFilterMonth("")} style={{ padding: "5px 12px", borderRadius: 20, border: `1.5px solid ${!filterMonth ? C.primary : C.border}`, background: !filterMonth ? C.sakuraLight : C.card, color: !filterMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>全期間</button>
-              {months.map((m) => (
-                <button key={m} onClick={() => setFilterMonth(m)} style={{ padding: "5px 12px", borderRadius: 20, border: `1.5px solid ${filterMonth === m ? C.primary : C.border}`, background: filterMonth === m ? C.sakuraLight : C.card, color: filterMonth === m ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{m}</button>
-              ))}
+          {/* 月選択 */}
+          {months.length === 0 ? (
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13, padding: 24 }}>
+              {isAdmin ? "「＋ 月を追加」から月を作成してください" : "部費データがありません"}
             </div>
-          )}
-
-          {/* 支払い一覧 */}
-          {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>部費の支払い記録がありません</div>}
-          {filtered.map((f) => (
-            <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{f.month}　支払日：{f.payment_date}</div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 14, overflowX: "auto", display: "flex", gap: 6, paddingBottom: 4 }}>
+                {months.map((m) => (
+                  <button key={m} onClick={() => setSelectedMonth(m)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${selectedMonth === m ? C.primary : C.border}`, background: selectedMonth === m ? C.sakuraLight : C.card, color: selectedMonth === m ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {m}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: C.primary }}>P{(f.amount || 0).toLocaleString()}</div>
-                {isAdmin && (
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button style={S.btn("ghost", "sm")} onClick={() => setEditing(f)}>編集</button>
-                    <button style={S.btn("danger", "sm")} onClick={() => del(f.id)}>削除</button>
+
+              {selectedMonth && (
+                <>
+                  {/* サマリー */}
+                  <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>{selectedMonth}</div>
+                        <div style={{ fontSize: 26, fontWeight: 900 }}>P{totalAmount.toLocaleString()}</div>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>月額 P{monthAmount.toLocaleString()}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 24, fontWeight: 900 }}>{pct}%</div>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>{totalPaid}/{totalMembers}名</div>
+                      </div>
+                    </div>
+                    <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99, transition: "width 0.4s" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+                      <span>🏉 大人 {adultPaid}/{adultFees.length}名</span>
+                      <span>⭐ Jr {jrPaid}/{jrFees.length}名</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
+
+                  {/* 大人リスト */}
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>🏉 Haponsメンバー</div>
+                  {adultFees.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーがいません</div>}
+                  {adultFees.map((f) => (
+                    <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
+                        {f.paid && f.paid_date && <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div>}
+                        {!f.paid && <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
+                      </div>
+                      <button
+                        onClick={() => togglePaid(f.member_name, "adult")}
+                        disabled={!isAdmin}
+                        style={{
+                          padding: "6px 16px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12,
+                          cursor: isAdmin ? "pointer" : "default",
+                          background: f.paid ? "#2E7D3220" : "#CC1F1F20",
+                          color: f.paid ? C.success : C.danger,
+                        }}>
+                        {f.paid ? "✓ 納入済" : "未納入"}
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Jrリスト */}
+                  {jrFees.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: "16px 0 8px" }}>⭐ Jr</div>
+                      {jrFees.map((f) => (
+                        <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
+                            {f.paid && f.paid_date && <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div>}
+                            {!f.paid && <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
+                          </div>
+                          <button
+                            onClick={() => togglePaid(f.member_name, "jr")}
+                            disabled={!isAdmin}
+                            style={{
+                              padding: "6px 16px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12,
+                              cursor: isAdmin ? "pointer" : "default",
+                              background: f.paid ? "#2E7D3220" : "#CC1F1F20",
+                              color: f.paid ? C.success : C.danger,
+                            }}>
+                            {f.paid ? "✓ 納入済" : "未納入"}
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
         </>
       )}
 
-      {editing && <EditModal title="支払い記録を編集" fields={feeFields} data={editing} onSave={saveFee} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title="部費支払いを登録" fields={feeFields} data={{ month: "", amount: 1000, member_name: "", payment_date: new Date().toISOString().slice(0, 10) }} onSave={saveFee} onClose={() => setShowAdd(false)} />}
+      {/* 月追加モーダル */}
+      {showMonthModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+            <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 900, color: C.text }}>月を追加</h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>月（例：2026年5月）</label>
+            <input style={S.input} placeholder="2026年5月" value={newMonth} onChange={(e) => setNewMonth(e.target.value)} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>月額（ペソ）</label>
+            <input style={S.input} type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
+            <p style={{ fontSize: 12, color: C.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
+              現在登録中の全メンバー（{members.length}名の大人・{jrMembers.length}名のJr）が自動的に追加されます。
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setShowMonthModal(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={createMonth} disabled={saving}>
+                {saving ? "作成中..." : "作成する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
