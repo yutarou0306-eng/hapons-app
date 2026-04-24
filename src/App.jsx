@@ -1290,9 +1290,33 @@ function FeesTab({ isAdmin }) {
           </div>
         )}
         {showAddMember && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
-              <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>メンバーを追加</h3>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>メンバーを追加</h3>
+                <button onClick={() => { setShowAddMember(false); setAddTarget(""); }} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+              </div>
+
+              {/* 名前を直接入力 */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>名前を直接入力（退部済みメンバー等）</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input style={{ ...S.input, marginBottom: 0, flex: 1 }} placeholder="例：橋本 太郎"
+                    value={addTarget && !members.some((m) => m.name_jp === addTarget) ? addTarget : ""}
+                    onChange={(e) => setAddTarget(e.target.value)} />
+                </div>
+              </div>
+
+              {/* 区切り */}
+              {notInMonth.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                  <span style={{ fontSize: 11, color: C.textMuted, whiteSpace: "nowrap" }}>または名簿から選択</span>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                </div>
+              )}
+
+              {/* 名簿から選択 */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                 {notInMonth.map((m) => (
                   <button key={m.id} onClick={() => setAddTarget(m.name_jp)}
@@ -1302,9 +1326,10 @@ function FeesTab({ isAdmin }) {
                   </button>
                 ))}
               </div>
+
               <div style={{ display: "flex", gap: 8 }}>
                 <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAddMember(false); setAddTarget(""); }}>キャンセル</button>
-                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMemberToMonth} disabled={!addTarget || saving}>追加する</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMemberToMonth} disabled={!addTarget.trim() || saving}>追加する</button>
               </div>
             </div>
           </div>
