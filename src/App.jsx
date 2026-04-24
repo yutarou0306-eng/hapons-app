@@ -169,7 +169,7 @@ function ImportantPage({ onClose }) {
         <Item><Bold>大人：</Bold>P1,000／月（毎月25日〜月末払）</Item>
         <div style={{ margin: "4px 0 8px 12px", padding: "8px 12px", background: C.sakuraLight, borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>振込先：BDO Unibank<br />Manila Hapons <Bold>0000 4121 9449</Bold><br />または会計担当に手渡し・GCash</div>
         <Item><Bold>子供：</Bold>P100／回（兄弟参加の場合は1人分でOK）</Item>
-        <Item><Bold>特別練習：</Bold>通常練習に加えP100／回</Item>
+        <Item><Bold>特別練習：</Bold>P100／回・人（兄弟参加の場合は人数×P100）</Item>
       </DocSection>
       <DocSection num="６" title="活動停止・退部勧告">
         <Item>MJS施設利用に関する規則の重大な違反</Item>
