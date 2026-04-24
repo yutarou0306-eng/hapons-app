@@ -1113,7 +1113,6 @@ function FeesTab({ isAdmin }) {
     // 大人メンバー分のレコードを一括作成
     const records = [
       ...members.map((m) => ({ month: newMonth.trim(), amount: Number(newAmount), member_name: m.name_jp, member_type: "adult", paid: false, paid_date: null })),
-      ...jrMembers.map((m) => ({ month: newMonth.trim(), amount: Number(newAmount), member_name: m.name_jp, member_type: "jr", paid: false, paid_date: null })),
     ];
     const { data, error } = await supabase.from("fees").insert(records).select();
     if (error) { alert("作成に失敗しました：" + error.message); setSaving(false); return; }
@@ -1140,10 +1139,8 @@ function FeesTab({ isAdmin }) {
 
   const adultFees = monthFees.filter((f) => f.member_type === "adult");
   const adultPaid = adultFees.filter((f) => f.paid).length;
-  const jrFees = monthFees.filter((f) => f.member_type === "jr");
-  const jrPaid = jrFees.filter((f) => f.paid).length;
-  const totalPaid = adultPaid + jrPaid;
-  const totalMembers = adultFees.length + jrFees.length;
+  const totalPaid = adultPaid;
+  const totalMembers = adultFees.length;
   const totalAmount = adultPaid * monthAmount;
   const pct = totalMembers > 0 ? Math.round((totalPaid / totalMembers) * 100) : 0;
 
@@ -1192,9 +1189,8 @@ function FeesTab({ isAdmin }) {
                     <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99, transition: "width 0.4s" }} />
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, opacity: 0.8 }}>
-                      <span>🏉 大人 {adultPaid}/{adultFees.length}名</span>
-                      <span>⭐ Jr {jrPaid}/{jrFees.length}名</span>
+                    <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+                      未納：{totalMembers - totalPaid}名
                     </div>
                   </div>
 
@@ -1221,33 +1217,6 @@ function FeesTab({ isAdmin }) {
                       </button>
                     </div>
                   ))}
-
-                  {/* Jrリスト */}
-                  {jrFees.length > 0 && (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: "16px 0 8px" }}>⭐ Jr</div>
-                      {jrFees.map((f) => (
-                        <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
-                            {f.paid && f.paid_date && <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div>}
-                            {!f.paid && <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
-                          </div>
-                          <button
-                            onClick={() => togglePaid(f.member_name, "jr")}
-                            disabled={!isAdmin}
-                            style={{
-                              padding: "6px 16px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12,
-                              cursor: isAdmin ? "pointer" : "default",
-                              background: f.paid ? "#2E7D3220" : "#CC1F1F20",
-                              color: f.paid ? C.success : C.danger,
-                            }}>
-                            {f.paid ? "✓ 納入済" : "未納入"}
-                          </button>
-                        </div>
-                      ))}
-                    </>
-                  )}
                 </>
               )}
             </>
@@ -1265,7 +1234,7 @@ function FeesTab({ isAdmin }) {
             <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>月額（ペソ）</label>
             <input style={S.input} type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
             <p style={{ fontSize: 12, color: C.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
-              現在登録中の全メンバー（{members.length}名の大人・{jrMembers.length}名のJr）が自動的に追加されます。
+              現在登録中の全メンバー（{members.length}名）が自動的に追加されます。
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setShowMonthModal(false)}>キャンセル</button>
