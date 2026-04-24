@@ -221,6 +221,14 @@ function RulesPage({ onClose }) {
         <Item>政治活動・宗教活動・営利目的の活動禁止</Item>
         <Item><Bold>施行日：</Bold>2026年4月1日</Item>
       </DocSection>
+
+      <a href="https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block", marginTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 16px", background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, borderRadius: 12, cursor: "pointer" }}>
+          <span style={{ fontSize: 18 }}>📄</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>全文はこちら（PDF）</span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>↗</span>
+        </div>
+      </a>
     </DocViewer>
   );
 }
