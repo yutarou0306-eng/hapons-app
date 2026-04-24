@@ -1072,8 +1072,9 @@ function FeesTab({ isAdmin }) {
   const [members, setMembers] = useState([]);
   const [fees, setFees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [newMonth, setNewMonth] = useState("");
   const [newAmount, setNewAmount] = useState(1000);
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -1096,26 +1097,35 @@ function FeesTab({ isAdmin }) {
   }, []);
 
   const months = [...new Set(fees.map((f) => f.month))].sort().reverse();
-  const monthFees = fees.filter((f) => f.month === selectedMonth);
+  const recentMonths = months.slice(0, 5);
+  const yearTotal = fees.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+
+  const getMonthFees = (month) => fees.filter((f) => f.month === month);
+  const getMonthSummary = (month) => {
+    const mf = getMonthFees(month);
+    const paid = mf.filter((f) => f.paid).length;
+    const total = mf.length;
+    const amount = mf.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+    const unitAmount = mf.length > 0 ? mf[0].amount : 0;
+    return { paid, total, amount, unitAmount, pct: total > 0 ? Math.round((paid / total) * 100) : 0 };
+  };
+
+  const monthFees = selectedMonth ? getMonthFees(selectedMonth) : [];
   const monthAmount = monthFees.length > 0 ? monthFees[0].amount : 0;
   const getRecord = (name) => monthFees.find((f) => f.member_name === name);
+  const notInMonth = members.filter((m) => !monthFees.some((f) => f.member_name === m.name_jp));
 
-  const toggleSelectMember = (name) => {
-    setSelectedMembers((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
-    );
-  };
+  const toggleSelectMember = (name) => setSelectedMembers((prev) =>
+    prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+  );
   const selectAll = () => setSelectedMembers(members.map((m) => m.name_jp));
   const clearAll = () => setSelectedMembers([]);
 
   const createMonth = async () => {
-    if (!newMonth.trim() || selectedMembers.length === 0) {
-      alert("月と対象メンバーを選択してください"); return;
-    }
+    if (!newMonth.trim() || selectedMembers.length === 0) { alert("月と対象メンバーを選択してください"); return; }
     setSaving(true);
     const records = selectedMembers.map((name) => ({
-      month: newMonth.trim(), amount: Number(newAmount),
-      member_name: name, member_type: "adult", paid: false, paid_date: null,
+      month: newMonth.trim(), amount: Number(newAmount), member_name: name, member_type: "adult", paid: false, paid_date: null,
     }));
     const { data, error } = await supabase.from("fees").insert(records).select();
     if (error) { alert("作成に失敗しました：" + error.message); setSaving(false); return; }
@@ -1127,8 +1137,7 @@ function FeesTab({ isAdmin }) {
     if (!addTarget) return;
     setSaving(true);
     const { data, error } = await supabase.from("fees").insert([{
-      month: selectedMonth, amount: monthAmount,
-      member_name: addTarget, member_type: "adult", paid: false, paid_date: null,
+      month: selectedMonth, amount: monthAmount, member_name: addTarget, member_type: "adult", paid: false, paid_date: null,
     }]).select();
     if (error) { alert("追加に失敗しました：" + error.message); setSaving(false); return; }
     if (data) setFees([...fees, data[0]]);
@@ -1154,95 +1163,157 @@ function FeesTab({ isAdmin }) {
     setFees(fees.map((f) => f.id === record.id ? { ...f, paid: newPaid, paid_date: newDate } : f));
   };
 
-  const paidCount = monthFees.filter((f) => f.paid).length;
-  const totalMembers = monthFees.length;
-  const totalAmount = paidCount * monthAmount;
-  const pct = totalMembers > 0 ? Math.round((paidCount / totalMembers) * 100) : 0;
-  const notInMonth = members.filter((m) => !monthFees.some((f) => f.member_name === m.name_jp));
+  const MonthCard = ({ month, onClick }) => {
+    const s = getMonthSummary(month);
+    return (
+      <div onClick={onClick} style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${s.pct === 100 ? C.success : C.primary}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{month}</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: C.primary }}>P{s.amount.toLocaleString()}</div>
+        </div>
+        <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+          <div style={{ height: "100%", width: `${s.pct}%`, background: s.pct === 100 ? C.success : C.primary, borderRadius: 99 }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+          <span>{s.paid}/{s.total}名 納入済　月額P{s.unitAmount.toLocaleString()}</span>
+          <span style={{ color: s.pct === 100 ? C.success : C.textMuted, fontWeight: 700 }}>{s.pct}%</span>
+        </div>
+      </div>
+    );
+  };
 
+  // 月詳細ページ
+  if (selectedMonth) {
+    const mf = getMonthFees(selectedMonth);
+    const paid = mf.filter((f) => f.paid).length;
+    const pct = mf.length > 0 ? Math.round((paid / mf.length) * 100) : 0;
+    const totalAmt = mf.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setSelectedMonth(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0 }}>{selectedMonth}</h2>
+          {isAdmin && notInMonth.length > 0 && (
+            <button style={{ ...S.btn("ghost", "sm"), marginLeft: "auto" }} onClick={() => setShowAddMember(true)}>＋ 追加</button>
+          )}
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>納入済み合計</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>P{totalAmt.toLocaleString()}</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>月額 P{monthAmount.toLocaleString()}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{pct}%</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>{paid}/{mf.length}名</div>
+            </div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99 }} />
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>未納：{mf.length - paid}名</div>
+        </div>
+        {mf.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>対象メンバーがいません</div>}
+        {mf.map((f) => (
+          <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
+              {f.paid && f.paid_date ? <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div> : <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button onClick={() => togglePaid(f.member_name)} disabled={!isAdmin}
+                style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: isAdmin ? "pointer" : "default", background: f.paid ? "#2E7D3220" : "#CC1F1F20", color: f.paid ? C.success : C.danger }}>
+                {f.paid ? "✓ 納入済" : "未納入"}
+              </button>
+              {isAdmin && <button onClick={() => removeMemberFromMonth(f.member_name)} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>除外</button>}
+            </div>
+          </div>
+        ))}
+        {showAddMember && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>メンバーを追加</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                {notInMonth.map((m) => (
+                  <button key={m.id} onClick={() => setAddTarget(m.name_jp)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${addTarget === m.name_jp ? C.primary : C.border}`, background: addTarget === m.name_jp ? C.sakuraLight : C.card, cursor: "pointer", fontFamily: "inherit" }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
+                    {addTarget === m.name_jp && <span style={{ color: C.primary, fontWeight: 900 }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAddMember(false); setAddTarget(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMemberToMonth} disabled={!addTarget || saving}>追加する</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 全履歴ページ
+  if (showHistory) {
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0 }}>支払い履歴（全期間）</h2>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{yearTotal.toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全期間 {months.length}か月分</div>
+        </div>
+        {months.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>データがありません</div>}
+        {months.map((month) => (
+          <MonthCard key={month} month={month} onClick={() => { setShowHistory(false); setSelectedMonth(month); }} />
+        ))}
+      </div>
+    );
+  }
+
+  // メインページ
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>部費管理</h2>
         {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(members.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
       </div>
-
       {loading && <Loading />}
       {!loading && (
         <>
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{yearTotal.toLocaleString()}</div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>全期間 {months.length}か月分の記録</div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>直近5か月</div>
+          </div>
+
           {months.length === 0 ? (
             <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13, padding: 24 }}>
               {isAdmin ? "「＋ 月を追加」から月を作成してください" : "部費データがありません"}
             </div>
           ) : (
-            <>
-              <div style={{ marginBottom: 14, overflowX: "auto", display: "flex", gap: 6, paddingBottom: 4 }}>
-                {months.map((m) => (
-                  <button key={m} onClick={() => setSelectedMonth(m)}
-                    style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${selectedMonth === m ? C.primary : C.border}`, background: selectedMonth === m ? C.sakuraLight : C.card, color: selectedMonth === m ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                    {m}
-                  </button>
-                ))}
-              </div>
+            recentMonths.map((month) => (
+              <MonthCard key={month} month={month} onClick={() => setSelectedMonth(month)} />
+            ))
+          )}
 
-              {selectedMonth && (
-                <>
-                  <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>{selectedMonth}</div>
-                        <div style={{ fontSize: 26, fontWeight: 900 }}>P{totalAmount.toLocaleString()}</div>
-                        <div style={{ fontSize: 12, opacity: 0.8 }}>月額 P{monthAmount.toLocaleString()}</div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 24, fontWeight: 900 }}>{pct}%</div>
-                        <div style={{ fontSize: 12, opacity: 0.8 }}>{paidCount}/{totalMembers}名</div>
-                      </div>
-                    </div>
-                    <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99, transition: "width 0.4s" }} />
-                    </div>
-                    <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>未納：{totalMembers - paidCount}名</div>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>🏉 対象メンバー</div>
-                    {isAdmin && notInMonth.length > 0 && (
-                      <button style={S.btn("ghost", "sm")} onClick={() => setShowAddMember(true)}>＋ メンバー追加</button>
-                    )}
-                  </div>
-
-                  {monthFees.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>対象メンバーがいません</div>}
-                  {monthFees.map((f) => (
-                    <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
-                        {f.paid && f.paid_date
-                          ? <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div>
-                          : <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
-                      </div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <button onClick={() => togglePaid(f.member_name)} disabled={!isAdmin}
-                          style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: isAdmin ? "pointer" : "default", background: f.paid ? "#2E7D3220" : "#CC1F1F20", color: f.paid ? C.success : C.danger }}>
-                          {f.paid ? "✓ 納入済" : "未納入"}
-                        </button>
-                        {isAdmin && (
-                          <button onClick={() => removeMemberFromMonth(f.member_name)}
-                            style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
-                            除外
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </>
+          {months.length > 0 && (
+            <button onClick={() => setShowHistory(true)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.primary}`, background: C.sakuraLight, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
+              📋 全履歴を見る（{months.length}か月分）
+            </button>
           )}
         </>
       )}
 
-      {/* 月追加モーダル */}
       {showMonthModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
@@ -1280,28 +1351,6 @@ function FeesTab({ isAdmin }) {
               <button style={{ ...S.btn("primary"), flex: 2 }} onClick={createMonth} disabled={saving}>
                 {saving ? "作成中..." : `${selectedMembers.length}名で作成する`}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* メンバー追加モーダル */}
-      {showAddMember && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>メンバーを追加</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-              {notInMonth.map((m) => (
-                <button key={m.id} onClick={() => setAddTarget(m.name_jp)}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${addTarget === m.name_jp ? C.primary : C.border}`, background: addTarget === m.name_jp ? C.sakuraLight : C.card, cursor: "pointer", fontFamily: "inherit" }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
-                  {addTarget === m.name_jp && <span style={{ color: C.primary, fontWeight: 900 }}>✓</span>}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAddMember(false); setAddTarget(""); }}>キャンセル</button>
-              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMemberToMonth} disabled={!addTarget || saving}>追加する</button>
             </div>
           </div>
         </div>
