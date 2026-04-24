@@ -991,7 +991,7 @@ function ScheduleTab({ isAdmin }) {
     fetch();
   }, []);
 
-  const typeConfig = { practice: { label: "練習", color: "#1E88E5" }, game: { label: "試合", color: C.primary }, meeting: { label: "会議", color: "#8E24AA" }, tournament: { label: "大会", color: "#D4A800" } };
+  const typeConfig = { practice: { label: "練習", color: "#1E88E5" }, game: { label: "試合", color: C.primary }, event: { label: "イベント", color: "#2E7D32" }, committee: { label: "幹事会", color: "#8E24AA" } };
   const fields = [
     { key: "title", label: "タイトル" },
     { key: "date", label: "日付", type: "date" },
