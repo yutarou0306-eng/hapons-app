@@ -1160,15 +1160,28 @@ function FeesTab({ isAdmin }) {
     setFees(fees.filter((f) => f.id !== record.id));
   };
 
-  const togglePaid = async (name) => {
-    if (!isAdmin) return;
+  const [showPayModal, setShowPayModal] = useState(null); // member_name or null
+
+  const PAYMENT_METHODS = ["現金", "口座振込", "GCash"];
+  const METHOD_ICONS = { "現金": "💴", "口座振込": "🏦", "GCash": "📱" };
+
+  const registerPaid = async (name, method) => {
     const record = getRecord(name);
     if (!record) return;
-    const newPaid = !record.paid;
-    const newDate = newPaid ? new Date().toISOString().slice(0, 10) : null;
-    const { error } = await supabase.from("fees").update({ paid: newPaid, paid_date: newDate }).eq("id", record.id);
+    const newDate = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("fees").update({ paid: true, paid_date: newDate, payment_method: method }).eq("id", record.id);
     if (error) { alert("更新に失敗しました：" + error.message); return; }
-    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: newPaid, paid_date: newDate } : f));
+    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: true, paid_date: newDate, payment_method: method } : f));
+    setShowPayModal(null);
+  };
+
+  const cancelPaid = async (name) => {
+    if (!window.confirm("納入済みを取り消しますか？")) return;
+    const record = getRecord(name);
+    if (!record) return;
+    const { error } = await supabase.from("fees").update({ paid: false, paid_date: null, payment_method: null }).eq("id", record.id);
+    if (error) { alert("更新に失敗しました：" + error.message); return; }
+    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: false, paid_date: null, payment_method: null } : f));
   };
 
   const MonthCard = ({ month, onClick }) => {
@@ -1227,17 +1240,55 @@ function FeesTab({ isAdmin }) {
           <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
-              {f.paid && f.paid_date ? <div style={{ fontSize: 11, color: C.success }}>支払日：{f.paid_date}</div> : <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>}
+              {f.paid
+                ? <div style={{ fontSize: 11, color: C.success }}>
+                    支払日：{f.paid_date}　{f.payment_method ? `${METHOD_ICONS[f.payment_method] || ""}${f.payment_method}` : ""}
+                  </div>
+                : <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>
+              }
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <button onClick={() => togglePaid(f.member_name)} disabled={!isAdmin}
-                style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: isAdmin ? "pointer" : "default", background: f.paid ? "#2E7D3220" : "#CC1F1F20", color: f.paid ? C.success : C.danger }}>
-                {f.paid ? "✓ 納入済" : "未納入"}
-              </button>
+              {isAdmin ? (
+                f.paid ? (
+                  <button onClick={() => cancelPaid(f.member_name)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "#2E7D3220", color: C.success }}>
+                    ✓ 納入済
+                  </button>
+                ) : (
+                  <button onClick={() => setShowPayModal(f.member_name)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "#CC1F1F20", color: C.danger }}>
+                    未納入
+                  </button>
+                )
+              ) : (
+                <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: f.paid ? "#2E7D3220" : "#CC1F1F20", color: f.paid ? C.success : C.danger }}>
+                  {f.paid ? "✓ 納入済" : "未納入"}
+                </span>
+              )}
               {isAdmin && <button onClick={() => removeMemberFromMonth(f.member_name)} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>除外</button>}
             </div>
           </div>
         ))}
+
+        {/* 支払方法選択モーダル */}
+        {showPayModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 900, color: C.text }}>支払方法を選択</h3>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>{showPayModal}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                {PAYMENT_METHODS.map((method) => (
+                  <button key={method} onClick={() => registerPaid(showPayModal, method)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.bg, cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: 700, color: C.text }}>
+                    <span style={{ fontSize: 22 }}>{METHOD_ICONS[method]}</span>
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <button style={{ ...S.btn("ghost"), width: "100%" }} onClick={() => setShowPayModal(null)}>キャンセル</button>
+            </div>
+          </div>
+        )}
         {showAddMember && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
