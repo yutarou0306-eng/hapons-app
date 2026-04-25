@@ -985,7 +985,7 @@ function AttendancePanel({ event, onClose }) {
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
             {adultAttending.length > 0 && (
               <div style={{ marginBottom: 3 }}>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, marginBottom: 2 }}>🏉 大人</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                   {adultAttending.map((name) => (
                     <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
@@ -993,14 +993,24 @@ function AttendancePanel({ event, onClose }) {
                 </div>
               </div>
             )}
+            {!adultAttending.length && (
+              <div style={{ marginBottom: 3 }}>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>🏉 大人　出席0 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
+              </div>
+            )}
             {jrAttending.length > 0 && (
               <div>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, marginBottom: 2 }}>⭐ Jr</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                   {jrAttending.map((name) => (
                     <span key={name} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
                   ))}
                 </div>
+              </div>
+            )}
+            {!jrAttending.length && (
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>⭐ Jr　出席0 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
               </div>
             )}
           </div>
@@ -1051,16 +1061,10 @@ function AttendancePanel({ event, onClose }) {
               {/* 大人/Jr タブ */}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  🏉 大人<br />
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>
-                    出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}
-                  </span>
+                  🏉 大人
                 </button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  ⭐ Jr<br />
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>
-                    出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}
-                  </span>
+                  ⭐ Jr
                 </button>
               </div>
 
