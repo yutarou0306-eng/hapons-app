@@ -673,53 +673,24 @@ function MembersTab({ isAdmin }) {
   const [activeTab, setActiveTab] = useState("adult");
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
-  const [families, setFamilies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
-  const [showFamilyModal, setShowFamilyModal] = useState(false);
-  const [newFamilyName, setNewFamilyName] = useState("");
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, f] = await Promise.all([
+      const [m, j] = await Promise.all([
         supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("jr_families").select("*").order("created_at"),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
-      if (f.data) setFamilies(f.data);
       setLoading(false);
     };
     fetchAll();
   }, []);
-
-  const addFamily = async () => {
-    if (!newFamilyName.trim()) return;
-    const { data, error } = await supabase.from("jr_families").insert([{ family_name: newFamilyName.trim() }]).select();
-    if (error) { alert("作成に失敗しました：" + error.message); return; }
-    if (data) setFamilies([...families, data[0]]);
-    setNewFamilyName("");
-  };
-
-  const deleteFamily = async (id) => {
-    if (!window.confirm("この家族グループを削除しますか？")) return;
-    await supabase.from("jr_families").delete().eq("id", id);
-    setFamilies(families.filter((f) => f.id !== id));
-  };
-
-  const assignFamily = async (memberId, familyId) => {
-    await supabase.from("jr_members").update({ family_id: familyId }).eq("id", memberId);
-    setJrMembers(jrMembers.map((m) => m.id === memberId ? { ...m, family_id: familyId } : m));
-  };
-
-  const getFamilyName = (familyId) => {
-    const f = families.find((f) => f.id === familyId);
-    return f ? f.family_name : null;
-  };
 
   const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
   const isAdult = activeTab === "adult";
@@ -754,6 +725,7 @@ function MembersTab({ isAdmin }) {
     { key: "is_mjs_student", label: "MJSの生徒", type: "checkbox" },
     { key: "parent_name", label: "保護者氏名" },
     { key: "phone", label: "電話番号" },
+
   ];
 
   const fields = isAdult ? adultFields : jrFields;
@@ -768,6 +740,7 @@ function MembersTab({ isAdmin }) {
     } else {
       payload.age = null;
     }
+
     if (showAdd) {
       const { data, error } = await supabase.from(table).insert([payload]).select();
       if (error) { alert("保存に失敗しました：" + error.message); return; }
@@ -811,13 +784,6 @@ function MembersTab({ isAdmin }) {
           <input style={{ ...S.input, marginBottom: 10 }} placeholder="🔍 名前・ポジション・学年で検索" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{filtered.length}名 / 全{list.length}名</div>
 
-          {/* Jr家族グループ管理ボタン */}
-          {!isAdult && isAdmin && (
-            <button onClick={() => setShowFamilyModal(true)} style={{ ...S.btn("ghostJr", "sm"), marginBottom: 12, width: "100%", padding: "8px" }}>
-              👨‍👩‍👧‍👦 家族グループを管理
-            </button>
-          )}
-
           {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>}
           {filtered.map((m) => (
             <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${isAdult ? C.primary : C.jr}` }}>
@@ -836,25 +802,15 @@ function MembersTab({ isAdmin }) {
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span></>
                     }
-                    {/* 家族グループ表示 */}
-                    {!isAdult && (
-                      <div style={{ marginTop: 4 }}>
-                        {m.family_id && getFamilyName(m.family_id)
-                          ? <span style={{ ...S.badge(C.jr) }}>👨‍👩‍👧‍👦 {getFamilyName(m.family_id)}</span>
-                          : isAdmin && <span style={{ color: C.textMuted, fontSize: 11 }}>家族グループ未設定</span>
-                        }
-                        {isAdmin && (
-                          <select
-                            value={m.family_id || ""}
-                            onChange={(e) => assignFamily(m.id, e.target.value ? Number(e.target.value) : null)}
-                            style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, cursor: "pointer" }}
-                          >
-                            <option value="">グループ選択</option>
-                            {families.map((f) => <option key={f.id} value={f.id}>{f.family_name}</option>)}
-                          </select>
-                        )}
-                      </div>
-                    )}
+                    {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
+                    {!isAdult && m.parent_name && (() => {
+                      const siblings = jrMembers.filter((j) => j.parent_name === m.parent_name && j.id !== m.id);
+                      return siblings.length > 0 ? (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ ...S.badge(C.jr) }}>👨‍👩‍👧‍👦 {siblings.map((s) => s.name_jp).join("・")}と同グループ</span>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 {isAdmin && (
@@ -871,44 +827,6 @@ function MembersTab({ isAdmin }) {
 
       {editing && <EditModal title={`${isAdult ? "メンバー" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
-
-      {/* 家族グループ管理モーダル */}
-      {showFamilyModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 家族グループ管理</h3>
-              <button onClick={() => setShowFamilyModal(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
-            </div>
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
-              兄弟のいる家族をグループにまとめます。参加費はグループ単位でP100になります。
-            </p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <input style={{ ...S.input, marginBottom: 0, flex: 1 }} placeholder="例：田中家" value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addFamily()} />
-              <button style={S.btn("jr", "sm")} onClick={addFamily}>追加</button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {families.length === 0 && <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13, padding: 12 }}>グループがありません</div>}
-              {families.map((f) => {
-                const members_in = jrMembers.filter((m) => m.family_id === f.id);
-                return (
-                  <div key={f.id} style={{ ...S.card, borderLeft: `4px solid ${C.jr}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: members_in.length > 0 ? 6 : 0 }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>👨‍👩‍👧‍👦 {f.family_name}</span>
-                      <button onClick={() => deleteFamily(f.id)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>削除</button>
-                    </div>
-                    {members_in.length > 0 && (
-                      <div style={{ fontSize: 12, color: C.textMuted }}>
-                        {members_in.map((m) => m.name_jp).join("・")}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -917,7 +835,6 @@ function MembersTab({ isAdmin }) {
 function AttendancePanel({ event, onClose }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
-  const [families, setFamilies] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -928,15 +845,13 @@ function AttendancePanel({ event, onClose }) {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, f, a] = await Promise.all([
+      const [m, j, a] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
-        supabase.from("jr_members").select("id, name_jp, grade, family_id").order("created_at"),
-        supabase.from("jr_families").select("*").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
         supabase.from("attendances").select("*").eq("event_id", event.id),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
-      if (f.data) setFamilies(f.data);
       if (a.data) setAttendances(a.data);
       setLoading(false);
     };
@@ -952,15 +867,26 @@ function AttendancePanel({ event, onClose }) {
     else setSelected([...selected, { name, type }]);
   };
 
-  // Jr：家族グループ単位で登録（グループ名をmember_nameとして保存）
+  // Jr：保護者名が同じ → 家族グループとして1単位
   const getJrUnits = () => {
     const units = [];
-    families.forEach((f) => {
-      const kids = jrMembers.filter((m) => m.family_id === f.id);
-      if (kids.length > 0) units.push({ key: `fam_${f.id}`, label: f.family_name, subLabel: kids.map((k) => k.name_jp).join("・"), type: "jr" });
-    });
-    jrMembers.filter((m) => !m.family_id).forEach((m) => {
-      units.push({ key: `ind_${m.id}`, label: m.name_jp, subLabel: m.grade, type: "jr" });
+    const processed = new Set();
+    jrMembers.forEach((m) => {
+      if (processed.has(m.id)) return;
+      const siblings = jrMembers.filter((j) => j.parent_name && j.parent_name === m.parent_name && j.id !== m.id);
+      if (siblings.length > 0) {
+        const group = [m, ...siblings];
+        group.forEach((g) => processed.add(g.id));
+        units.push({
+          key: `grp_${m.id}`,
+          label: m.parent_name,
+          subLabel: group.map((g) => g.name_jp).join("・"),
+          type: "jr",
+        });
+      } else {
+        processed.add(m.id);
+        units.push({ key: `ind_${m.id}`, label: m.name_jp, subLabel: m.grade || "", type: "jr" });
+      }
     });
     return units;
   };
@@ -1619,24 +1545,20 @@ function FeesWrapper({ isAdmin }) {
 // ── JR FEES TAB ──
 function JrFeesTab({ isAdmin }) {
   const [jrMembers, setJrMembers] = useState([]);
-  const [families, setFamilies] = useState([]);
   const [events, setEvents] = useState([]);
   const [jrFees, setJrFees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [j, f, e, jf] = await Promise.all([
+      const [j, e, jf] = await Promise.all([
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("jr_families").select("*").order("created_at"),
         supabase.from("events").select("*").eq("type", "practice").order("date", { ascending: false }),
         supabase.from("jr_fees").select("*"),
       ]);
       if (j.data) setJrMembers(j.data);
-      if (f.data) setFamilies(f.data);
       if (e.data) setEvents(e.data);
       if (jf.data) setJrFees(jf.data);
       setLoading(false);
@@ -1646,53 +1568,45 @@ function JrFeesTab({ isAdmin }) {
 
   const recentEvents = events.slice(0, 4);
 
-  // 家族グループを構築（グループあり＋グループなし個人）
+  // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
     const units = [];
-    // 家族グループ単位
-    families.forEach((f) => {
-      const members = jrMembers.filter((m) => m.family_id === f.id);
-      if (members.length > 0) {
-        units.push({ type: "family", id: f.id, label: f.family_name, members, key: `family_${f.id}` });
+    const processed = new Set();
+    jrMembers.forEach((m) => {
+      if (processed.has(m.id)) return;
+      const siblings = jrMembers.filter((j) => j.parent_name && j.parent_name === m.parent_name && j.id !== m.id);
+      if (siblings.length > 0 && m.parent_name) {
+        const group = [m, ...siblings];
+        group.forEach((g) => processed.add(g.id));
+        units.push({ key: `grp_${m.parent_name}`, label: m.parent_name, members: group });
+      } else {
+        processed.add(m.id);
+        units.push({ key: `ind_${m.id}`, label: m.name_jp, members: [m] });
       }
-    });
-    // グループ未設定の個人
-    jrMembers.filter((m) => !m.family_id).forEach((m) => {
-      units.push({ type: "individual", id: m.id, label: m.name_jp, members: [m], key: `individual_${m.id}` });
     });
     return units;
   };
 
   const feeUnits = getFeeUnits();
 
-  const isPaid = (eventId, familyId, individualId) => {
-    return jrFees.some((f) =>
-      f.event_id === eventId &&
-      (familyId ? f.family_id === familyId : f.family_id === individualId)
-    );
-  };
+  // jr_feesはlabelをキーとして保存
+  const isPaid = (eventId, label) =>
+    jrFees.some((f) => f.event_id === eventId && f.family_id === label);
 
-  const togglePaid = async (eventId, familyId, individualId) => {
+  const togglePaid = async (eventId, label) => {
     if (!isAdmin) return;
-    const feeId = familyId || individualId;
-    const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === feeId);
+    const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === label);
     if (existing) {
       await supabase.from("jr_fees").delete().eq("id", existing.id);
       setJrFees(jrFees.filter((f) => f.id !== existing.id));
     } else {
-      const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: feeId, paid: true }]).select();
+      const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: label, paid: true }]).select();
       if (data) setJrFees([...jrFees, data[0]]);
     }
   };
 
-  const getEventPaidCount = (eventId) => {
-    return jrFees.filter((f) => f.event_id === eventId).length;
-  };
-
-  const getEventTotal = (eventId) => {
-    return jrFees.filter((f) => f.event_id === eventId).length * 100;
-  };
-
+  const getEventPaidCount = (eventId) => jrFees.filter((f) => f.event_id === eventId).length;
+  const getEventTotal = (eventId) => getEventPaidCount(eventId) * 100;
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
 
   // 練習詳細ページ
@@ -1717,19 +1631,19 @@ function JrFeesTab({ isAdmin }) {
           </div>
         )}
         {feeUnits.map((unit) => {
-          const paid = isPaid(selectedEvent, unit.type === "family" ? unit.id : null, unit.type === "individual" ? unit.id : null);
+          const paid = isPaid(selectedEvent, unit.label);
           return (
             <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
-                  {unit.type === "family" ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
+                  {unit.members.length > 1 ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted }}>
                   {unit.members.map((m) => m.name_jp).join("・")}　P100
                 </div>
               </div>
               {isAdmin ? (
-                <button onClick={() => togglePaid(selectedEvent, unit.type === "family" ? unit.id : null, unit.type === "individual" ? unit.id : null)}
+                <button onClick={() => togglePaid(selectedEvent, unit.label)}
                   style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
                   {paid ? "✓ 参加" : "不参加"}
                 </button>
