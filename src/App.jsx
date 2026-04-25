@@ -1667,7 +1667,7 @@ function JrFeesTab({ isAdmin }) {
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
           <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length}グループ　P100×{paidCount}グループ</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length}グループ参加　P100×{paidCount}グループ</div>
         </div>
 
         {feeUnits.length === 0 && (
@@ -1690,11 +1690,11 @@ function JrFeesTab({ isAdmin }) {
               {isAdmin ? (
                 <button onClick={() => togglePaid(selectedEvent, unit.type === "family" ? unit.id : null, unit.type === "individual" ? unit.id : null)}
                   style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 支払済" : "未払い"}
+                  {paid ? "✓ 参加" : "不参加"}
                 </button>
               ) : (
                 <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 支払済" : "未払い"}
+                  {paid ? "✓ 参加" : "不参加"}
                 </span>
               )}
             </div>
@@ -1740,7 +1740,7 @@ function JrFeesTab({ isAdmin }) {
                   <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
-                  <span>{paidCount}/{feeUnits.length}グループ 支払済</span>
+                  <span>{paidCount}/{feeUnits.length}グループ 参加</span>
                   <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
                 </div>
               </div>
