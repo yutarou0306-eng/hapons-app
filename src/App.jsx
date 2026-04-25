@@ -1686,11 +1686,11 @@ function JrFeesTab({ isAdmin }) {
               {isAdmin ? (
                 <button onClick={() => togglePaid(selectedEvent, unit.label)}
                   style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加"}
+                  {paid ? "✓ 参加" : "不参加/未就学児"}
                 </button>
               ) : (
                 <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加"}
+                  {paid ? "✓ 参加" : "不参加/未就学児"}
                 </span>
               )}
             </div>
