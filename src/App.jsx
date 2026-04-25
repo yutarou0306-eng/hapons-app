@@ -875,22 +875,14 @@ function AttendancePanel({ event, onClose }) {
     else setSelected([...selected, { name, type }]);
   };
 
+  // Jr：個人単位で登録
   const getJrUnits = () => {
-    const units = [];
-    const processed = new Set();
-    jrMembers.forEach((m) => {
-      if (processed.has(m.id)) return;
-      const siblings = jrMembers.filter((j) => j.parent_name && j.parent_name === m.parent_name && j.id !== m.id);
-      if (siblings.length > 0) {
-        const group = [m, ...siblings];
-        group.forEach((g) => processed.add(g.id));
-        units.push({ key: `grp_${m.id}`, label: m.parent_name, subLabel: group.map((g) => g.name_jp).join("・"), type: "jr" });
-      } else {
-        processed.add(m.id);
-        units.push({ key: `ind_${m.id}`, label: m.name_jp, subLabel: m.grade || "", type: "jr" });
-      }
-    });
-    return units;
+    return jrMembers.map((m) => ({
+      key: `ind_${m.id}`,
+      label: m.name_jp,
+      subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
+      type: "jr",
+    }));
   };
   const jrUnits = getJrUnits();
 
@@ -983,36 +975,26 @@ function AttendancePanel({ event, onClose }) {
           <div style={{ flex: 1, marginRight: 10 }}>
             <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
-            {adultAttending.length > 0 && (
-              <div style={{ marginBottom: 3 }}>
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
+            <div style={{ marginBottom: 3 }}>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
+              {adultAttending.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                   {adultAttending.map((name) => (
                     <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
                   ))}
                 </div>
-              </div>
-            )}
-            {!adultAttending.length && (
-              <div style={{ marginBottom: 3 }}>
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>🏉 大人　出席0 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
-              </div>
-            )}
-            {jrAttending.length > 0 && (
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
+              )}
+            </div>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
+              {jrAttending.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                   {jrAttending.map((name) => (
                     <span key={name} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
                   ))}
                 </div>
-              </div>
-            )}
-            {!jrAttending.length && (
-              <div>
-                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>⭐ Jr　出席0 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
