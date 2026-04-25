@@ -1188,7 +1188,22 @@ function FeesTab({ isAdmin }) {
 
   const months = [...new Set(fees.map((f) => f.month))].sort().reverse();
   const recentMonths = months.slice(0, 5);
-  const yearTotal = fees.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+  const today = new Date();
+  const fiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
+  const fiscalStart = `${fiscalYear}年10月`;
+  const fiscalEnd = `${fiscalYear + 1}年9月`;
+  const fiscalLabel = `${fiscalYear}年10月〜${fiscalYear + 1}年9月`;
+
+  // 月が年度範囲内かチェック（例："2026年4月" → 2026年10月〜2027年9月の範囲か）
+  const isInFiscalYear = (monthStr) => {
+    const match = monthStr.match(/(\d+)年(\d+)月/);
+    if (!match) return false;
+    const y = parseInt(match[1]), m = parseInt(match[2]);
+    const d = new Date(y, m - 1, 1);
+    return d >= new Date(fiscalYear, 9, 1) && d <= new Date(fiscalYear + 1, 8, 30);
+  };
+
+  const yearTotal = fees.filter((f) => f.paid && isInFiscalYear(f.month)).reduce((sum, f) => sum + (f.amount || 0), 0);
 
   const getMonthFees = (month) => fees.filter((f) => f.month === month);
   const getMonthSummary = (month) => {
@@ -1429,7 +1444,7 @@ function FeesTab({ isAdmin }) {
           <h2 style={{ ...S.sectionTitle, margin: 0 }}>支払い履歴（全期間）</h2>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fiscalLabel}</div>
           <div style={{ fontSize: 28, fontWeight: 900 }}>P{yearTotal.toLocaleString()}</div>
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全期間 {months.length}か月分</div>
         </div>
@@ -1452,7 +1467,7 @@ function FeesTab({ isAdmin }) {
       {!loading && (
         <>
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fiscalLabel}</div>
             <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{yearTotal.toLocaleString()}</div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>全期間 {months.length}か月分の記録</div>
           </div>
