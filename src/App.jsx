@@ -1086,7 +1086,10 @@ function ScheduleTab({ isAdmin }) {
     const fetch = async () => {
       setLoading(true);
       const { data } = await supabase.from("events").select("*").order("date");
-      if (data) setEvents(data);
+      if (data) setEvents(data.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || "").localeCompare(b.time || "");
+      }));
       setLoading(false);
     };
     fetch();
@@ -1106,11 +1109,11 @@ function ScheduleTab({ isAdmin }) {
     if (showAdd) {
       const { data, error } = await supabase.from("events").insert([payload]).select();
       if (error) { alert("保存に失敗しました：" + error.message); return; }
-      if (data) setEvents([...events, data[0]].sort((a, b) => a.date.localeCompare(b.date)));
+      if (data) setEvents([...events, data[0]].sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
     } else {
       const { error } = await supabase.from("events").update(payload).eq("id", editing.id);
       if (error) { alert("保存に失敗しました：" + error.message); return; }
-      setEvents(events.map((e) => e.id === editing.id ? { ...e, ...payload } : e).sort((a, b) => a.date.localeCompare(b.date)));
+      setEvents(events.map((e) => e.id === editing.id ? { ...e, ...payload } : e).sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
     }
     setEditing(null); setShowAdd(false);
   };
@@ -1135,7 +1138,7 @@ function ScheduleTab({ isAdmin }) {
     if (!window.confirm(`${records.length}件のイベントを登録します。よろしいですか？`)) { setSaving(false); return; }
     const { data, error } = await supabase.from("events").insert(records).select();
     if (error) { alert("登録に失敗しました：" + error.message); setSaving(false); return; }
-    if (data) setEvents([...events, ...data].sort((a, b) => a.date.localeCompare(b.date)));
+    if (data) setEvents([...events, ...data].sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
     setShowRepeat(false);
     setSaving(false);
   };
