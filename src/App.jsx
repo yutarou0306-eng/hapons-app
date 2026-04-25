@@ -1081,7 +1081,7 @@ function AttendancePanel({ event, onClose }) {
                     const sel = isSelected(m.name_jp, "adult");
                     const sl = statusLabel(status, m.position);
                     if (status === "absent") return (
-                      <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, opacity: 0.7 }}>
+                      <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, background: "#CC1F1F08" }}>
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
                           <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
@@ -1116,7 +1116,7 @@ function AttendancePanel({ event, onClose }) {
                     const sel = isJrUnitSelected(unit.label);
                     const sl = statusLabel(status, unit.subLabel);
                     if (status === "absent") return (
-                      <div key={unit.key} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, opacity: 0.7 }}>
+                      <div key={unit.key} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, background: "#CC1F1F08" }}>
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
                           <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
