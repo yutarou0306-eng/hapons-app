@@ -734,11 +734,13 @@ function MembersTab({ isAdmin }) {
   const save = async (form) => {
     const { id: _id, created_at: _ca, ...rest } = form;
     const payload = { ...rest };
-    // 生年月日から年齢を自動計算
-    if (form.birth_date) {
-      payload.age = calcAge(form.birth_date);
-    } else {
-      payload.age = null;
+    // 生年月日から年齢を自動計算（大人のみ）
+    if (isAdult) {
+      if (form.birth_date) {
+        payload.age = calcAge(form.birth_date);
+      } else {
+        payload.age = null;
+      }
     }
 
     if (showAdd) {
