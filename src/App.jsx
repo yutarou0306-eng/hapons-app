@@ -698,11 +698,22 @@ function MembersTab({ isAdmin }) {
   const list = isAdult ? members : jrMembers;
   const setList = isAdult ? setMembers : setJrMembers;
 
+  // 生年月日から年齢を自動計算
+  const calcAge = (birthDate) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
   const adultFields = [
     { key: "position", label: "Position" },
     { key: "name_jp", label: "名前" },
     { key: "name_en", label: "Name" },
-    { key: "age", label: "年齢", type: "number" },
+    { key: "birth_date", label: "生年月日", type: "date" },
     { key: "phone", label: "電話番号" },
     { key: "mjs_id_submitted", label: "MJS ID 提出済み", type: "checkbox" },
   ];
