@@ -1999,14 +1999,21 @@ export default function HaponsApp() {
     setShowAdminLogin(false);
   };
 
+  const fetchAnnouncements = async () => {
+    const { data } = await supabase.from("announcements").select("*").order("date", { ascending: false });
+    if (data) setAnnouncements(data);
+  };
+
   useEffect(() => {
-    const fetch = async () => {
-      setLoadingAnnouncements(true);
-      const { data } = await supabase.from("announcements").select("*").order("date", { ascending: false });
-      if (data) setAnnouncements(data);
-      setLoadingAnnouncements(false);
-    };
-    fetch();
+    setLoadingAnnouncements(true);
+    fetchAnnouncements().then(() => setLoadingAnnouncements(false));
+
+    // 5分おきに自動更新
+    const interval = setInterval(() => {
+      fetchAnnouncements();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (!role) return <LoginScreen onLogin={handleLogin} />;
