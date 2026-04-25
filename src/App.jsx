@@ -1804,7 +1804,7 @@ function JrFeesTab({ isAdmin }) {
       setLoading(true);
       const [j, e, jf] = await Promise.all([
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("events").select("*").eq("type", "practice").lte("date", new Date().toISOString().slice(0, 10)).order("date", { ascending: false }),
+        supabase.from("events").select("*").eq("type", "practice").lte("date", new Date(new Date().getTime() + 24*60*60*1000).toISOString().slice(0, 10)).order("date", { ascending: false }),
         supabase.from("jr_fees").select("*"),
       ]);
       if (j.data) setJrMembers(j.data);
@@ -1815,6 +1815,7 @@ function JrFeesTab({ isAdmin }) {
     fetchAll();
   }, []);
 
+  const [showHistory, setShowHistory] = useState(false);
   const recentEvents = events.slice(0, 4);
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
@@ -1983,6 +1984,50 @@ function JrFeesTab({ isAdmin }) {
     return `${y}年10月〜${y + 1}年9月`;
   })();
 
+  // 全履歴ページ
+  if (showHistory) {
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>Jr参加費 全履歴</h2>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{getYearTotal().toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{events.length}回分の記録</div>
+        </div>
+        {events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>}
+        {events.map((e) => {
+          const d = new Date(e.date);
+          const paidCount = getEventPaidCount(e.id);
+          const total = getEventTotal(e.id);
+          const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+          const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+          return (
+            <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
+              style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+              </div>
+              <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                <span>{paidCount}/{totalUnits}グループ 参加</span>
+                <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   // メインページ
   return (
     <div style={S.content}>
@@ -1997,7 +2042,9 @@ function JrFeesTab({ isAdmin }) {
             <div style={{ fontSize: 12, opacity: 0.7 }}>兄弟がいる家族は家族単位でP100／回</div>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>直近4回の練習</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>直近4回の練習</div>
+          </div>
           {recentEvents.length === 0 && (
             <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>
           )}
@@ -2027,6 +2074,13 @@ function JrFeesTab({ isAdmin }) {
               </div>
             );
           })}
+
+          {events.length > 0 && (
+            <button onClick={() => setShowHistory(true)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.jr}`, background: C.jrLight, color: C.jr, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
+              📋 全履歴を見る（{events.length}回分）
+            </button>
+          )}
         </>
       )}
     </div>
