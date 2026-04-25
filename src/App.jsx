@@ -1717,6 +1717,25 @@ function JrFeesTab({ isAdmin }) {
     );
   }
 
+  // 年間合計（10月〜翌9月）
+  const getYearTotal = () => {
+    const today = new Date();
+    const fiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
+    const start = new Date(fiscalYear, 9, 1); // 10月1日
+    const end = new Date(fiscalYear + 1, 8, 30); // 翌9月30日
+    const yearEventIds = events.filter((e) => {
+      const d = new Date(e.date);
+      return d >= start && d <= end;
+    }).map((e) => e.id);
+    return jrFees.filter((f) => yearEventIds.includes(f.event_id)).length * 100;
+  };
+
+  const yearLabel = (() => {
+    const today = new Date();
+    const y = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
+    return `${y}年10月〜${y + 1}年9月`;
+  })();
+
   // メインページ
   return (
     <div style={S.content}>
@@ -1724,10 +1743,11 @@ function JrFeesTab({ isAdmin }) {
       {loading && <Loading />}
       {!loading && (
         <>
+          {/* 年間合計 */}
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>参加費単価</div>
-            <div style={{ fontSize: 28, fontWeight: 900 }}>P100 <span style={{ fontSize: 14, opacity: 0.8 }}>/ グループ・回</span></div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>兄弟がいる家族は家族単位でP100</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal().toLocaleString()}</div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>兄弟がいる家族は家族単位でP100／回</div>
           </div>
 
           <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>直近4回の練習</div>
@@ -1738,7 +1758,8 @@ function JrFeesTab({ isAdmin }) {
             const d = new Date(e.date);
             const paidCount = getEventPaidCount(e.id);
             const total = getEventTotal(e.id);
-            const pct = feeUnits.length > 0 ? Math.round((paidCount / feeUnits.length) * 100) : 0;
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
             return (
               <div key={e.id} onClick={() => setSelectedEvent(e.id)}
                 style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
@@ -1753,7 +1774,7 @@ function JrFeesTab({ isAdmin }) {
                   <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
-                  <span>{paidCount}/{feeUnits.length}グループ 参加</span>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
                   <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
                 </div>
               </div>
