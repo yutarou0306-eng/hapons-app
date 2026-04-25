@@ -738,8 +738,10 @@ function MembersTab({ isAdmin }) {
     if (isAdult) {
       if (form.birth_date) {
         payload.age = calcAge(form.birth_date);
+        payload.birth_date = form.birth_date;
       } else {
         payload.age = null;
+        payload.birth_date = null;
       }
     }
 
