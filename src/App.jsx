@@ -673,24 +673,53 @@ function MembersTab({ isAdmin }) {
   const [activeTab, setActiveTab] = useState("adult");
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
+  const [families, setFamilies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
+  const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [newFamilyName, setNewFamilyName] = useState("");
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j] = await Promise.all([
+      const [m, j, f] = await Promise.all([
         supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("*").order("created_at"),
+        supabase.from("jr_families").select("*").order("created_at"),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
+      if (f.data) setFamilies(f.data);
       setLoading(false);
     };
     fetchAll();
   }, []);
+
+  const addFamily = async () => {
+    if (!newFamilyName.trim()) return;
+    const { data, error } = await supabase.from("jr_families").insert([{ family_name: newFamilyName.trim() }]).select();
+    if (error) { alert("作成に失敗しました：" + error.message); return; }
+    if (data) setFamilies([...families, data[0]]);
+    setNewFamilyName("");
+  };
+
+  const deleteFamily = async (id) => {
+    if (!window.confirm("この家族グループを削除しますか？")) return;
+    await supabase.from("jr_families").delete().eq("id", id);
+    setFamilies(families.filter((f) => f.id !== id));
+  };
+
+  const assignFamily = async (memberId, familyId) => {
+    await supabase.from("jr_members").update({ family_id: familyId }).eq("id", memberId);
+    setJrMembers(jrMembers.map((m) => m.id === memberId ? { ...m, family_id: familyId } : m));
+  };
+
+  const getFamilyName = (familyId) => {
+    const f = families.find((f) => f.id === familyId);
+    return f ? f.family_name : null;
+  };
 
   const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
   const isAdult = activeTab === "adult";
@@ -781,6 +810,14 @@ function MembersTab({ isAdmin }) {
         <>
           <input style={{ ...S.input, marginBottom: 10 }} placeholder="🔍 名前・ポジション・学年で検索" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{filtered.length}名 / 全{list.length}名</div>
+
+          {/* Jr家族グループ管理ボタン */}
+          {!isAdult && isAdmin && (
+            <button onClick={() => setShowFamilyModal(true)} style={{ ...S.btn("ghostJr", "sm"), marginBottom: 12, width: "100%", padding: "8px" }}>
+              👨‍👩‍👧‍👦 家族グループを管理
+            </button>
+          )}
+
           {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>}
           {filtered.map((m) => (
             <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${isAdult ? C.primary : C.jr}` }}>
@@ -799,6 +836,25 @@ function MembersTab({ isAdmin }) {
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span></>
                     }
+                    {/* 家族グループ表示 */}
+                    {!isAdult && (
+                      <div style={{ marginTop: 4 }}>
+                        {m.family_id && getFamilyName(m.family_id)
+                          ? <span style={{ ...S.badge(C.jr) }}>👨‍👩‍👧‍👦 {getFamilyName(m.family_id)}</span>
+                          : isAdmin && <span style={{ color: C.textMuted, fontSize: 11 }}>家族グループ未設定</span>
+                        }
+                        {isAdmin && (
+                          <select
+                            value={m.family_id || ""}
+                            onChange={(e) => assignFamily(m.id, e.target.value ? Number(e.target.value) : null)}
+                            style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text, cursor: "pointer" }}
+                          >
+                            <option value="">グループ選択</option>
+                            {families.map((f) => <option key={f.id} value={f.id}>{f.family_name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {isAdmin && (
@@ -815,6 +871,44 @@ function MembersTab({ isAdmin }) {
 
       {editing && <EditModal title={`${isAdult ? "メンバー" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
+
+      {/* 家族グループ管理モーダル */}
+      {showFamilyModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 家族グループ管理</h3>
+              <button onClick={() => setShowFamilyModal(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
+              兄弟のいる家族をグループにまとめます。参加費はグループ単位でP100になります。
+            </p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <input style={{ ...S.input, marginBottom: 0, flex: 1 }} placeholder="例：田中家" value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addFamily()} />
+              <button style={S.btn("jr", "sm")} onClick={addFamily}>追加</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {families.length === 0 && <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13, padding: 12 }}>グループがありません</div>}
+              {families.map((f) => {
+                const members_in = jrMembers.filter((m) => m.family_id === f.id);
+                return (
+                  <div key={f.id} style={{ ...S.card, borderLeft: `4px solid ${C.jr}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: members_in.length > 0 ? 6 : 0 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>👨‍👩‍👧‍👦 {f.family_name}</span>
+                      <button onClick={() => deleteFamily(f.id)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>削除</button>
+                    </div>
+                    {members_in.length > 0 && (
+                      <div style={{ fontSize: 12, color: C.textMuted }}>
+                        {members_in.map((m) => m.name_jp).join("・")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1455,6 +1549,202 @@ function FeesTab({ isAdmin }) {
   );
 }
 
+// ── FEES WRAPPER ──
+function FeesWrapper({ isAdmin }) {
+  const [activeTab, setActiveTab] = useState("adult");
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 0, margin: "12px 16px 0", borderRadius: 12, overflow: "hidden", border: `1.5px solid ${C.border}` }}>
+        <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", border: "none", background: activeTab === "adult" ? C.primary : C.card, color: activeTab === "adult" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+          💴 部費
+        </button>
+        <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", border: "none", borderLeft: `1.5px solid ${C.border}`, background: activeTab === "jr" ? C.jr : C.card, color: activeTab === "jr" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+          ⭐ Jr参加費
+        </button>
+      </div>
+      {activeTab === "adult" && <FeesTab isAdmin={isAdmin} />}
+      {activeTab === "jr" && <JrFeesTab isAdmin={isAdmin} />}
+    </div>
+  );
+}
+
+// ── JR FEES TAB ──
+function JrFeesTab({ isAdmin }) {
+  const [jrMembers, setJrMembers] = useState([]);
+  const [families, setFamilies] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [jrFees, setJrFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [j, f, e, jf] = await Promise.all([
+        supabase.from("jr_members").select("*").order("created_at"),
+        supabase.from("jr_families").select("*").order("created_at"),
+        supabase.from("events").select("*").eq("type", "practice").order("date", { ascending: false }),
+        supabase.from("jr_fees").select("*"),
+      ]);
+      if (j.data) setJrMembers(j.data);
+      if (f.data) setFamilies(f.data);
+      if (e.data) setEvents(e.data);
+      if (jf.data) setJrFees(jf.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  const recentEvents = events.slice(0, 4);
+
+  // 家族グループを構築（グループあり＋グループなし個人）
+  const getFeeUnits = () => {
+    const units = [];
+    // 家族グループ単位
+    families.forEach((f) => {
+      const members = jrMembers.filter((m) => m.family_id === f.id);
+      if (members.length > 0) {
+        units.push({ type: "family", id: f.id, label: f.family_name, members, key: `family_${f.id}` });
+      }
+    });
+    // グループ未設定の個人
+    jrMembers.filter((m) => !m.family_id).forEach((m) => {
+      units.push({ type: "individual", id: m.id, label: m.name_jp, members: [m], key: `individual_${m.id}` });
+    });
+    return units;
+  };
+
+  const feeUnits = getFeeUnits();
+
+  const isPaid = (eventId, familyId, individualId) => {
+    return jrFees.some((f) =>
+      f.event_id === eventId &&
+      (familyId ? f.family_id === familyId : f.family_id === individualId)
+    );
+  };
+
+  const togglePaid = async (eventId, familyId, individualId) => {
+    if (!isAdmin) return;
+    const feeId = familyId || individualId;
+    const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === feeId);
+    if (existing) {
+      await supabase.from("jr_fees").delete().eq("id", existing.id);
+      setJrFees(jrFees.filter((f) => f.id !== existing.id));
+    } else {
+      const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: feeId, paid: true }]).select();
+      if (data) setJrFees([...jrFees, data[0]]);
+    }
+  };
+
+  const getEventPaidCount = (eventId) => {
+    return jrFees.filter((f) => f.event_id === eventId).length;
+  };
+
+  const getEventTotal = (eventId) => {
+    return jrFees.filter((f) => f.event_id === eventId).length * 100;
+  };
+
+  const wdays = ["日", "月", "火", "水", "木", "金", "土"];
+
+  // 練習詳細ページ
+  if (selectedEvent) {
+    const ev = events.find((e) => e.id === selectedEvent);
+    const paidCount = getEventPaidCount(selectedEvent);
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>{ev?.title}</h2>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
+          <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length}グループ　P100×{paidCount}グループ</div>
+        </div>
+
+        {feeUnits.length === 0 && (
+          <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>
+            Jrメンバーが登録されていません
+          </div>
+        )}
+        {feeUnits.map((unit) => {
+          const paid = isPaid(selectedEvent, unit.type === "family" ? unit.id : null, unit.type === "individual" ? unit.id : null);
+          return (
+            <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+                  {unit.type === "family" ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {unit.members.map((m) => m.name_jp).join("・")}　P100
+                </div>
+              </div>
+              {isAdmin ? (
+                <button onClick={() => togglePaid(selectedEvent, unit.type === "family" ? unit.id : null, unit.type === "individual" ? unit.id : null)}
+                  style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                  {paid ? "✓ 支払済" : "未払い"}
+                </button>
+              ) : (
+                <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                  {paid ? "✓ 支払済" : "未払い"}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // メインページ
+  return (
+    <div style={S.content}>
+      <h2 style={{ ...S.sectionTitle, color: C.jr }}>⭐ Jr 参加費管理</h2>
+      {loading && <Loading />}
+      {!loading && (
+        <>
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>参加費単価</div>
+            <div style={{ fontSize: 28, fontWeight: 900 }}>P100 <span style={{ fontSize: 14, opacity: 0.8 }}>/ グループ・回</span></div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>兄弟がいる家族は家族単位でP100</div>
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>直近4回の練習</div>
+          {recentEvents.length === 0 && (
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>
+          )}
+          {recentEvents.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const pct = feeUnits.length > 0 ? Math.round((paidCount / feeUnits.length) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{feeUnits.length}グループ 支払済</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN APP ──
 export default function HaponsApp() {
   const [role, setRole] = useState(() => localStorage.getItem("hapons_role") || null);
@@ -1551,7 +1841,7 @@ export default function HaponsApp() {
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
-      {tab === "fees" && <FeesTab isAdmin={isAdmin} />}
+      {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
 
       <nav style={S.nav}>
         {tabs.map((t) => (
