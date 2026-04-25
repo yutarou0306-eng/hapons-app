@@ -1804,7 +1804,7 @@ function JrFeesTab({ isAdmin }) {
       setLoading(true);
       const [j, e, jf] = await Promise.all([
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("events").select("*").eq("type", "practice").order("date", { ascending: false }),
+        supabase.from("events").select("*").eq("type", "practice").lte("date", new Date().toISOString().slice(0, 10)).order("date", { ascending: false }),
         supabase.from("jr_fees").select("*"),
       ]);
       if (j.data) setJrMembers(j.data);
