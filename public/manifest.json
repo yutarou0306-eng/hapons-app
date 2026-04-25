@@ -1,0 +1,22 @@
+{
+  "name": "Manila Hapons RFC",
+  "short_name": "Hapons",
+  "description": "Manila Hapons Rugby Football Club",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#CC1F1F",
+  "theme_color": "#CC1F1F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
