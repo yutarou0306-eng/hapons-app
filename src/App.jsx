@@ -1071,7 +1071,16 @@ function ScheduleTab({ isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showRepeat, setShowRepeat] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // 繰り返し登録フォーム
+  const [repeatForm, setRepeatForm] = useState({
+    title: "通常練習", type: "practice", time: "15:00〜17:00",
+    location: "MJS", startDate: "", endDate: "",
+    weekdays: [0], // 0=日, 1=月, ..., 6=土
+  });
 
   useEffect(() => {
     const fetch = async () => {
@@ -1106,6 +1115,38 @@ function ScheduleTab({ isAdmin }) {
     setEditing(null); setShowAdd(false);
   };
 
+  // 繰り返し一括登録
+  const saveRepeat = async () => {
+    if (!repeatForm.startDate || !repeatForm.endDate) { alert("開始日と終了日を入力してください"); return; }
+    setSaving(true);
+    const start = new Date(repeatForm.startDate);
+    const end = new Date(repeatForm.endDate);
+    const records = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (repeatForm.weekdays.includes(d.getDay())) {
+        records.push({
+          title: repeatForm.title, type: repeatForm.type,
+          time: repeatForm.time, location: repeatForm.location,
+          date: d.toISOString().slice(0, 10),
+        });
+      }
+    }
+    if (records.length === 0) { alert("指定した期間に該当する曜日がありません"); setSaving(false); return; }
+    if (!window.confirm(`${records.length}件のイベントを登録します。よろしいですか？`)) { setSaving(false); return; }
+    const { data, error } = await supabase.from("events").insert(records).select();
+    if (error) { alert("登録に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) setEvents([...events, ...data].sort((a, b) => a.date.localeCompare(b.date)));
+    setShowRepeat(false);
+    setSaving(false);
+  };
+
+  const toggleWeekday = (day) => {
+    setRepeatForm((prev) => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(day) ? prev.weekdays.filter((d) => d !== day) : [...prev.weekdays, day],
+    }));
+  };
+
   const del = async (id) => {
     if (!window.confirm("削除しますか？")) return;
     await supabase.from("events").delete().eq("id", id);
@@ -1113,12 +1154,18 @@ function ScheduleTab({ isAdmin }) {
   };
 
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
+  const wdayColors = [C.primary, C.text, C.text, C.text, C.text, C.text, "#1565C0"];
 
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>スケジュール</h2>
-        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
+        {isAdmin && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button style={S.btn("ghost", "sm")} onClick={() => setShowRepeat(true)}>🔁 繰り返し</button>
+            <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>
+          </div>
+        )}
       </div>
       {loading && <Loading />}
       {!loading && events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>イベントはありません</div>}
@@ -1155,6 +1202,65 @@ function ScheduleTab({ isAdmin }) {
       {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
       {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+
+      {/* 繰り返し登録モーダル */}
+      {showRepeat && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>🔁 繰り返し登録</h3>
+              <button onClick={() => setShowRepeat(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={repeatForm.title} onChange={(e) => setRepeatForm({ ...repeatForm, title: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>種別</label>
+            <select style={S.input} value={repeatForm.type} onChange={(e) => setRepeatForm({ ...repeatForm, type: e.target.value })}>
+              {Object.entries(typeConfig).map(([v, c]) => <option key={v} value={v}>{c.label}</option>)}
+            </select>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>時間</label>
+            <input style={S.input} value={repeatForm.time} onChange={(e) => setRepeatForm({ ...repeatForm, time: e.target.value })} placeholder="例：15:00〜17:00" />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>場所</label>
+            <input style={S.input} value={repeatForm.location} onChange={(e) => setRepeatForm({ ...repeatForm, location: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 8 }}>繰り返す曜日</label>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {wdays.map((w, i) => (
+                <button key={i} onClick={() => toggleWeekday(i)}
+                  style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `2px solid ${repeatForm.weekdays.includes(i) ? wdayColors[i] : C.border}`, background: repeatForm.weekdays.includes(i) ? (i === 0 ? C.sakuraLight : i === 6 ? C.jrLight : C.bg) : C.card, color: repeatForm.weekdays.includes(i) ? wdayColors[i] : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {w}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>開始日</label>
+            <input style={S.input} type="date" value={repeatForm.startDate} onChange={(e) => setRepeatForm({ ...repeatForm, startDate: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>終了日</label>
+            <input style={S.input} type="date" value={repeatForm.endDate} onChange={(e) => setRepeatForm({ ...repeatForm, endDate: e.target.value })} />
+
+            {repeatForm.startDate && repeatForm.endDate && repeatForm.weekdays.length > 0 && (() => {
+              const start = new Date(repeatForm.startDate);
+              const end = new Date(repeatForm.endDate);
+              let count = 0;
+              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                if (repeatForm.weekdays.includes(d.getDay())) count++;
+              }
+              return <div style={{ fontSize: 13, color: C.primary, fontWeight: 700, marginBottom: 12 }}>→ {count}件のイベントが登録されます</div>;
+            })()}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setShowRepeat(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveRepeat} disabled={saving}>
+                {saving ? "登録中..." : "一括登録する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
