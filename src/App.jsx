@@ -1018,6 +1018,13 @@ function AttendancePanel({ event, onClose }) {
           <div>
             <div style={{ color: "#fff", fontSize: 15, fontWeight: 900 }}>{event.title}</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
+            {totalAttending > 0 && (
+              <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {[...adultAttending, ...jrAttending.map((n) => `⭐${n}`)].map((name) => (
+                  <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 8px", fontSize: 10, color: "#fff" }}>{name}</span>
+                ))}
+              </div>
+            )}
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕</button>
         </div>
