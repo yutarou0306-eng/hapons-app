@@ -1153,8 +1153,55 @@ function ScheduleTab({ isAdmin }) {
     setEvents(events.filter((e) => e.id !== id));
   };
 
+  const [showAll, setShowAll] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter((e) => e.date >= today);
+  const displayEvents = showAll ? upcoming : upcoming.slice(0, 5);
+
+  // 月別グループ化
+  const groupByMonth = (evs) => {
+    const groups = {};
+    evs.forEach((e) => {
+      const key = e.date.slice(0, 7); // "2026-05"
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
   const wdayColors = [C.primary, C.text, C.text, C.text, C.text, C.text, "#1565C0"];
+
+  const renderEvent = (e) => {
+    const cfg = typeConfig[e.type] || typeConfig.practice;
+    const d = new Date(e.date);
+    return (
+      <div key={e.id} style={{ ...S.card, display: "flex", gap: 14 }}>
+        <div style={{ minWidth: 50, textAlign: "center", background: C.sakuraLight, borderRadius: 10, padding: "8px 4px" }}>
+          <div style={{ fontSize: 11, color: C.textMuted }}>{d.getMonth() + 1}月</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.primary, lineHeight: 1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 11, color: C.textMuted }}>({wdays[d.getDay()]})</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <span style={S.badge(cfg.color)}>{cfg.label}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
+          </div>
+          {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
+          {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
+              ✋ 出席登録・確認
+            </button>
+            {isAdmin && <>
+              <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
+              <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
+            </>}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={S.content}>
@@ -1168,37 +1215,37 @@ function ScheduleTab({ isAdmin }) {
         )}
       </div>
       {loading && <Loading />}
-      {!loading && events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>イベントはありません</div>}
-      {events.map((e) => {
-        const cfg = typeConfig[e.type] || typeConfig.practice;
-        const d = new Date(e.date);
-        return (
-          <div key={e.id} style={{ ...S.card, display: "flex", gap: 14 }}>
-            <div style={{ minWidth: 50, textAlign: "center", background: C.sakuraLight, borderRadius: 10, padding: "8px 4px" }}>
-              <div style={{ fontSize: 11, color: C.textMuted }}>{d.getMonth() + 1}月</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: C.primary, lineHeight: 1 }}>{d.getDate()}</div>
-              <div style={{ fontSize: 11, color: C.textMuted }}>({wdays[d.getDay()]})</div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={S.badge(cfg.color)}>{cfg.label}</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
+      {!loading && upcoming.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>予定はありません</div>}
+
+      {!loading && !showAll && (
+        <>
+          {displayEvents.map(renderEvent)}
+          {upcoming.length > 5 && (
+            <button onClick={() => setShowAll(true)}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
+              すべて表示（残り{upcoming.length - 5}件）→
+            </button>
+          )}
+        </>
+      )}
+
+      {!loading && showAll && (
+        <>
+          <button onClick={() => setShowAll(false)}
+            style={{ width: "100%", padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>
+            ← 直近5件のみ表示
+          </button>
+          {groupByMonth(upcoming).map(([month, evs]) => (
+            <div key={month}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: "12px 0 8px", padding: "6px 12px", background: C.sakuraLight, borderRadius: 8 }}>
+                📅 {parseInt(month.slice(5))}月
               </div>
-              {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
-              {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
-                  ✋ 出席登録・確認
-                </button>
-                {isAdmin && <>
-                  <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
-                  <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
-                </>}
-              </div>
+              {evs.map(renderEvent)}
             </div>
-          </div>
-        );
-      })}
+          ))}
+        </>
+      )}
+
       {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
       {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
