@@ -1051,10 +1051,16 @@ function AttendancePanel({ event, onClose }) {
               {/* 大人/Jr タブ */}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  🏉 大人（{adultAttending.length}名　未回答{adultUnresponded}名）
+                  🏉 大人<br />
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>
+                    出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}
+                  </span>
                 </button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  ⭐ Jr（{jrAttending.length}　未回答{jrUnresponded}）
+                  ⭐ Jr<br />
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>
+                    出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}
+                  </span>
                 </button>
               </div>
 
