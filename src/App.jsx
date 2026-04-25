@@ -1804,7 +1804,7 @@ function JrFeesTab({ isAdmin }) {
       setLoading(true);
       const [j, e, jf] = await Promise.all([
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("events").select("*").eq("type", "practice").lte("date", new Date(new Date().getTime() + 24*60*60*1000).toISOString().slice(0, 10)).order("date", { ascending: false }),
+        supabase.from("events").select("*").eq("type", "practice").order("date", { ascending: false }),
         supabase.from("jr_fees").select("*"),
       ]);
       if (j.data) setJrMembers(j.data);
@@ -1817,11 +1817,8 @@ function JrFeesTab({ isAdmin }) {
 
   const [showHistory, setShowHistory] = useState(false);
   // 翌日までの練習をトップに表示（それ以降は全履歴へ）
-  const dayAfterTomorrow = new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const recentEvents = events.filter((e) => e.date >= dayAfterTomorrow === false).slice(0, 4);
-  // 練習日の翌日まで = 練習日が「一昨日以降」のもの
-  const cutoff = new Date(new Date().getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const topEvents = events.filter((e) => e.date >= cutoff).slice(0, 4);
+  const tomorrow = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const topEvents = events.filter((e) => e.date <= tomorrow).slice(0, 4);
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
