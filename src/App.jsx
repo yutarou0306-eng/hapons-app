@@ -951,9 +951,13 @@ function AttendancePanel({ event, onClose }) {
     return "none";
   };
 
-  const statusStyle = (status, sel, color) => ({
-    border: sel ? `2px solid ${color}` : status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
-    background: sel ? (color === C.primary ? C.sakuraLight : C.jrLight) : status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F10" : C.card,
+  const statusStyle = (status, sel) => ({
+    border: sel
+      ? `2px solid ${mode === "attend" ? C.success : C.danger}`
+      : status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
+    background: sel
+      ? (mode === "attend" ? "#2E7D3220" : "#CC1F1F20")
+      : status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F10" : C.card,
   });
 
   const statusLabel = (status, fallback) => {
@@ -1076,7 +1080,7 @@ function AttendancePanel({ event, onClose }) {
                     );
                     return (
                       <button key={m.id} onClick={() => toggleSelect(m.name_jp, "adult")}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel, C.primary) }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel) }}>
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
                           <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
@@ -1111,7 +1115,7 @@ function AttendancePanel({ event, onClose }) {
                     );
                     return (
                       <button key={unit.key} onClick={() => toggleJrSelect(unit.label)}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel, C.jr) }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel) }}>
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
                           <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
