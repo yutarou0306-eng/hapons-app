@@ -917,39 +917,61 @@ function MembersTab({ isAdmin }) {
 function AttendancePanel({ event, onClose }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
+  const [families, setFamilies] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
-  // 選択中の名前セット {name, type}[]
   const [selected, setSelected] = useState([]);
-  const [step, setStep] = useState("select"); // "select" | "confirm"
+  const [step, setStep] = useState("select");
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, a] = await Promise.all([
+      const [m, j, f, a] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
-        supabase.from("jr_members").select("id, name_jp, grade").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, grade, family_id").order("created_at"),
+        supabase.from("jr_families").select("*").order("created_at"),
         supabase.from("attendances").select("*").eq("event_id", event.id),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
+      if (f.data) setFamilies(f.data);
       if (a.data) setAttendances(a.data);
       setLoading(false);
     };
     fetchAll();
   }, [event.id]);
 
+  // 大人：個人単位
   const isAttending = (name, type) => attendances.some((a) => a.member_name === name && a.member_type === type);
   const isSelected = (name, type) => selected.some((s) => s.name === name && s.type === type);
 
   const toggleSelect = (name, type) => {
-    if (isSelected(name, type)) {
-      setSelected(selected.filter((s) => !(s.name === name && s.type === type)));
-    } else {
-      setSelected([...selected, { name, type }]);
-    }
+    if (isSelected(name, type)) setSelected(selected.filter((s) => !(s.name === name && s.type === type)));
+    else setSelected([...selected, { name, type }]);
+  };
+
+  // Jr：家族グループ単位で登録（グループ名をmember_nameとして保存）
+  const getJrUnits = () => {
+    const units = [];
+    families.forEach((f) => {
+      const kids = jrMembers.filter((m) => m.family_id === f.id);
+      if (kids.length > 0) units.push({ key: `fam_${f.id}`, label: f.family_name, subLabel: kids.map((k) => k.name_jp).join("・"), type: "jr" });
+    });
+    jrMembers.filter((m) => !m.family_id).forEach((m) => {
+      units.push({ key: `ind_${m.id}`, label: m.name_jp, subLabel: m.grade, type: "jr" });
+    });
+    return units;
+  };
+  const jrUnits = getJrUnits();
+
+  const isJrUnitAttending = (label) => attendances.some((a) => a.member_name === label && a.member_type === "jr");
+  const isJrUnitSelected = (label) => selected.some((s) => s.name === label && s.type === "jr");
+
+  const toggleJrSelect = (label) => {
+    if (isJrUnitSelected(label)) setSelected(selected.filter((s) => !(s.name === label && s.type === "jr")));
+    else setSelected([...selected, { name: label, type: "jr" }]);
   };
 
   const registerAll = async () => {
@@ -957,20 +979,17 @@ function AttendancePanel({ event, onClose }) {
     setSaving(true);
     const toAdd = selected.filter((s) => !isAttending(s.name, s.type));
     const toRemove = selected.filter((s) => isAttending(s.name, s.type));
-
     for (const s of toRemove) {
       const existing = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
       if (existing) await supabase.from("attendances").delete().eq("id", existing.id);
     }
     let newAttendances = attendances.filter((a) => !toRemove.some((s) => s.name === a.member_name && s.type === a.member_type));
-
     if (toAdd.length > 0) {
       const { data } = await supabase.from("attendances").insert(
         toAdd.map((s) => ({ event_id: event.id, member_name: s.name, member_type: s.type }))
       ).select();
       if (data) newAttendances = [...newAttendances, ...data];
     }
-
     setAttendances(newAttendances);
     setSelected([]);
     setStep("confirm");
@@ -979,73 +998,55 @@ function AttendancePanel({ event, onClose }) {
 
   const adultAttending = attendances.filter((a) => a.member_type === "adult").map((a) => a.member_name);
   const jrAttending = attendances.filter((a) => a.member_type === "jr").map((a) => a.member_name);
-  const adultNotAttending = members.map((m) => m.name_jp).filter((n) => !adultAttending.includes(n));
-  const jrNotAttending = jrMembers.map((m) => m.name_jp).filter((n) => !jrAttending.includes(n));
   const totalAttending = adultAttending.length + jrAttending.length;
-
-  const renderMemberList = (list, type) => list.map((m) => {
-    const attending = isAttending(m.name_jp, type);
-    const sel = isSelected(m.name_jp, type);
-    const color = type === "adult" ? C.primary : C.jr;
-    return (
-      <button key={m.id} onClick={() => toggleSelect(m.name_jp, type)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%",
-          border: sel ? `2px solid ${color}` : attending ? `2px solid ${C.success}` : `1.5px solid ${C.border}`,
-          background: sel ? (type === "adult" ? C.sakuraLight : C.jrLight) : attending ? "#2E7D3210" : C.card,
-          marginBottom: 6,
-        }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
-          <div style={{ fontSize: 11, color: attending ? C.success : C.textMuted }}>
-            {attending ? "✓ 参加登録済み" : (type === "adult" ? m.position : m.grade)}
-          </div>
-        </div>
-        <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? color : C.border}`, background: sel ? color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
-        </div>
-      </button>
-    );
-  });
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
 
         {/* ヘッダー */}
-        <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "16px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10 }}>
-          <div>
-            <div style={{ color: "#fff", fontSize: 15, fontWeight: 900 }}>{event.title}</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
-            {totalAttending > 0 && (
-              <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {[...adultAttending, ...jrAttending.map((n) => `⭐${n}`)].map((name) => (
-                  <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 8px", fontSize: 10, color: "#fff" }}>{name}</span>
-                ))}
+        <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ flex: 1, marginRight: 10 }}>
+            <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
+            {adultAttending.length > 0 && (
+              <div style={{ marginBottom: 3 }}>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, marginBottom: 2 }}>🏉 大人</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  {adultAttending.map((name) => (
+                    <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {jrAttending.length > 0 && (
+              <div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, marginBottom: 2 }}>⭐ Jr</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  {jrAttending.map((name) => (
+                    <span key={name} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
 
         <div style={{ padding: "16px 16px 32px" }}>
           {loading && <Loading />}
-
           {!loading && (
             <>
-              {/* 登録完了メッセージ */}
               {step === "confirm" && (
                 <div style={{ ...S.card, borderLeft: `4px solid ${C.success}`, marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 22 }}>✅</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.success }}>登録が完了しました</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>続けて別の方を選択できます</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>続けて選択できます</div>
                   </div>
                 </div>
               )}
 
-              {/* 選択中バナー＋登録ボタン */}
               {selected.length > 0 && (
                 <div style={{ ...S.card, borderLeft: `4px solid ${C.accent}`, marginBottom: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>
@@ -1053,7 +1054,7 @@ function AttendancePanel({ event, onClose }) {
                   </div>
                   <button onClick={registerAll} disabled={saving}
                     style={{ ...S.btn("primary"), width: "100%", padding: "14px", fontSize: 15, borderRadius: 10 }}>
-                    {saving ? "登録中..." : `✋ ${selected.length}名を登録する`}
+                    {saving ? "登録中..." : `✋ ${selected.length}件を登録する`}
                   </button>
                   <button onClick={() => setSelected([])} style={{ width: "100%", marginTop: 8, padding: "8px", borderRadius: 8, border: "none", background: "none", color: C.textMuted, fontSize: 12, cursor: "pointer" }}>
                     選択をクリア
@@ -1064,27 +1065,67 @@ function AttendancePanel({ event, onClose }) {
               {/* 大人/Jr タブ */}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  🏉 大人（{adultAttending.length}名参加）
+                  🏉 大人（{adultAttending.length}名）
                 </button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  ⭐ Jr（{jrAttending.length}名参加）
+                  ⭐ Jr（{jrAttending.length}グループ）
                 </button>
               </div>
 
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
-                タップして選択 → 「登録する」ボタンで完了。複数名同時に選択可能です。
+                タップして選択 → 「登録する」で完了
               </div>
 
-              {/* メンバーリスト */}
+              {/* 大人リスト：個人単位 */}
               {activeTab === "adult" && (
                 members.length === 0
                   ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
-                  : renderMemberList(members, "adult")
+                  : members.map((m) => {
+                    const attending = isAttending(m.name_jp, "adult");
+                    const sel = isSelected(m.name_jp, "adult");
+                    return (
+                      <button key={m.id} onClick={() => toggleSelect(m.name_jp, "adult")}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6,
+                          border: sel ? `2px solid ${C.primary}` : attending ? `2px solid ${C.success}` : `1.5px solid ${C.border}`,
+                          background: sel ? C.sakuraLight : attending ? "#2E7D3210" : C.card }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                          <div style={{ fontSize: 11, color: attending ? C.success : C.textMuted }}>{attending ? "✓ 参加登録済み" : m.position}</div>
+                        </div>
+                        <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.primary : C.border}`, background: sel ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })
               )}
+
+              {/* Jrリスト：家族グループ単位 */}
               {activeTab === "jr" && (
-                jrMembers.length === 0
+                jrUnits.length === 0
                   ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
-                  : renderMemberList(jrMembers, "jr")
+                  : jrUnits.map((unit) => {
+                    const attending = isJrUnitAttending(unit.label);
+                    const sel = isJrUnitSelected(unit.label);
+                    return (
+                      <button key={unit.key} onClick={() => toggleJrSelect(unit.label)}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6,
+                          border: sel ? `2px solid ${C.jr}` : attending ? `2px solid ${C.success}` : `1.5px solid ${C.border}`,
+                          background: sel ? C.jrLight : attending ? "#2E7D3210" : C.card }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+                            {unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
+                          </div>
+                          <div style={{ fontSize: 11, color: attending ? C.success : C.textMuted }}>
+                            {attending ? "✓ 参加登録済み" : unit.subLabel}
+                          </div>
+                        </div>
+                        <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.jr : C.border}`, background: sel ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })
               )}
             </>
           )}
