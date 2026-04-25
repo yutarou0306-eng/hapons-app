@@ -1642,6 +1642,9 @@ function JrFeesTab({ isAdmin }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
           <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>{ev?.title}</h2>
+          {isAdmin && (
+            <button style={{ ...S.btn("accent", "sm"), marginLeft: "auto" }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
+          )}
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
@@ -1698,24 +1701,16 @@ function JrFeesTab({ isAdmin }) {
           </div>
         ))}
 
-        {/* 体験追加ボタン */}
-        {isAdmin && (
-          <div style={{ marginTop: 12 }}>
-            {showTrialInput ? (
-              <div style={{ ...S.card, borderLeft: `4px solid ${C.accent}` }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>🌟 体験参加者を追加</div>
-                <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
-                  <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addTrial} disabled={!trialName.trim()}>追加する</button>
-                </div>
+        {isAdmin && showTrialInput && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 体験参加者を追加</h3>
+              <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addTrial} disabled={!trialName.trim()}>追加する</button>
               </div>
-            ) : (
-              <button onClick={() => setShowTrialInput(true)}
-                style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px dashed ${C.accent}`, background: C.card, color: C.textMuted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                🌟 体験参加者を追加
-              </button>
-            )}
+            </div>
           </div>
         )}
       </div>
