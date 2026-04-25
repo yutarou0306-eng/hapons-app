@@ -1611,26 +1611,47 @@ function JrFeesTab({ isAdmin }) {
   const getEventTotal = (eventId) => getEventPaidCount(eventId) * 100;
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
 
+  const [trialName, setTrialName] = useState("");
+  const [showTrialInput, setShowTrialInput] = useState(false);
+
+  // 体験参加者（jr_feesにlabelが"体験:名前"形式で保存）
+  const getTrialUnits = (eventId) =>
+    jrFees.filter((f) => f.event_id === eventId && String(f.family_id).startsWith("体験:"))
+      .map((f) => ({ label: String(f.family_id).replace("体験:", ""), key: f.id }));
+
+  const addTrial = async () => {
+    if (!trialName.trim()) return;
+    const label = `体験:${trialName.trim()}`;
+    const { data } = await supabase.from("jr_fees").insert([{ event_id: selectedEvent, family_id: label, paid: true }]).select();
+    if (data) setJrFees([...jrFees, data[0]]);
+    setTrialName(""); setShowTrialInput(false);
+  };
+
+  const removeTrial = async (feeId) => {
+    await supabase.from("jr_fees").delete().eq("id", feeId);
+    setJrFees(jrFees.filter((f) => f.id !== feeId));
+  };
+
   // 練習詳細ページ
   if (selectedEvent) {
     const ev = events.find((e) => e.id === selectedEvent);
+    const trialUnits = getTrialUnits(selectedEvent);
     const paidCount = getEventPaidCount(selectedEvent);
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
+          <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
           <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>{ev?.title}</h2>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
           <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length}グループ参加　P100×{paidCount}グループ</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length + trialUnits.length}グループ参加　P100×{paidCount}グループ</div>
         </div>
 
-        {feeUnits.length === 0 && (
-          <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>
-            Jrメンバーが登録されていません
-          </div>
+        {/* 登録メンバー */}
+        {feeUnits.length === 0 && trialUnits.length === 0 && (
+          <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
         )}
         {feeUnits.map((unit) => {
           const paid = isPaid(selectedEvent, unit.label);
@@ -1657,6 +1678,46 @@ function JrFeesTab({ isAdmin }) {
             </div>
           );
         })}
+
+        {/* 体験参加者 */}
+        {trialUnits.length > 0 && (
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 体験参加</div>
+        )}
+        {trialUnits.map((t) => (
+          <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>体験参加　P100</div>
+            </div>
+            {isAdmin && (
+              <button onClick={() => removeTrial(t.key)}
+                style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                削除
+              </button>
+            )}
+          </div>
+        ))}
+
+        {/* 体験追加ボタン */}
+        {isAdmin && (
+          <div style={{ marginTop: 12 }}>
+            {showTrialInput ? (
+              <div style={{ ...S.card, borderLeft: `4px solid ${C.accent}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>🌟 体験参加者を追加</div>
+                <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
+                  <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addTrial} disabled={!trialName.trim()}>追加する</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowTrialInput(true)}
+                style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px dashed ${C.accent}`, background: C.card, color: C.textMuted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                🌟 体験参加者を追加
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
