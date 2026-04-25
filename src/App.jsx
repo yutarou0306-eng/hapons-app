@@ -1816,7 +1816,12 @@ function JrFeesTab({ isAdmin }) {
   }, []);
 
   const [showHistory, setShowHistory] = useState(false);
-  const recentEvents = events.slice(0, 4);
+  // 翌日までの練習をトップに表示（それ以降は全履歴へ）
+  const dayAfterTomorrow = new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const recentEvents = events.filter((e) => e.date >= dayAfterTomorrow === false).slice(0, 4);
+  // 練習日の翌日まで = 練習日が「一昨日以降」のもの
+  const cutoff = new Date(new Date().getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const topEvents = events.filter((e) => e.date >= cutoff).slice(0, 4);
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
@@ -2045,10 +2050,10 @@ function JrFeesTab({ isAdmin }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>直近4回の練習</div>
           </div>
-          {recentEvents.length === 0 && (
+          {topEvents.length === 0 && (
             <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>
           )}
-          {recentEvents.map((e) => {
+          {topEvents.map((e) => {
             const d = new Date(e.date);
             const paidCount = getEventPaidCount(e.id);
             const total = getEventTotal(e.id);
