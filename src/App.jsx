@@ -840,30 +840,34 @@ function AttendancePanel({ event, onClose }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
   const [attendances, setAttendances] = useState([]);
+  const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
   const [selected, setSelected] = useState([]);
   const [step, setStep] = useState("select");
+  const [mode, setMode] = useState("attend"); // "attend" | "absent"
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, a] = await Promise.all([
+      const [m, j, a, ab] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
         supabase.from("attendances").select("*").eq("event_id", event.id),
+        supabase.from("absences").select("*").eq("event_id", event.id),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
       if (a.data) setAttendances(a.data);
+      if (ab.data) setAbsences(ab.data);
       setLoading(false);
     };
     fetchAll();
   }, [event.id]);
 
-  // 大人：個人単位
   const isAttending = (name, type) => attendances.some((a) => a.member_name === name && a.member_type === type);
+  const isAbsent = (name, type) => absences.some((a) => a.member_name === name && a.member_type === type);
   const isSelected = (name, type) => selected.some((s) => s.name === name && s.type === type);
 
   const toggleSelect = (name, type) => {
@@ -871,7 +875,6 @@ function AttendancePanel({ event, onClose }) {
     else setSelected([...selected, { name, type }]);
   };
 
-  // Jr：保護者名が同じ → 家族グループとして1単位
   const getJrUnits = () => {
     const units = [];
     const processed = new Set();
@@ -881,12 +884,7 @@ function AttendancePanel({ event, onClose }) {
       if (siblings.length > 0) {
         const group = [m, ...siblings];
         group.forEach((g) => processed.add(g.id));
-        units.push({
-          key: `grp_${m.id}`,
-          label: m.parent_name,
-          subLabel: group.map((g) => g.name_jp).join("・"),
-          type: "jr",
-        });
+        units.push({ key: `grp_${m.id}`, label: m.parent_name, subLabel: group.map((g) => g.name_jp).join("・"), type: "jr" });
       } else {
         processed.add(m.id);
         units.push({ key: `ind_${m.id}`, label: m.name_jp, subLabel: m.grade || "", type: "jr" });
@@ -897,8 +895,8 @@ function AttendancePanel({ event, onClose }) {
   const jrUnits = getJrUnits();
 
   const isJrUnitAttending = (label) => attendances.some((a) => a.member_name === label && a.member_type === "jr");
+  const isJrUnitAbsent = (label) => absences.some((a) => a.member_name === label && a.member_type === "jr");
   const isJrUnitSelected = (label) => selected.some((s) => s.name === label && s.type === "jr");
-
   const toggleJrSelect = (label) => {
     if (isJrUnitSelected(label)) setSelected(selected.filter((s) => !(s.name === label && s.type === "jr")));
     else setSelected([...selected, { name: label, type: "jr" }]);
@@ -907,20 +905,40 @@ function AttendancePanel({ event, onClose }) {
   const registerAll = async () => {
     if (selected.length === 0) return;
     setSaving(true);
-    const toAdd = selected.filter((s) => !isAttending(s.name, s.type));
-    const toRemove = selected.filter((s) => isAttending(s.name, s.type));
-    for (const s of toRemove) {
-      const existing = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
-      if (existing) await supabase.from("attendances").delete().eq("id", existing.id);
+
+    if (mode === "attend") {
+      // 参加登録：欠席から削除→参加に追加
+      for (const s of selected) {
+        const ab = absences.find((a) => a.member_name === s.name && a.member_type === s.type);
+        if (ab) await supabase.from("absences").delete().eq("id", ab.id);
+        const existing = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
+        if (existing) {
+          await supabase.from("attendances").delete().eq("id", existing.id);
+        } else {
+          await supabase.from("attendances").insert([{ event_id: event.id, member_name: s.name, member_type: s.type }]);
+        }
+      }
+    } else {
+      // 欠席登録：参加から削除→欠席に追加
+      for (const s of selected) {
+        const att = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
+        if (att) await supabase.from("attendances").delete().eq("id", att.id);
+        const existing = absences.find((a) => a.member_name === s.name && a.member_type === s.type);
+        if (existing) {
+          await supabase.from("absences").delete().eq("id", existing.id);
+        } else {
+          await supabase.from("absences").insert([{ event_id: event.id, member_name: s.name, member_type: s.type }]);
+        }
+      }
     }
-    let newAttendances = attendances.filter((a) => !toRemove.some((s) => s.name === a.member_name && s.type === a.member_type));
-    if (toAdd.length > 0) {
-      const { data } = await supabase.from("attendances").insert(
-        toAdd.map((s) => ({ event_id: event.id, member_name: s.name, member_type: s.type }))
-      ).select();
-      if (data) newAttendances = [...newAttendances, ...data];
-    }
-    setAttendances(newAttendances);
+
+    // 再取得
+    const [a, ab] = await Promise.all([
+      supabase.from("attendances").select("*").eq("event_id", event.id),
+      supabase.from("absences").select("*").eq("event_id", event.id),
+    ]);
+    if (a.data) setAttendances(a.data);
+    if (ab.data) setAbsences(ab.data);
     setSelected([]);
     setStep("confirm");
     setSaving(false);
@@ -929,6 +947,32 @@ function AttendancePanel({ event, onClose }) {
   const adultAttending = attendances.filter((a) => a.member_type === "adult").map((a) => a.member_name);
   const jrAttending = attendances.filter((a) => a.member_type === "jr").map((a) => a.member_name);
   const totalAttending = adultAttending.length + jrAttending.length;
+
+  const getStatus = (name, type) => {
+    if (isAttending(name, type)) return "attend";
+    if (isAbsent(name, type)) return "absent";
+    return "none";
+  };
+  const getJrStatus = (label) => {
+    if (isJrUnitAttending(label)) return "attend";
+    if (isJrUnitAbsent(label)) return "absent";
+    return "none";
+  };
+
+  const statusStyle = (status, sel, color) => ({
+    border: sel ? `2px solid ${color}` : status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
+    background: sel ? (color === C.primary ? C.sakuraLight : C.jrLight) : status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F10" : C.card,
+  });
+
+  const statusLabel = (status, fallback) => {
+    if (status === "attend") return { text: "✓ 参加登録済み", color: C.success };
+    if (status === "absent") return { text: "✗ 欠席登録済み", color: C.danger };
+    return { text: fallback, color: C.textMuted };
+  };
+
+  // 未回答（参加でも欠席でもない）の人数
+  const adultUnresponded = members.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
+  const jrUnresponded = jrUnits.filter((u) => getJrStatus(u.label) === "none").length;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -977,14 +1021,26 @@ function AttendancePanel({ event, onClose }) {
                 </div>
               )}
 
+              {/* 参加／欠席モード切替 */}
+              <div style={{ display: "flex", gap: 0, marginBottom: 14, borderRadius: 10, overflow: "hidden", border: `1.5px solid ${C.border}` }}>
+                <button onClick={() => { setMode("attend"); setSelected([]); }}
+                  style={{ flex: 1, padding: "10px", border: "none", background: mode === "attend" ? C.success : C.card, color: mode === "attend" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  ✋ 参加登録
+                </button>
+                <button onClick={() => { setMode("absent"); setSelected([]); }}
+                  style={{ flex: 1, padding: "10px", border: "none", borderLeft: `1.5px solid ${C.border}`, background: mode === "absent" ? C.danger : C.card, color: mode === "absent" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  ✗ 欠席登録
+                </button>
+              </div>
+
               {selected.length > 0 && (
-                <div style={{ ...S.card, borderLeft: `4px solid ${C.accent}`, marginBottom: 14 }}>
+                <div style={{ ...S.card, borderLeft: `4px solid ${mode === "attend" ? C.success : C.danger}`, marginBottom: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>
                     選択中：{selected.map((s) => s.name).join("、")}
                   </div>
                   <button onClick={registerAll} disabled={saving}
-                    style={{ ...S.btn("primary"), width: "100%", padding: "14px", fontSize: 15, borderRadius: 10 }}>
-                    {saving ? "登録中..." : `✋ ${selected.length}件を登録する`}
+                    style={{ width: "100%", padding: "14px", fontSize: 15, borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, color: "#fff", background: mode === "attend" ? C.success : C.danger }}>
+                    {saving ? "登録中..." : mode === "attend" ? `✋ ${selected.length}件を参加登録する` : `✗ ${selected.length}件を欠席登録する`}
                   </button>
                   <button onClick={() => setSelected([])} style={{ width: "100%", marginTop: 8, padding: "8px", borderRadius: 8, border: "none", background: "none", color: C.textMuted, fontSize: 12, cursor: "pointer" }}>
                     選択をクリア
@@ -995,10 +1051,10 @@ function AttendancePanel({ event, onClose }) {
               {/* 大人/Jr タブ */}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  🏉 大人（{adultAttending.length}名）
+                  🏉 大人（{adultAttending.length}名　未回答{adultUnresponded}名）
                 </button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  ⭐ Jr（{jrAttending.length}グループ）
+                  ⭐ Jr（{jrAttending.length}　未回答{jrUnresponded}）
                 </button>
               </div>
 
@@ -1006,21 +1062,32 @@ function AttendancePanel({ event, onClose }) {
                 タップして選択 → 「登録する」で完了
               </div>
 
-              {/* 大人リスト：個人単位 */}
+              {/* 大人リスト */}
               {activeTab === "adult" && (
                 members.length === 0
                   ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
                   : members.map((m) => {
-                    const attending = isAttending(m.name_jp, "adult");
+                    const status = getStatus(m.name_jp, "adult");
                     const sel = isSelected(m.name_jp, "adult");
-                    return (
-                      <button key={m.id} onClick={() => toggleSelect(m.name_jp, "adult")}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6,
-                          border: sel ? `2px solid ${C.primary}` : attending ? `2px solid ${C.success}` : `1.5px solid ${C.border}`,
-                          background: sel ? C.sakuraLight : attending ? "#2E7D3210" : C.card }}>
+                    const sl = statusLabel(status, m.position);
+                    if (status === "absent") return (
+                      <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, opacity: 0.7 }}>
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
-                          <div style={{ fontSize: 11, color: attending ? C.success : C.textMuted }}>{attending ? "✓ 参加登録済み" : m.position}</div>
+                          <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
+                        </div>
+                        <button onClick={() => toggleSelect(m.name_jp, "adult")}
+                          style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${sel ? C.danger : C.border}`, background: sel ? "#CC1F1F20" : C.bg, color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          {sel ? "✓選択中" : "変更"}
+                        </button>
+                      </div>
+                    );
+                    return (
+                      <button key={m.id} onClick={() => toggleSelect(m.name_jp, "adult")}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel, C.primary) }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                          <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
                         </div>
                         <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.primary : C.border}`, background: sel ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
@@ -1030,25 +1097,32 @@ function AttendancePanel({ event, onClose }) {
                   })
               )}
 
-              {/* Jrリスト：家族グループ単位 */}
+              {/* Jrリスト */}
               {activeTab === "jr" && (
                 jrUnits.length === 0
                   ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
                   : jrUnits.map((unit) => {
-                    const attending = isJrUnitAttending(unit.label);
+                    const status = getJrStatus(unit.label);
                     const sel = isJrUnitSelected(unit.label);
+                    const sl = statusLabel(status, unit.subLabel);
+                    if (status === "absent") return (
+                      <div key={unit.key} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, opacity: 0.7 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
+                          <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
+                        </div>
+                        <button onClick={() => toggleJrSelect(unit.label)}
+                          style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${sel ? C.danger : C.border}`, background: sel ? "#CC1F1F20" : C.bg, color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          {sel ? "✓選択中" : "変更"}
+                        </button>
+                      </div>
+                    );
                     return (
                       <button key={unit.key} onClick={() => toggleJrSelect(unit.label)}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6,
-                          border: sel ? `2px solid ${C.jr}` : attending ? `2px solid ${C.success}` : `1.5px solid ${C.border}`,
-                          background: sel ? C.jrLight : attending ? "#2E7D3210" : C.card }}>
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel, C.jr) }}>
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
-                            {unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
-                          </div>
-                          <div style={{ fontSize: 11, color: attending ? C.success : C.textMuted }}>
-                            {attending ? "✓ 参加登録済み" : unit.subLabel}
-                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
+                          <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
                         </div>
                         <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.jr : C.border}`, background: sel ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
