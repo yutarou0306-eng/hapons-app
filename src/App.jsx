@@ -1666,6 +1666,9 @@ function JrFeesTab({ isAdmin }) {
   const [jrFees, setJrFees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [unitFee, setUnitFee] = useState(100); // デフォルトP100
+  const [editingFee, setEditingFee] = useState(false);
+  const [tempFee, setTempFee] = useState(100);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -1726,7 +1729,7 @@ function JrFeesTab({ isAdmin }) {
   };
 
   const getEventPaidCount = (eventId) => jrFees.filter((f) => f.event_id === eventId).length;
-  const getEventTotal = (eventId) => getEventPaidCount(eventId) * 100;
+  const getEventTotal = (eventId) => getEventPaidCount(eventId) * unitFee;
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
 
   const [trialName, setTrialName] = useState("");
@@ -1767,7 +1770,7 @@ function JrFeesTab({ isAdmin }) {
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
           <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length + trialUnits.length}グループ参加　P100×{paidCount}グループ</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length + trialUnits.length}グループ参加　P{unitFee}×{paidCount}グループ</div>
         </div>
 
         {/* 登録メンバー */}
@@ -1783,17 +1786,17 @@ function JrFeesTab({ isAdmin }) {
                   {unit.members.length > 1 ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
                 </div>
                 <div style={{ fontSize: 11, color: C.textMuted }}>
-                  {unit.members.map((m) => m.name_jp).join("・")}　P100
+                  {unit.members.map((m) => m.name_jp).join("・")}　P{unitFee}
                 </div>
               </div>
               {isAdmin ? (
                 <button onClick={() => togglePaid(selectedEvent, unit.label)}
                   style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加/未就学児"}
+                  {paid ? "✓ 参加" : "不参加"}
                 </button>
               ) : (
                 <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加/未就学児"}
+                  {paid ? "✓ 参加" : "不参加"}
                 </span>
               )}
             </div>
@@ -1808,7 +1811,7 @@ function JrFeesTab({ isAdmin }) {
           <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
-              <div style={{ fontSize: 11, color: C.textMuted }}>体験参加　P100</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>体験参加　P{unitFee}</div>
             </div>
             {isAdmin && (
               <button onClick={() => removeTrial(t.key)}
@@ -1845,7 +1848,7 @@ function JrFeesTab({ isAdmin }) {
       const d = new Date(e.date);
       return d >= start && d <= end;
     }).map((e) => e.id);
-    return jrFees.filter((f) => yearEventIds.includes(f.event_id)).length * 100;
+    return jrFees.filter((f) => yearEventIds.includes(f.event_id)).length * unitFee;
   };
 
   const yearLabel = (() => {
@@ -1909,7 +1912,27 @@ function JrFeesTab({ isAdmin }) {
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
             <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
             <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal().toLocaleString()}</div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>兄弟がいる家族は家族単位でP100／回</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {editingFee ? (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P</span>
+                  <input type="number" value={tempFee} onChange={(e) => setTempFee(Number(e.target.value))}
+                    style={{ width: 70, padding: "2px 6px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 700, color: C.text }} />
+                  <button onClick={() => { setUnitFee(tempFee); setEditingFee(false); }}
+                    style={{ padding: "3px 10px", borderRadius: 6, border: "none", background: "#fff", color: C.jr, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>確定</button>
+                  <button onClick={() => setEditingFee(false)}
+                    style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P{unitFee}/グループ・回</span>
+                  {isAdmin && (
+                    <button onClick={() => { setTempFee(unitFee); setEditingFee(true); }}
+                      style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 11, cursor: "pointer" }}>変更</button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
