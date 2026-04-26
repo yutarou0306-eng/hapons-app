@@ -875,40 +875,34 @@ function AttendancePanel({ event, onClose }) {
     return pending[key] !== undefined ? pending[key] : getCommittedStatus(name, type);
   };
 
-  const cycleStatus = (name, type) => {
-    const key = `${name}__${type}`;
+  const cycleStatus = async (name, type) => {
     const current = getStatus(name, type);
-    const committed = getCommittedStatus(name, type);
     const next = current === "none" ? "attend" : current === "attend" ? "absent" : "none";
-    if (next === committed) {
-      setPending((prev) => { const p = { ...prev }; delete p[key]; return p; });
+
+    // 楽観的UI更新（即座に画面反映）
+    const key = `${name}__${type}`;
+    setPending((prev) => ({ ...prev, [key]: next }));
+
+    // 既存レコード削除
+    const att = attendances.find((a) => a.member_name === name && a.member_type === type);
+    const ab = absences.find((a) => a.member_name === name && a.member_type === type);
+    if (att) await supabase.from("attendances").delete().eq("id", att.id);
+    if (ab) await supabase.from("absences").delete().eq("id", ab.id);
+
+    // 新しいステータスを即保存
+    if (next === "attend") {
+      const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
+      if (data) setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
+    } else if (next === "absent") {
+      const { data } = await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
+      if (data) setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
     } else {
-      setPending((prev) => ({ ...prev, [key]: next }));
+      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
     }
-  };
 
-  const hasPending = Object.keys(pending).length > 0;
-
-  const commitAll = async () => {
-    setSaving(true);
-    for (const [key, newStatus] of Object.entries(pending)) {
-      const [name, ...typeParts] = key.split("__");
-      const type = typeParts.join("__");
-      const att = attendances.find((a) => a.member_name === name && a.member_type === type);
-      const ab = absences.find((a) => a.member_name === name && a.member_type === type);
-      if (att) await supabase.from("attendances").delete().eq("id", att.id);
-      if (ab) await supabase.from("absences").delete().eq("id", ab.id);
-      if (newStatus === "attend") await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]);
-      else if (newStatus === "absent") await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type }]);
-    }
-    const [a, ab] = await Promise.all([
-      supabase.from("attendances").select("*").eq("event_id", event.id),
-      supabase.from("absences").select("*").eq("event_id", event.id),
-    ]);
-    if (a.data) setAttendances(a.data);
-    if (ab.data) setAbsences(ab.data);
-    setPending({});
-    setSaving(false);
+    // pendingをクリア
+    setPending((prev) => { const p = { ...prev }; delete p[key]; return p; });
   };
 
   const jrUnits = jrMembers.map((m) => ({
@@ -980,13 +974,7 @@ function AttendancePanel({ event, onClose }) {
           {loading && <Loading />}
           {!loading && (
             <>
-              {hasPending && (
-                <button onClick={commitAll} disabled={saving}
-                  style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 15, color: "#fff", background: C.primary, marginBottom: 14, boxShadow: "0 4px 12px rgba(204,31,31,0.3)" }}>
-                  {saving ? "登録中..." : `✋ ${Object.keys(pending).length}件の変更を登録する`}
-                </button>
-              )}
-              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 欠席 → 未登録　　変更後「登録する」で確定</div>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 欠席 → 未登録　（タップで即時保存）</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>🏉 大人</button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>⭐ Jr</button>
