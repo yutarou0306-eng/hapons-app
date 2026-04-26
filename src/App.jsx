@@ -2022,7 +2022,18 @@ export default function HaponsApp() {
       fetchAnnouncements();
     }, 5 * 60 * 1000);
 
-    return () => clearInterval(interval);
+    // アプリを再度開いた時に更新（スマホ対応）
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAnnouncements();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   // Androidの戻るジェスチャー対応
