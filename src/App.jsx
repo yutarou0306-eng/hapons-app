@@ -725,7 +725,7 @@ function MembersTab({ isAdmin }) {
     { key: "is_mjs_student", label: "MJSの生徒", type: "checkbox" },
     { key: "parent_name", label: "保護者氏名" },
     { key: "phone", label: "電話番号" },
-
+    { key: "waiver_submitted", label: "Waiver提出済み", type: "checkbox" },
   ];
 
   const fields = isAdult ? adultFields : jrFields;
@@ -772,7 +772,7 @@ function MembersTab({ isAdmin }) {
   };
 
   const defaultAdult = { position: "", name_jp: "", name_en: "", birth_date: "", phone: "", mjs_id_submitted: false };
-  const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "" };
+  const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "", waiver_submitted: false };
 
   return (
     <div style={S.content}>
@@ -812,7 +812,7 @@ function MembersTab({ isAdmin }) {
                     <a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br />
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
-                      : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span></>
+                      : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
                     }
                     {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
                     {!isAdult && m.parent_name && (() => {
