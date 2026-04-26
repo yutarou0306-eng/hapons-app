@@ -1767,6 +1767,7 @@ function JrFeesTab({ isAdmin }) {
         )}
         {feeUnits.map((unit) => {
           const paid = isPaid(selectedEvent, unit.label);
+          const feeRecord = jrFees.find((f) => f.event_id === selectedEvent && f.family_id === unit.label);
           return (
             <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
               <div>
@@ -1777,16 +1778,28 @@ function JrFeesTab({ isAdmin }) {
                   {unit.members.map((m) => m.name_jp).join("・")}　P{unitFee}
                 </div>
               </div>
-              {isAdmin ? (
-                <button onClick={() => togglePaid(selectedEvent, unit.label)}
-                  style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加"}
-                </button>
-              ) : (
-                <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
-                  {paid ? "✓ 参加" : "不参加"}
-                </span>
-              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {isAdmin ? (
+                  <button onClick={() => togglePaid(selectedEvent, unit.label)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </button>
+                ) : (
+                  <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </span>
+                )}
+                {isAdmin && paid && feeRecord && (
+                  <button onClick={async () => {
+                    if (!window.confirm(`${unit.label}の参加記録を削除しますか？`)) return;
+                    await supabase.from("jr_fees").delete().eq("id", feeRecord.id);
+                    setJrFees(jrFees.filter((f) => f.id !== feeRecord.id));
+                  }}
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                    削除
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
