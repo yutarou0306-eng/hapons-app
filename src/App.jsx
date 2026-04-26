@@ -1674,7 +1674,8 @@ function JrFeesTab({ isAdmin }) {
 
   const [showHistory, setShowHistory] = useState(false);
   // 翌日までの練習をトップに表示（それ以降は全履歴へ）
-  const topEvents = events.slice(0, 4); // 直近4回（新しい順）
+  const today = new Date().toISOString().slice(0, 10);
+  const topEvents = events.filter((e) => e.date <= today).slice(0, 4); // 今日以前の直近4回
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
