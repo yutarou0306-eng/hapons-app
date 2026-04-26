@@ -844,9 +844,7 @@ function AttendancePanel({ event, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
-  const [selected, setSelected] = useState([]);
-  const [step, setStep] = useState("select");
-  const [mode, setMode] = useState("attend"); // "attend" | "absent"
+  const [pending, setPending] = useState({});
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -866,138 +864,113 @@ function AttendancePanel({ event, onClose }) {
     fetchAll();
   }, [event.id]);
 
-  const isAttending = (name, type) => attendances.some((a) => a.member_name === name && a.member_type === type);
-  const isAbsent = (name, type) => absences.some((a) => a.member_name === name && a.member_type === type);
-  const isSelected = (name, type) => selected.some((s) => s.name === name && s.type === type);
-
-  const toggleSelect = (name, type) => {
-    if (isSelected(name, type)) setSelected(selected.filter((s) => !(s.name === name && s.type === type)));
-    else setSelected([...selected, { name, type }]);
+  const getCommittedStatus = (name, type) => {
+    if (attendances.some((a) => a.member_name === name && a.member_type === type)) return "attend";
+    if (absences.some((a) => a.member_name === name && a.member_type === type)) return "absent";
+    return "none";
   };
 
-  // Jr：個人単位で登録
-  const getJrUnits = () => {
-    return jrMembers.map((m) => ({
-      key: `ind_${m.id}`,
-      label: m.name_jp,
-      subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
-      type: "jr",
-    }));
-  };
-  const jrUnits = getJrUnits();
-
-  const isJrUnitAttending = (label) => attendances.some((a) => a.member_name === label && a.member_type === "jr");
-  const isJrUnitAbsent = (label) => absences.some((a) => a.member_name === label && a.member_type === "jr");
-  const isJrUnitSelected = (label) => selected.some((s) => s.name === label && s.type === "jr");
-  const toggleJrSelect = (label) => {
-    if (isJrUnitSelected(label)) setSelected(selected.filter((s) => !(s.name === label && s.type === "jr")));
-    else setSelected([...selected, { name: label, type: "jr" }]);
+  const getStatus = (name, type) => {
+    const key = `${name}__${type}`;
+    return pending[key] !== undefined ? pending[key] : getCommittedStatus(name, type);
   };
 
-  const registerAll = async () => {
-    if (selected.length === 0) return;
-    setSaving(true);
-
-    if (mode === "attend") {
-      // 参加登録：欠席から削除→参加に追加
-      for (const s of selected) {
-        const ab = absences.find((a) => a.member_name === s.name && a.member_type === s.type);
-        if (ab) await supabase.from("absences").delete().eq("id", ab.id);
-        const existing = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
-        if (existing) {
-          await supabase.from("attendances").delete().eq("id", existing.id);
-        } else {
-          await supabase.from("attendances").insert([{ event_id: event.id, member_name: s.name, member_type: s.type }]);
-        }
-      }
+  const cycleStatus = (name, type) => {
+    const key = `${name}__${type}`;
+    const current = getStatus(name, type);
+    const committed = getCommittedStatus(name, type);
+    const next = current === "none" ? "attend" : current === "attend" ? "absent" : "none";
+    if (next === committed) {
+      setPending((prev) => { const p = { ...prev }; delete p[key]; return p; });
     } else {
-      // 欠席登録：参加から削除→欠席に追加
-      for (const s of selected) {
-        const att = attendances.find((a) => a.member_name === s.name && a.member_type === s.type);
-        if (att) await supabase.from("attendances").delete().eq("id", att.id);
-        const existing = absences.find((a) => a.member_name === s.name && a.member_type === s.type);
-        if (existing) {
-          await supabase.from("absences").delete().eq("id", existing.id);
-        } else {
-          await supabase.from("absences").insert([{ event_id: event.id, member_name: s.name, member_type: s.type }]);
-        }
-      }
+      setPending((prev) => ({ ...prev, [key]: next }));
     }
+  };
 
-    // 再取得
+  const hasPending = Object.keys(pending).length > 0;
+
+  const commitAll = async () => {
+    setSaving(true);
+    for (const [key, newStatus] of Object.entries(pending)) {
+      const [name, ...typeParts] = key.split("__");
+      const type = typeParts.join("__");
+      const att = attendances.find((a) => a.member_name === name && a.member_type === type);
+      const ab = absences.find((a) => a.member_name === name && a.member_type === type);
+      if (att) await supabase.from("attendances").delete().eq("id", att.id);
+      if (ab) await supabase.from("absences").delete().eq("id", ab.id);
+      if (newStatus === "attend") await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]);
+      else if (newStatus === "absent") await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type }]);
+    }
     const [a, ab] = await Promise.all([
       supabase.from("attendances").select("*").eq("event_id", event.id),
       supabase.from("absences").select("*").eq("event_id", event.id),
     ]);
     if (a.data) setAttendances(a.data);
     if (ab.data) setAbsences(ab.data);
-    setSelected([]);
-    setStep("confirm");
+    setPending({});
     setSaving(false);
   };
+
+  const jrUnits = jrMembers.map((m) => ({
+    key: `ind_${m.id}`, label: m.name_jp,
+    subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
+  }));
 
   const adultAttending = attendances.filter((a) => a.member_type === "adult").map((a) => a.member_name);
   const jrAttending = attendances.filter((a) => a.member_type === "jr").map((a) => a.member_name);
   const totalAttending = adultAttending.length + jrAttending.length;
+  const adultAbsent = absences.filter((a) => a.member_type === "adult").length;
+  const jrAbsent = absences.filter((a) => a.member_type === "jr").length;
+  const adultUnresponded = members.length - adultAttending.length - adultAbsent;
+  const jrUnresponded = jrMembers.length - jrAttending.length - jrAbsent;
 
-  const getStatus = (name, type) => {
-    if (isAttending(name, type)) return "attend";
-    if (isAbsent(name, type)) return "absent";
-    return "none";
-  };
-  const getJrStatus = (label) => {
-    if (isJrUnitAttending(label)) return "attend";
-    if (isJrUnitAbsent(label)) return "absent";
-    return "none";
-  };
-
-  const statusStyle = (status, sel) => ({
-    border: sel
-      ? `2px solid ${mode === "attend" ? C.success : C.danger}`
-      : status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
-    background: sel
-      ? (mode === "attend" ? "#2E7D3220" : "#CC1F1F20")
-      : status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F10" : C.card,
+  const statusBtnStyle = (status, isPend) => ({
+    padding: "5px 12px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
+    background: status === "attend" ? (isPend ? C.success : "#2E7D3220") : status === "absent" ? (isPend ? C.danger : "#CC1F1F15") : C.border,
+    color: status === "attend" ? (isPend ? "#fff" : C.success) : status === "absent" ? (isPend ? "#fff" : C.danger) : C.textMuted,
   });
 
-  const statusLabel = (status, fallback) => {
-    if (status === "attend") return { text: "✓ 参加登録済み", color: C.success };
-    if (status === "absent") return { text: "✗ 欠席登録済み", color: C.danger };
-    return { text: fallback, color: C.textMuted };
-  };
+  const cardStyle = (status) => ({
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "12px 14px", borderRadius: 10, marginBottom: 6,
+    background: status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F08" : C.card,
+    border: status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
+  });
 
-  // 未回答（参加でも欠席でもない）の人数
-  const adultUnresponded = members.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
-  const jrUnresponded = jrUnits.filter((u) => getJrStatus(u.label) === "none").length;
+  const statusText = (status) => status === "attend" ? "✓ 参加" : status === "absent" ? "✗ 欠席" : "未登録";
+
+  const renderMember = (name, subLabel, type, key) => {
+    const status = getStatus(name, type);
+    const isPend = pending[`${name}__${type}`] !== undefined;
+    return (
+      <div key={key} style={cardStyle(status)}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{name}</div>
+          <div style={{ fontSize: 11, color: status === "attend" ? C.success : status === "absent" ? C.danger : C.textMuted, fontWeight: status !== "none" ? 700 : 400 }}>
+            {subLabel}
+          </div>
+        </div>
+        <button onClick={() => cycleStatus(name, type)} style={statusBtnStyle(status, isPend)}>
+          {statusText(status)}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
-
-        {/* ヘッダー */}
         <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "sticky", top: 0, zIndex: 10 }}>
           <div style={{ flex: 1, marginRight: 10 }}>
             <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
             <div style={{ marginBottom: 3 }}>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{absences.filter(a => a.member_type === "adult").length} 未回答{adultUnresponded}</div>
-              {adultAttending.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                  {adultAttending.map((name) => (
-                    <span key={name} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
-                  ))}
-                </div>
-              )}
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未回答{adultUnresponded}</div>
+              {adultAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{adultAttending.map((n) => <span key={n} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
             </div>
             <div>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{absences.filter(a => a.member_type === "jr").length} 未回答{jrUnresponded}</div>
-              {jrAttending.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                  {jrAttending.map((name) => (
-                    <span key={name} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{name}</span>
-                  ))}
-                </div>
-              )}
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未回答{jrUnresponded}</div>
+              {jrAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{jrAttending.map((n) => <span key={n} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
             </div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
@@ -1007,125 +980,24 @@ function AttendancePanel({ event, onClose }) {
           {loading && <Loading />}
           {!loading && (
             <>
-              {step === "confirm" && (
-                <div style={{ ...S.card, borderLeft: `4px solid ${C.success}`, marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 22 }}>✅</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.success }}>登録が完了しました</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>続けて選択できます</div>
-                  </div>
-                </div>
-              )}
-
-              {/* 参加／欠席モード切替 */}
-              <div style={{ display: "flex", gap: 0, marginBottom: 14, borderRadius: 10, overflow: "hidden", border: `1.5px solid ${C.border}` }}>
-                <button onClick={() => { setMode("attend"); setSelected([]); }}
-                  style={{ flex: 1, padding: "10px", border: "none", background: mode === "attend" ? C.success : C.card, color: mode === "attend" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-                  ✋ 参加登録
+              {hasPending && (
+                <button onClick={commitAll} disabled={saving}
+                  style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 15, color: "#fff", background: C.primary, marginBottom: 14, boxShadow: "0 4px 12px rgba(204,31,31,0.3)" }}>
+                  {saving ? "登録中..." : `✋ ${Object.keys(pending).length}件の変更を登録する`}
                 </button>
-                <button onClick={() => { setMode("absent"); setSelected([]); }}
-                  style={{ flex: 1, padding: "10px", border: "none", borderLeft: `1.5px solid ${C.border}`, background: mode === "absent" ? C.danger : C.card, color: mode === "absent" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-                  ✗ 欠席登録
-                </button>
-              </div>
-
-              {selected.length > 0 && (
-                <div style={{ ...S.card, borderLeft: `4px solid ${mode === "attend" ? C.success : C.danger}`, marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>
-                    選択中：{selected.map((s) => s.name).join("、")}
-                  </div>
-                  <button onClick={registerAll} disabled={saving}
-                    style={{ width: "100%", padding: "14px", fontSize: 15, borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, color: "#fff", background: mode === "attend" ? C.success : C.danger }}>
-                    {saving ? "登録中..." : mode === "attend" ? `✋ ${selected.length}件を参加登録する` : `✗ ${selected.length}件を欠席登録する`}
-                  </button>
-                  <button onClick={() => setSelected([])} style={{ width: "100%", marginTop: 8, padding: "8px", borderRadius: 8, border: "none", background: "none", color: C.textMuted, fontSize: 12, cursor: "pointer" }}>
-                    選択をクリア
-                  </button>
-                </div>
               )}
-
-              {/* 大人/Jr タブ */}
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 欠席 → 未登録　　変更後「登録する」で確定</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  🏉 大人
-                </button>
-                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-                  ⭐ Jr
-                </button>
+                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>🏉 大人</button>
+                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>⭐ Jr</button>
               </div>
-
-              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
-                タップして選択 → 「登録する」で完了
-              </div>
-
-              {/* 大人リスト */}
-              {activeTab === "adult" && (
-                members.length === 0
-                  ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
-                  : members.map((m) => {
-                    const status = getStatus(m.name_jp, "adult");
-                    const sel = isSelected(m.name_jp, "adult");
-                    const sl = statusLabel(status, m.position);
-                    if (status === "absent") return (
-                      <div key={m.id} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, background: "#CC1F1F08" }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
-                          <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
-                        </div>
-                        <button onClick={() => toggleSelect(m.name_jp, "adult")}
-                          style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${sel ? C.danger : C.border}`, background: sel ? "#CC1F1F20" : C.bg, color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          {sel ? "✓選択中" : "変更"}
-                        </button>
-                      </div>
-                    );
-                    return (
-                      <button key={m.id} onClick={() => toggleSelect(m.name_jp, "adult")}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel) }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
-                          <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
-                        </div>
-                        <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.primary : C.border}`, background: sel ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
-                        </div>
-                      </button>
-                    );
-                  })
+              {activeTab === "adult" && (members.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
+                : members.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
               )}
-
-              {/* Jrリスト */}
-              {activeTab === "jr" && (
-                jrUnits.length === 0
-                  ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
-                  : jrUnits.map((unit) => {
-                    const status = getJrStatus(unit.label);
-                    const sel = isJrUnitSelected(unit.label);
-                    const sl = statusLabel(status, unit.subLabel);
-                    if (status === "absent") return (
-                      <div key={unit.key} style={{ ...S.card, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, borderLeft: `4px solid ${C.danger}`, background: "#CC1F1F08" }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
-                          <div style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>✗ 欠席登録済み</div>
-                        </div>
-                        <button onClick={() => toggleJrSelect(unit.label)}
-                          style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${sel ? C.danger : C.border}`, background: sel ? "#CC1F1F20" : C.bg, color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          {sel ? "✓選択中" : "変更"}
-                        </button>
-                      </div>
-                    );
-                    return (
-                      <button key={unit.key} onClick={() => toggleJrSelect(unit.label)}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "left", width: "100%", marginBottom: 6, ...statusStyle(status, sel) }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{unit.subLabel !== unit.label ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}</div>
-                          <div style={{ fontSize: 11, color: sl.color, fontWeight: status !== "none" ? 700 : 400 }}>{sl.text}</div>
-                        </div>
-                        <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${sel ? C.jr : C.border}`, background: sel ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {sel && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>✓</span>}
-                        </div>
-                      </button>
-                    );
-                  })
+              {activeTab === "jr" && (jrUnits.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
+                : jrUnits.map((u) => renderMember(u.label, u.subLabel, "jr", u.key))
               )}
             </>
           )}
