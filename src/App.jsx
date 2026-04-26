@@ -1674,8 +1674,7 @@ function JrFeesTab({ isAdmin }) {
 
   const [showHistory, setShowHistory] = useState(false);
   // 翌日までの練習をトップに表示（それ以降は全履歴へ）
-  const tomorrow = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const topEvents = events.filter((e) => e.date <= tomorrow).slice(0, 4);
+  const topEvents = events.slice(0, 4); // 直近4回（新しい順）
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
@@ -1870,7 +1869,7 @@ function JrFeesTab({ isAdmin }) {
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{events.length}回分の記録</div>
         </div>
         {events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>}
-        {events.map((e) => {
+        {[...events].reverse().map((e) => {
           const d = new Date(e.date);
           const paidCount = getEventPaidCount(e.id);
           const total = getEventTotal(e.id);
