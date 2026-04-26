@@ -729,7 +729,13 @@ function MembersTab({ isAdmin }) {
   ];
 
   const fields = isAdult ? adultFields : jrFields;
-  const filtered = list.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "Parent Relation"];
+  const sortedList = isAdult ? [...list].sort((a, b) => {
+    const aBottom = BOTTOM_POSITIONS.includes(a.position) ? 1 : 0;
+    const bBottom = BOTTOM_POSITIONS.includes(b.position) ? 1 : 0;
+    return aBottom - bBottom;
+  }) : list;
+  const filtered = sortedList.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
 
   const save = async (form) => {
     const { id: _id, created_at: _ca, ...rest } = form;
