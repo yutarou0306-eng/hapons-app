@@ -2142,6 +2142,28 @@ export default function HaponsApp() {
     return () => clearInterval(interval);
   }, []);
 
+  // Androidの戻るジェスチャー対応
+  useEffect(() => {
+    const handlePopState = () => {
+      // サブページが開いている場合は閉じる
+      if (showImportant) { setShowImportant(false); history.pushState(null, "", window.location.href); return; }
+      if (showRules) { setShowRules(false); history.pushState(null, "", window.location.href); return; }
+      if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
+      if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
+      if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
+      if (showAdminLogin) { setShowAdminLogin(false); history.pushState(null, "", window.location.href); return; }
+      // メイン画面ではhomeに戻る（アプリ終了を防ぐ）
+      if (tab !== "home") { setTab("home"); history.pushState(null, "", window.location.href); return; }
+      // ホームでは履歴を維持してアプリ終了を防ぐ
+      history.pushState(null, "", window.location.href);
+    };
+
+    // 初回に履歴スタックを追加
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showAdminLogin, tab]);
+
   if (!role) return <LoginScreen onLogin={handleLogin} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
