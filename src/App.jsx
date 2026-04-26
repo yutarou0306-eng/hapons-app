@@ -910,13 +910,14 @@ function AttendancePanel({ event, onClose }) {
     subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
   }));
 
-  const adultAttending = attendances.filter((a) => a.member_type === "adult").map((a) => a.member_name);
-  const jrAttending = attendances.filter((a) => a.member_type === "jr").map((a) => a.member_name);
+  // バナーはpendingも含めてリアルタイム計算
+  const adultAttending = members.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
+  const jrAttending = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "attend").map((m) => m.name_jp);
   const totalAttending = adultAttending.length + jrAttending.length;
-  const adultAbsent = absences.filter((a) => a.member_type === "adult").length;
-  const jrAbsent = absences.filter((a) => a.member_type === "jr").length;
-  const adultUnresponded = members.length - adultAttending.length - adultAbsent;
-  const jrUnresponded = jrMembers.length - jrAttending.length - jrAbsent;
+  const adultAbsent = members.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
+  const jrAbsent = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "absent").length;
+  const adultUnresponded = members.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
+  const jrUnresponded = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "none").length;
 
   const statusBtnStyle = (status, isPend) => ({
     padding: "5px 12px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
