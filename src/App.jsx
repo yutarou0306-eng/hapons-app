@@ -844,7 +844,6 @@ function AttendancePanel({ event, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
-  const [pending, setPending] = useState({});
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -870,39 +869,37 @@ function AttendancePanel({ event, onClose }) {
     return "none";
   };
 
-  const getStatus = (name, type) => {
-    const key = `${name}__${type}`;
-    return pending[key] !== undefined ? pending[key] : getCommittedStatus(name, type);
-  };
+  const getStatus = (name, type) => getCommittedStatus(name, type);
 
   const cycleStatus = async (name, type) => {
-    const current = getStatus(name, type);
+    const current = getCommittedStatus(name, type);
     const next = current === "none" ? "attend" : current === "attend" ? "absent" : "none";
 
-    // 楽観的UI更新（即座に画面反映）
-    const key = `${name}__${type}`;
-    setPending((prev) => ({ ...prev, [key]: next }));
+    // stateを即座に更新（楽観的UI）
+    if (next === "attend") {
+      setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, id: `temp_${Date.now()}` }]);
+      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    } else if (next === "absent") {
+      setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, id: `temp_${Date.now()}` }]);
+      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    } else {
+      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    }
 
-    // 既存レコード削除
+    // Supabaseに保存（バックグラウンド）
     const att = attendances.find((a) => a.member_name === name && a.member_type === type);
     const ab = absences.find((a) => a.member_name === name && a.member_type === type);
-    if (att) await supabase.from("attendances").delete().eq("id", att.id);
-    if (ab) await supabase.from("absences").delete().eq("id", ab.id);
+    if (att && !String(att.id).startsWith("temp_")) await supabase.from("attendances").delete().eq("id", att.id);
+    if (ab && !String(ab.id).startsWith("temp_")) await supabase.from("absences").delete().eq("id", ab.id);
 
-    // 新しいステータスを即保存
     if (next === "attend") {
       const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
       if (data) setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
     } else if (next === "absent") {
       const { data } = await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
       if (data) setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
-    } else {
-      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
-      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
     }
-
-    // pendingをクリア
-    setPending((prev) => { const p = { ...prev }; delete p[key]; return p; });
   };
 
   const jrUnits = jrMembers.map((m) => ({
@@ -910,7 +907,7 @@ function AttendancePanel({ event, onClose }) {
     subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
   }));
 
-  // バナーはpendingも含めてリアルタイム計算
+  // バナーはリアルタイム計算
   const adultAttending = members.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
   const jrAttending = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "attend").map((m) => m.name_jp);
   const totalAttending = adultAttending.length + jrAttending.length;
@@ -936,7 +933,7 @@ function AttendancePanel({ event, onClose }) {
 
   const renderMember = (name, subLabel, type, key) => {
     const status = getStatus(name, type);
-    const isPend = pending[`${name}__${type}`] !== undefined;
+    const isPend = false;
     return (
       <div key={key} style={cardStyle(status)}>
         <div style={{ flex: 1 }}>
