@@ -446,8 +446,87 @@ function ClubSongPage({ onClose }) {
   );
 }
 
+// ── 幹事会議事録ページ ──
+function MinutesPage({ onClose, isAdmin }) {
+  const [minutes, setMinutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      const { data } = await supabase.from("minutes").select("*").order("created_at", { ascending: false });
+      if (data) setMinutes(data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  const addMinutes = async () => {
+    if (!newTitle.trim() || !newUrl.trim()) { alert("タイトルとURLを入力してください"); return; }
+    setSaving(true);
+    const { data, error } = await supabase.from("minutes").insert([{ title: newTitle.trim(), url: newUrl.trim() }]).select();
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) setMinutes([data[0], ...minutes]);
+    setNewTitle(""); setNewUrl(""); setShowAdd(false); setSaving(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    await supabase.from("minutes").delete().eq("id", id);
+    setMinutes(minutes.filter((m) => m.id !== id));
+  };
+
+  return (
+    <DocViewer title="幹事会議事録" onClose={onClose}>
+      {isAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          {showAdd ? (
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>📝 議事録を追加</div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+              <input style={S.input} placeholder="例：2026年度4月度議事録" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+              <input style={S.input} placeholder="https://drive.google.com/..." value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAdd(false); setNewTitle(""); setNewUrl(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMinutes} disabled={saving}>{saving ? "保存中..." : "追加する"}</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowAdd(true)} style={{ ...S.btn("accent", "sm"), width: "100%" }}>＋ 議事録を追加</button>
+          )}
+        </div>
+      )}
+
+      {loading && <Loading />}
+      {!loading && minutes.length === 0 && (
+        <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13, padding: 24 }}>
+          議事録が登録されていません
+        </div>
+      )}
+      {minutes.map((m) => (
+        <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${C.primary}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <a href={m.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.primary }}>{m.title}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>📄 PDFを開く ↗</div>
+            </a>
+            {isAdmin && (
+              <button onClick={() => del(m.id)} style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>削除</button>
+            )}
+          </div>
+        </div>
+      ))}
+    </DocViewer>
+  );
+}
+
 // ── HOME TAB ──
-function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong }) {
+function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
   const [photos, setPhotos] = useState([]);
@@ -580,6 +659,11 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
       <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
     </div>
@@ -1999,6 +2083,7 @@ export default function HaponsApp() {
   const [showEntryForms, setShowEntryForms] = useState(false);
   const [showMJSPass, setShowMJSPass] = useState(false);
   const [showClubSong, setShowClubSong] = useState(false);
+  const [showMinutes, setShowMinutes] = useState(false);
   const isAdmin = role === "admin";
 
   const handleLogin = (newRole) => {
@@ -2064,6 +2149,7 @@ export default function HaponsApp() {
       if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
       if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
       if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
+      if (showMinutes) { setShowMinutes(false); history.pushState(null, "", window.location.href); return; }
       if (showAdminLogin) { setShowAdminLogin(false); history.pushState(null, "", window.location.href); return; }
       // メイン画面ではhomeに戻る（アプリ終了を防ぐ）
       if (tab !== "home") { setTab("home"); history.pushState(null, "", window.location.href); return; }
@@ -2075,7 +2161,7 @@ export default function HaponsApp() {
     history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showAdminLogin, tab]);
+  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
 
   if (!role) return <LoginScreen onLogin={handleLogin} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
@@ -2083,6 +2169,7 @@ export default function HaponsApp() {
   if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
   if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
+  if (showMinutes) return <MinutesPage onClose={() => setShowMinutes(false)} isAdmin={isAdmin} />;
 
   const tabs = [
     { id: "home", label: "ホーム", icon: "🏠" },
@@ -2119,7 +2206,7 @@ export default function HaponsApp() {
         </div>
       )}
 
-      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} />}
+      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
       {tab === "members" && <MembersTab isAdmin={isAdmin} />}
       {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
       {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
