@@ -454,6 +454,9 @@ function MinutesPage({ onClose, isAdmin }) {
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null); // 編集中のレコード
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
 
   useEffect(() => {
     const fetch = async () => {
@@ -472,6 +475,15 @@ function MinutesPage({ onClose, isAdmin }) {
     if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
     if (data) setMinutes([data[0], ...minutes]);
     setNewTitle(""); setNewUrl(""); setShowAdd(false); setSaving(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editTitle.trim() || !editUrl.trim()) { alert("タイトルとURLを入力してください"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("minutes").update({ title: editTitle.trim(), url: editUrl.trim() }).eq("id", editing.id);
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setMinutes(minutes.map((m) => m.id === editing.id ? { ...m, title: editTitle.trim(), url: editUrl.trim() } : m));
+    setEditing(null); setSaving(false);
   };
 
   const del = async (id) => {
@@ -516,11 +528,33 @@ function MinutesPage({ onClose, isAdmin }) {
               <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>📄 PDFを開く ↗</div>
             </a>
             {isAdmin && (
-              <button onClick={() => del(m.id)} style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>削除</button>
+              <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+                <button onClick={() => { setEditing(m); setEditTitle(m.title); setEditUrl(m.url); }}
+                  style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>編集</button>
+                <button onClick={() => del(m.id)}
+                  style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>削除</button>
+              </div>
             )}
           </div>
         </div>
       ))}
+
+      {/* 編集モーダル */}
+      {editing && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>📝 議事録を編集</h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+            <input style={S.input} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditing(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveEdit} disabled={saving}>{saving ? "保存中..." : "保存する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DocViewer>
   );
 }
