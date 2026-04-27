@@ -927,7 +927,7 @@ function MembersTab({ isAdmin }) {
                   </div>
                   <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.8 }}>
                     {isAdult && (m.age || m.birth_date) && <span>年齢：{m.birth_date ? calcAge(m.birth_date) : m.age}歳　</span>}
-                    <a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br />
+                    {isAdmin && m.phone && <><a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br /></>}
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
