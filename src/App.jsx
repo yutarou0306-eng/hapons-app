@@ -1812,13 +1812,13 @@ function JrFeesTab({ isAdmin }) {
 
         {/* その他 */}
         {trialUnits.length > 0 && (
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 その他</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 仮入部/その他</div>
         )}
         {trialUnits.map((t) => (
           <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
-              <div style={{ fontSize: 11, color: C.textMuted }}>その他　P{unitFee}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>仮入部/その他　P{unitFee}</div>
             </div>
             {isAdmin && (
               <button onClick={() => removeTrial(t.key)}
@@ -1832,7 +1832,7 @@ function JrFeesTab({ isAdmin }) {
         {isAdmin && showTrialInput && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 その他を追加</h3>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 仮入部/その他を追加</h3>
               <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                 <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
