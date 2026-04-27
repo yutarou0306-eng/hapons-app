@@ -1729,14 +1729,14 @@ function JrFeesTab({ isAdmin }) {
   const [trialName, setTrialName] = useState("");
   const [showTrialInput, setShowTrialInput] = useState(false);
 
-  // 体験参加者（jr_feesにlabelが"体験:名前"形式で保存）
+  // その他（jr_feesにlabelが"その他:名前"形式で保存）
   const getTrialUnits = (eventId) =>
-    jrFees.filter((f) => f.event_id === eventId && String(f.family_id).startsWith("体験:"))
-      .map((f) => ({ label: String(f.family_id).replace("体験:", ""), key: f.id }));
+    jrFees.filter((f) => f.event_id === eventId && String(f.family_id).startsWith("その他:"))
+      .map((f) => ({ label: String(f.family_id).replace("その他:", ""), key: f.id }));
 
   const addTrial = async () => {
     if (!trialName.trim()) return;
-    const label = `体験:${trialName.trim()}`;
+    const label = `その他:${trialName.trim()}`;
     const { data } = await supabase.from("jr_fees").insert([{ event_id: selectedEvent, family_id: label, paid: true }]).select();
     if (data) setJrFees([...jrFees, data[0]]);
     setTrialName(""); setShowTrialInput(false);
@@ -1810,15 +1810,15 @@ function JrFeesTab({ isAdmin }) {
           );
         })}
 
-        {/* 体験参加者 */}
+        {/* その他 */}
         {trialUnits.length > 0 && (
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 体験参加</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 その他</div>
         )}
         {trialUnits.map((t) => (
           <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
-              <div style={{ fontSize: 11, color: C.textMuted }}>体験参加　P{unitFee}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>その他　P{unitFee}</div>
             </div>
             {isAdmin && (
               <button onClick={() => removeTrial(t.key)}
@@ -1832,7 +1832,7 @@ function JrFeesTab({ isAdmin }) {
         {isAdmin && showTrialInput && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 体験参加者を追加</h3>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 その他を追加</h3>
               <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                 <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
