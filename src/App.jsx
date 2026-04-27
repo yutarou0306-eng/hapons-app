@@ -646,6 +646,11 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
+      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
       <div onClick={onOpenEntryForms} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div><div style={{ fontSize: 12, color: C.textMuted }}>入部届・参加同意書のダウンロード</div></div>
@@ -659,11 +664,6 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
       <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
     </div>
