@@ -1236,32 +1236,61 @@ function ScheduleTab({ isAdmin }) {
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
   const wdayColors = [C.primary, C.text, C.text, C.text, C.text, C.text, "#1565C0"];
 
-  const renderEvent = (e) => {
-    const cfg = typeConfig[e.type] || typeConfig.practice;
-    const d = new Date(e.date);
+  const typeColors = {
+    practice: { bg: "#EBF5FF", dateBg: "#DBEAFE", dateColor: "#1E88E5", border: "#1E88E5" },
+    game:     { bg: "#FFF0F0", dateBg: C.sakuraLight, dateColor: C.primary, border: C.primary },
+    event:    { bg: "#F0FFF4", dateBg: "#DCFCE7", dateColor: "#2E7D32", border: "#2E7D32" },
+    committee:{ bg: "#FAF0FF", dateBg: "#F3E8FF", dateColor: "#8E24AA", border: "#8E24AA" },
+  };
+
+  // 同じ日の予定をグループ化
+  const groupByDate = (evs) => {
+    const groups = {};
+    evs.forEach((e) => {
+      if (!groups[e.date]) groups[e.date] = [];
+      groups[e.date].push(e);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const renderEventGroup = (date, evs) => {
+    const d = new Date(date);
+    const firstCfg = typeConfig[evs[0].type] || typeConfig.practice;
+    const firstTc = typeColors[evs[0].type] || typeColors.practice;
     return (
-      <div key={e.id} style={{ ...S.card, display: "flex", gap: 14 }}>
-        <div style={{ minWidth: 50, textAlign: "center", background: C.sakuraLight, borderRadius: 10, padding: "8px 4px" }}>
-          <div style={{ fontSize: 11, color: C.textMuted }}>{d.getMonth() + 1}月</div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: C.primary, lineHeight: 1 }}>{d.getDate()}</div>
-          <div style={{ fontSize: 11, color: C.textMuted }}>({wdays[d.getDay()]})</div>
+      <div key={date} style={{ ...S.card, display: "flex", gap: 14, padding: 0, overflow: "hidden" }}>
+        {/* 日付部分 */}
+        <div style={{ minWidth: 54, textAlign: "center", background: firstTc.dateBg, padding: "12px 4px", display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: firstTc.dateColor }}>{d.getMonth() + 1}月</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: firstTc.dateColor, lineHeight: 1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 11, color: firstTc.dateColor }}>({wdays[d.getDay()]})</div>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <span style={S.badge(cfg.color)}>{cfg.label}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
-          </div>
-          {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
-          {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
-          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
-              ✋ 出席登録・確認
-            </button>
-            {isAdmin && <>
-              <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
-              <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
-            </>}
-          </div>
+        {/* イベント一覧 */}
+        <div style={{ flex: 1, padding: "10px 12px 10px 0" }}>
+          {evs.map((e, idx) => {
+            const cfg = typeConfig[e.type] || typeConfig.practice;
+            const tc = typeColors[e.type] || typeColors.practice;
+            return (
+              <div key={e.id}>
+                {idx > 0 && <div style={{ height: 1, background: C.border, margin: "10px 0" }} />}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
+                </div>
+                {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
+                {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
+                    ✋ 出席登録・確認
+                  </button>
+                  {isAdmin && <>
+                    <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
+                    <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
+                  </>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -1283,7 +1312,7 @@ function ScheduleTab({ isAdmin }) {
 
       {!loading && !showAll && (
         <>
-          {displayEvents.map(renderEvent)}
+          {groupByDate(displayEvents).map(([date, evs]) => renderEventGroup(date, evs))}
           {upcoming.length > 5 && (
             <button onClick={() => setShowAll(true)}
               style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
@@ -1304,7 +1333,7 @@ function ScheduleTab({ isAdmin }) {
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: "12px 0 8px", padding: "6px 12px", background: C.sakuraLight, borderRadius: 8 }}>
                 📅 {parseInt(month.slice(5))}月
               </div>
-              {evs.map(renderEvent)}
+              {groupByDate(evs).map(([date, devs]) => renderEventGroup(date, devs))}
             </div>
           ))}
         </>
