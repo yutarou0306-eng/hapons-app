@@ -1220,18 +1220,30 @@ function ScheduleTab({ isAdmin }) {
   const [showAll, setShowAll] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = events.filter((e) => e.date >= today);
-  const displayEvents = showAll ? upcoming : upcoming.slice(0, 5);
 
   // 月別グループ化
   const groupByMonth = (evs) => {
     const groups = {};
     evs.forEach((e) => {
-      const key = e.date.slice(0, 7); // "2026-05"
+      const key = e.date.slice(0, 7);
       if (!groups[key]) groups[key] = [];
       groups[key].push(e);
     });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   };
+
+  // 日付別グループ化
+  const groupByDate = (evs) => {
+    const groups = {};
+    evs.forEach((e) => {
+      if (!groups[e.date]) groups[e.date] = [];
+      groups[e.date].push(e);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const upcomingGrouped = groupByDate(upcoming);
+  const displayGroups = showAll ? upcomingGrouped : upcomingGrouped.slice(0, 5);
 
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
   const wdayColors = [C.primary, C.text, C.text, C.text, C.text, C.text, "#1565C0"];
@@ -1241,16 +1253,6 @@ function ScheduleTab({ isAdmin }) {
     game:     { bg: "#FFF0F0", dateBg: C.sakuraLight, dateColor: C.primary, border: C.primary },
     event:    { bg: "#F0FFF4", dateBg: "#DCFCE7", dateColor: "#2E7D32", border: "#2E7D32" },
     committee:{ bg: "#FAF0FF", dateBg: "#F3E8FF", dateColor: "#8E24AA", border: "#8E24AA" },
-  };
-
-  // 同じ日の予定をグループ化
-  const groupByDate = (evs) => {
-    const groups = {};
-    evs.forEach((e) => {
-      if (!groups[e.date]) groups[e.date] = [];
-      groups[e.date].push(e);
-    });
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   };
 
   const renderEventGroup = (date, evs) => {
@@ -1312,11 +1314,11 @@ function ScheduleTab({ isAdmin }) {
 
       {!loading && !showAll && (
         <>
-          {groupByDate(displayEvents).map(([date, evs]) => renderEventGroup(date, evs))}
-          {upcoming.length > 5 && (
+          {displayGroups.map(([date, evs]) => renderEventGroup(date, evs))}
+          {upcomingGrouped.length > 5 && (
             <button onClick={() => setShowAll(true)}
               style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
-              すべて表示（残り{upcoming.length - 5}件）→
+              すべて表示（残り{upcomingGrouped.length - 5}日分）→
             </button>
           )}
         </>
@@ -1326,7 +1328,7 @@ function ScheduleTab({ isAdmin }) {
         <>
           <button onClick={() => setShowAll(false)}
             style={{ width: "100%", padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>
-            ← 直近5件のみ表示
+            ← 直近5日分のみ表示
           </button>
           {groupByMonth(upcoming).map(([month, evs]) => (
             <div key={month}>
