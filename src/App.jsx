@@ -1036,6 +1036,8 @@ function AttendancePanel({ event, onClose }) {
     const bBottom = bIdx >= 0 ? bIdx + 1 : 0;
     return aBottom - bBottom;
   });
+
+  const jrUnits = jrMembers.map((m) => ({
     key: `ind_${m.id}`, label: m.name_jp,
     subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
   }));
