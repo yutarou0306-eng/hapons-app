@@ -1277,7 +1277,7 @@ function ScheduleTab({ isAdmin }) {
             return (
               <div key={e.id} style={{
                 flex: 1, padding: "12px 12px 12px 14px",
-                borderLeft: idx > 0 ? `2px solid ${C.border}` : "none",
+                borderLeft: "none",
                 background: tc.bg,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
