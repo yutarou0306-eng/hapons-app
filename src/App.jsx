@@ -1028,18 +1028,25 @@ function AttendancePanel({ event, onClose }) {
     }
   };
 
-  const jrUnits = jrMembers.map((m) => ({
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const sortedMembers = [...members].sort((a, b) => {
+    const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
+    const bIdx = BOTTOM_POSITIONS.indexOf(b.position);
+    const aBottom = aIdx >= 0 ? aIdx + 1 : 0;
+    const bBottom = bIdx >= 0 ? bIdx + 1 : 0;
+    return aBottom - bBottom;
+  });
     key: `ind_${m.id}`, label: m.name_jp,
     subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
   }));
 
   // バナーはリアルタイム計算
-  const adultAttending = members.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
+  const adultAttending = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
   const jrAttending = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "attend").map((m) => m.name_jp);
   const totalAttending = adultAttending.length + jrAttending.length;
-  const adultAbsent = members.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
+  const adultAbsent = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
   const jrAbsent = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "absent").length;
-  const adultUnresponded = members.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
+  const adultUnresponded = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
   const jrUnresponded = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "none").length;
 
   const statusBtnStyle = (status, isPend) => ({
@@ -1105,7 +1112,7 @@ function AttendancePanel({ event, onClose }) {
               </div>
               {activeTab === "adult" && (members.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
-                : members.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
+                : sortedMembers.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
               )}
               {activeTab === "jr" && (jrUnits.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
