@@ -1269,26 +1269,30 @@ function ScheduleTab({ isAdmin }) {
           <div style={{ fontSize: 24, fontWeight: 900, color: firstTc.dateColor, lineHeight: 1 }}>{d.getDate()}</div>
           <div style={{ fontSize: 11, color: firstTc.dateColor }}>({wdays[d.getDay()]})</div>
         </div>
-        {/* イベント一覧 */}
-        <div style={{ flex: 1, padding: "12px 12px 12px 14px" }}>
+        {/* イベント一覧：複数あれば横並び */}
+        <div style={{ flex: 1, display: "flex", flexDirection: evs.length > 1 ? "row" : "column" }}>
           {evs.map((e, idx) => {
             const cfg = typeConfig[e.type] || typeConfig.practice;
+            const tc = typeColors[e.type] || typeColors.practice;
             return (
-              <div key={e.id}>
-                {idx > 0 && <div style={{ height: 1, background: C.border, margin: "12px 0" }} />}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <div key={e.id} style={{
+                flex: 1, padding: "12px 12px 12px 14px",
+                borderLeft: idx > 0 ? `2px solid ${C.border}` : "none",
+                background: tc.bg,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
                   <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{e.title}</span>
                 </div>
-                {e.time && <div style={{ fontSize: 12, color: C.textMuted }}>🕐 {e.time}</div>}
-                {e.location && <div style={{ fontSize: 12, color: C.textMuted }}>📍 {e.location}</div>}
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  <button style={{ ...S.btn("primary", "sm"), background: C.success }} onClick={() => setSelectedEvent(e)}>
-                    ✋ 出席登録・確認
+                {e.time && <div style={{ fontSize: 11, color: C.textMuted }}>🕐 {e.time}</div>}
+                {e.location && <div style={{ fontSize: 11, color: C.textMuted }}>📍 {e.location}</div>}
+                <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+                  <button style={{ ...S.btn("primary", "sm"), background: C.success, fontSize: 11, padding: "4px 8px" }} onClick={() => setSelectedEvent(e)}>
+                    ✋ 出席登録
                   </button>
                   {isAdmin && <>
-                    <button style={S.btn("ghost", "sm")} onClick={() => setEditing(e)}>編集</button>
-                    <button style={S.btn("danger", "sm")} onClick={() => del(e.id)}>削除</button>
+                    <button style={{ ...S.btn("ghost", "sm"), fontSize: 11, padding: "4px 8px" }} onClick={() => setEditing(e)}>編集</button>
+                    <button style={{ ...S.btn("danger", "sm"), fontSize: 11, padding: "4px 8px" }} onClick={() => del(e.id)}>削除</button>
                   </>}
                 </div>
               </div>
