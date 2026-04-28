@@ -1257,24 +1257,22 @@ function ScheduleTab({ isAdmin }) {
 
   const renderEventGroup = (date, evs) => {
     const d = new Date(date);
-    const firstCfg = typeConfig[evs[0].type] || typeConfig.practice;
     const firstTc = typeColors[evs[0].type] || typeColors.practice;
     return (
-      <div key={date} style={{ ...S.card, display: "flex", gap: 14, padding: 0, overflow: "hidden" }}>
+      <div key={date} style={{ background: C.card, borderRadius: 14, marginBottom: 10, boxShadow: "0 1px 6px rgba(204,31,31,0.07)", border: `1px solid ${C.border}`, display: "flex", overflow: "hidden" }}>
         {/* 日付部分 */}
-        <div style={{ minWidth: 54, textAlign: "center", background: firstTc.dateBg, padding: "12px 4px", display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ minWidth: 54, textAlign: "center", background: firstTc.dateBg, padding: "14px 4px", display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0 }}>
           <div style={{ fontSize: 11, color: firstTc.dateColor }}>{d.getMonth() + 1}月</div>
           <div style={{ fontSize: 24, fontWeight: 900, color: firstTc.dateColor, lineHeight: 1 }}>{d.getDate()}</div>
           <div style={{ fontSize: 11, color: firstTc.dateColor }}>({wdays[d.getDay()]})</div>
         </div>
         {/* イベント一覧 */}
-        <div style={{ flex: 1, padding: "10px 12px 10px 0" }}>
+        <div style={{ flex: 1, padding: "12px 12px 12px 14px" }}>
           {evs.map((e, idx) => {
             const cfg = typeConfig[e.type] || typeConfig.practice;
-            const tc = typeColors[e.type] || typeColors.practice;
             return (
               <div key={e.id}>
-                {idx > 0 && <div style={{ height: 1, background: C.border, margin: "10px 0" }} />}
+                {idx > 0 && <div style={{ height: 1, background: C.border, margin: "12px 0" }} />}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
                   <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{e.title}</span>
