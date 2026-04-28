@@ -1219,7 +1219,7 @@ function ScheduleTab({ isAdmin }) {
 
   const [showAll, setShowAll] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = events.filter((e) => e.date >= today);
+  const upcoming = events.filter((e) => String(e.date).slice(0, 10) >= today);
 
   // 月別グループ化
   const groupByMonth = (evs) => {
@@ -1236,8 +1236,9 @@ function ScheduleTab({ isAdmin }) {
   const groupByDate = (evs) => {
     const groups = {};
     evs.forEach((e) => {
-      if (!groups[e.date]) groups[e.date] = [];
-      groups[e.date].push(e);
+      const dateKey = String(e.date).slice(0, 10);
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(e);
     });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   };
