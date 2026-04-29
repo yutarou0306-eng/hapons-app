@@ -1279,13 +1279,18 @@ function ScheduleTab({ isAdmin }) {
                 flex: 1, padding: "12px 12px 12px 14px",
                 borderLeft: "none",
                 background: tc.bg,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
-                  <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{e.title}</span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{e.title}</span>
+                  </div>
+                  {e.time && <div style={{ fontSize: 11, color: C.textMuted }}>🕐 {e.time}</div>}
+                  {e.location && <div style={{ fontSize: 11, color: C.textMuted }}>📍 {e.location}</div>}
                 </div>
-                {e.time && <div style={{ fontSize: 11, color: C.textMuted }}>🕐 {e.time}</div>}
-                {e.location && <div style={{ fontSize: 11, color: C.textMuted }}>📍 {e.location}</div>}
                 <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
                   <button style={{ ...S.btn("primary", "sm"), background: C.success, fontSize: 11, padding: "4px 8px" }} onClick={() => setSelectedEvent(e)}>
                     ✋ 出席登録
