@@ -1566,14 +1566,36 @@ function FeesTab({ isAdmin }) {
     const paid = mf.filter((f) => f.paid).length;
     const pct = mf.length > 0 ? Math.round((paid / mf.length) * 100) : 0;
     const totalAmt = mf.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+
+    // 前月・翌月ナビゲーション
+    const currentIdx = months.indexOf(selectedMonth);
+    const prevMonth = currentIdx < months.length - 1 ? months[currentIdx + 1] : null; // monthsは降順なので+1が前月
+    const nextMonth = currentIdx > 0 ? months[currentIdx - 1] : null; // -1が翌月
+
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <button onClick={() => setSelectedMonth(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
-          <h2 style={{ ...S.sectionTitle, margin: 0 }}>{selectedMonth}</h2>
+          <h2 style={{ ...S.sectionTitle, margin: 0, flex: 1 }}>{selectedMonth}</h2>
           {isAdmin && notInMonth.length > 0 && (
-            <button style={{ ...S.btn("ghost", "sm"), marginLeft: "auto" }} onClick={() => setShowAddMember(true)}>＋ 追加</button>
+            <button style={{ ...S.btn("ghost", "sm") }} onClick={() => setShowAddMember(true)}>＋ 追加</button>
           )}
+        </div>
+
+        {/* 前月・翌月ナビ */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button
+            onClick={() => setSelectedMonth(prevMonth)}
+            disabled={!prevMonth}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${prevMonth ? C.border : C.border}`, background: prevMonth ? C.card : C.bg, color: prevMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevMonth ? "pointer" : "default" }}>
+            ← {prevMonth || ""}
+          </button>
+          <button
+            onClick={() => setSelectedMonth(nextMonth)}
+            disabled={!nextMonth}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${nextMonth ? C.border : C.border}`, background: nextMonth ? C.card : C.bg, color: nextMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextMonth ? "pointer" : "default" }}>
+            {nextMonth || ""} →
+          </button>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
