@@ -1585,16 +1585,16 @@ function FeesTab({ isAdmin }) {
         {/* 前月・翌月ナビ */}
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <button
-            onClick={() => setSelectedMonth(prevMonth)}
-            disabled={!prevMonth}
-            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${prevMonth ? C.border : C.border}`, background: prevMonth ? C.card : C.bg, color: prevMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevMonth ? "pointer" : "default" }}>
-            ← {prevMonth || ""}
-          </button>
-          <button
             onClick={() => setSelectedMonth(nextMonth)}
             disabled={!nextMonth}
             style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${nextMonth ? C.border : C.border}`, background: nextMonth ? C.card : C.bg, color: nextMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextMonth ? "pointer" : "default" }}>
-            {nextMonth || ""} →
+            ← {nextMonth || ""}
+          </button>
+          <button
+            onClick={() => setSelectedMonth(prevMonth)}
+            disabled={!prevMonth}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${prevMonth ? C.border : C.border}`, background: prevMonth ? C.card : C.bg, color: prevMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevMonth ? "pointer" : "default" }}>
+            {prevMonth || ""} →
           </button>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
