@@ -1940,14 +1940,32 @@ function JrFeesTab({ isAdmin }) {
     const ev = events.find((e) => e.id === selectedEvent);
     const trialUnits = getTrialUnits(selectedEvent);
     const paidCount = getEventPaidCount(selectedEvent);
+
+    // 前回・翌回ナビゲーション（eventsは降順なのでindexが大きい方が古い）
+    const currentIdx = events.findIndex((e) => e.id === selectedEvent);
+    const prevEvent = currentIdx < events.length - 1 ? events[currentIdx + 1] : null; // 古い
+    const nextEvent = currentIdx > 0 ? events[currentIdx - 1] : null; // 新しい
+
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
-          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>{ev?.title}</h2>
+          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr, flex: 1 }}>{ev?.title}</h2>
           {isAdmin && (
-            <button style={{ ...S.btn("accent", "sm"), marginLeft: "auto" }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
+            <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
           )}
+        </div>
+
+        {/* 前回・翌回ナビ */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button onClick={() => { setSelectedEvent(nextEvent?.id); setShowTrialInput(false); }} disabled={!nextEvent}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextEvent ? C.card : C.bg, color: nextEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: nextEvent ? "pointer" : "default" }}>
+            ← {nextEvent ? nextEvent.date.slice(5) : ""}
+          </button>
+          <button onClick={() => { setSelectedEvent(prevEvent?.id); setShowTrialInput(false); }} disabled={!prevEvent}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevEvent ? C.card : C.bg, color: prevEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: prevEvent ? "pointer" : "default" }}>
+            {prevEvent ? prevEvent.date.slice(5) : ""} →
+          </button>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
