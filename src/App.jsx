@@ -1871,7 +1871,7 @@ function JrFeesTab({ isAdmin }) {
   const [showHistory, setShowHistory] = useState(false);
   // 翌日までの練習をトップに表示（それ以降は全履歴へ）
   const today = new Date().toISOString().slice(0, 10);
-  const topEvents = events.filter((e) => e.date <= today).slice(0, 4); // 今日以前の直近4回
+  const topEvents = [...events].filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4); // 今日以降を古い順に4回
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
@@ -1949,7 +1949,7 @@ function JrFeesTab({ isAdmin }) {
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
+          <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
           <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr, flex: 1 }}>{ev?.title}</h2>
           {isAdmin && (
             <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
@@ -2075,8 +2075,7 @@ function JrFeesTab({ isAdmin }) {
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.jr, padding: 0 }}>←</button>
-          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr }}>Jr参加費 全履歴</h2>
+          <button onClick={() => setShowHistory(false)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
         </div>
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
