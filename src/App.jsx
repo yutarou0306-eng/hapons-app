@@ -2082,6 +2082,74 @@ function JrFeesTab({ isAdmin }) {
     });
     const monthEntries = Object.entries(monthGroups).sort(([a], [b]) => a.localeCompare(b));
 
+    // 選択中の月
+    const selectedHistoryMonth = expandedMonth;
+    const historyMonths = monthEntries.map(([m]) => m);
+    const currentHistoryIdx = historyMonths.indexOf(selectedHistoryMonth);
+    const prevHistoryMonth = currentHistoryIdx > 0 ? historyMonths[currentHistoryIdx - 1] : null;
+    const nextHistoryMonth = currentHistoryIdx < historyMonths.length - 1 ? historyMonths[currentHistoryIdx + 1] : null;
+
+    // 月詳細ページ
+    if (selectedHistoryMonth && monthGroups[selectedHistoryMonth]) {
+      const monthEvs = monthGroups[selectedHistoryMonth];
+      const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+      const [y, m] = selectedHistoryMonth.split("-");
+      return (
+        <div style={S.content}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <button onClick={() => setExpandedMonth(null)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 全履歴に戻る</button>
+          </div>
+          {/* 前月・翌月ナビ */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setExpandedMonth(nextHistoryMonth)} disabled={!nextHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextHistoryMonth ? C.card : C.bg, color: nextHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextHistoryMonth ? "pointer" : "default" }}>
+              ← {nextHistoryMonth ? nextHistoryMonth.replace("-", "年") + "月" : ""}
+            </button>
+            <button onClick={() => setExpandedMonth(prevHistoryMonth)} disabled={!prevHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevHistoryMonth ? C.card : C.bg, color: prevHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevHistoryMonth ? "pointer" : "default" }}>
+              {prevHistoryMonth ? prevHistoryMonth.replace("-", "年") + "月" : ""} →
+            </button>
+          </div>
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{parseInt(y)}年{parseInt(m)}月</div>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>P{monthTotal.toLocaleString()}</div>
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{monthEvs.length}回の練習</div>
+            </div>
+          </div>
+          {monthEvs.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）{e.title}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted }}>{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 4 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // 月一覧ページ
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -2096,51 +2164,19 @@ function JrFeesTab({ isAdmin }) {
         {monthEntries.map(([month, monthEvs]) => {
           const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
           const [y, m] = month.split("-");
-          const isExpanded = expandedMonth === month;
           return (
-            <div key={month}>
-              {/* 月カード（タップで展開） */}
-              <div onClick={() => setExpandedMonth(isExpanded ? null : month)}
-                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{parseInt(y)}年{parseInt(m)}月</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>{monthEvs.length}回の練習</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 17, fontWeight: 900, color: C.jr }}>P{monthTotal.toLocaleString()}</div>
-                    <span style={{ fontSize: 14, color: C.textMuted }}>{isExpanded ? "▲" : "▼"}</span>
-                  </div>
+            <div key={month} onClick={() => setExpandedMonth(month)}
+              style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{parseInt(y)}年{parseInt(m)}月</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>{monthEvs.length}回の練習</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: C.jr }}>P{monthTotal.toLocaleString()}</div>
+                  <span style={{ fontSize: 14, color: C.textMuted }}>›</span>
                 </div>
               </div>
-
-              {/* 明細（展開時のみ表示） */}
-              {isExpanded && monthEvs.map((e) => {
-                const d = new Date(e.date);
-                const paidCount = getEventPaidCount(e.id);
-                const total = getEventTotal(e.id);
-                const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
-                const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
-                return (
-                  <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
-                    style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}`, marginLeft: 12, marginTop: -4 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）{e.title}</div>
-                        <div style={{ fontSize: 11, color: C.textMuted }}>{e.time}</div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
-                    </div>
-                    <div style={{ background: C.border, borderRadius: 99, height: 5, overflow: "hidden", marginBottom: 4 }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted }}>
-                      <span>{paidCount}/{totalUnits}グループ 参加</span>
-                      <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           );
         })}
