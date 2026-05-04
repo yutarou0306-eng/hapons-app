@@ -2072,6 +2072,16 @@ function JrFeesTab({ isAdmin }) {
 
   // 全履歴ページ
   if (showHistory) {
+    // 月別グループ化（古い順）
+    const sortedEvents = [...events].reverse();
+    const monthGroups = {};
+    sortedEvents.forEach((e) => {
+      const month = e.date.slice(0, 7); // "2026-04"
+      if (!monthGroups[month]) monthGroups[month] = [];
+      monthGroups[month].push(e);
+    });
+    const monthEntries = Object.entries(monthGroups).sort(([a], [b]) => a.localeCompare(b));
+
     return (
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -2083,29 +2093,46 @@ function JrFeesTab({ isAdmin }) {
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{events.length}回分の記録</div>
         </div>
         {events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>}
-        {[...events].reverse().map((e) => {
-          const d = new Date(e.date);
-          const paidCount = getEventPaidCount(e.id);
-          const total = getEventTotal(e.id);
-          const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
-          const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+        {monthEntries.map(([month, monthEvs]) => {
+          const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+          const [y, m] = month.split("-");
           return (
-            <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
-              style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
-                  <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+            <div key={month}>
+              {/* 月ヘッダー */}
+              <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr}CC 0%, #0D47A1CC 100%)`, color: "#fff", marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 900 }}>{parseInt(y)}年{parseInt(m)}月</div>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>P{monthTotal.toLocaleString()}</div>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{monthEvs.length}回の練習</div>
               </div>
-              <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
-                <span>{paidCount}/{totalUnits}グループ 参加</span>
-                <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
-              </div>
+              {/* 各練習 */}
+              {monthEvs.map((e) => {
+                const d = new Date(e.date);
+                const paidCount = getEventPaidCount(e.id);
+                const total = getEventTotal(e.id);
+                const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+                const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+                return (
+                  <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
+                    style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}`, marginLeft: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
+                        <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                    </div>
+                    <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                      <span>{paidCount}/{totalUnits}グループ 参加</span>
+                      <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
