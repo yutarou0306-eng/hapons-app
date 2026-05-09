@@ -1840,6 +1840,16 @@ function FeesWrapper({ isAdmin }) {
       </div>
       {activeTab === "adult" && <FeesTab isAdmin={isAdmin} />}
       {activeTab === "jr" && <JrFeesTab isAdmin={isAdmin} />}
+      {/* 幹事郎リンク */}
+      <div style={{ margin: "8px 16px 16px" }}>
+        <a href="https://kanjiro.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 12, cursor: "pointer" }}>
+            <span style={{ fontSize: 18 }}>🎉</span>
+            <span style={{ fontWeight: 800, fontSize: 14, color: C.text }}>幹事郎</span>
+            <span style={{ fontSize: 12, color: C.textMuted }}>↗</span>
+          </div>
+        </a>
+      </div>
     </div>
   );
 }
