@@ -1312,12 +1312,15 @@ function ScheduleTab({ isAdmin }) {
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>スケジュール</h2>
-        {isAdmin && (
-          <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <a href="https://chosei-app.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <button style={S.btn("ghost", "sm")}>📅 調整くん</button>
+          </a>
+          {isAdmin && <>
             <button style={S.btn("ghost", "sm")} onClick={() => setShowRepeat(true)}>🔁 繰り返し</button>
             <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>
-          </div>
-        )}
+          </>}
+        </div>
       </div>
       {loading && <Loading />}
       {!loading && upcoming.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>予定はありません</div>}
