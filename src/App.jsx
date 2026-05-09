@@ -1746,7 +1746,12 @@ function FeesTab({ isAdmin }) {
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>部費管理</h2>
-        {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(members.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <a href="https://kanjiro.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <button style={S.btn("ghost", "sm")}>🎉 幹事郎</button>
+          </a>
+          {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(members.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
+        </div>
       </div>
       {loading && <Loading />}
       {!loading && (
@@ -1840,16 +1845,6 @@ function FeesWrapper({ isAdmin }) {
       </div>
       {activeTab === "adult" && <FeesTab isAdmin={isAdmin} />}
       {activeTab === "jr" && <JrFeesTab isAdmin={isAdmin} />}
-      {/* 幹事郎リンク */}
-      <div style={{ margin: "8px 16px 16px" }}>
-        <a href="https://kanjiro.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 12, cursor: "pointer" }}>
-            <span style={{ fontSize: 18 }}>🎉</span>
-            <span style={{ fontWeight: 800, fontSize: 14, color: C.text }}>幹事郎</span>
-            <span style={{ fontSize: 12, color: C.textMuted }}>↗</span>
-          </div>
-        </a>
-      </div>
     </div>
   );
 }
