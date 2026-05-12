@@ -991,7 +991,8 @@ function AttendancePanel({ event, onClose }) {
 
   const getCommittedStatus = (name, type) => {
     if (attendances.some((a) => a.member_name === name && a.member_type === type)) return "attend";
-    if (absences.some((a) => a.member_name === name && a.member_type === type)) return "absent";
+    const ab = absences.find((a) => a.member_name === name && a.member_type === type);
+    if (ab) return ab.status === "undecided" ? "undecided" : "absent";
     return "none";
   };
 
@@ -999,21 +1000,21 @@ function AttendancePanel({ event, onClose }) {
 
   const cycleStatus = async (name, type) => {
     const current = getCommittedStatus(name, type);
-    const next = current === "none" ? "attend" : current === "attend" ? "absent" : "none";
+    const next = current === "none" ? "attend" : current === "attend" ? "absent" : current === "absent" ? "undecided" : "none";
 
-    // stateを即座に更新（楽観的UI）
+    // stateを即座に更新
     if (next === "attend") {
       setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, id: `temp_${Date.now()}` }]);
       setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
-    } else if (next === "absent") {
-      setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, id: `temp_${Date.now()}` }]);
+    } else if (next === "absent" || next === "undecided") {
+      setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, status: next, id: `temp_${Date.now()}` }]);
       setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
     } else {
       setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
       setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
     }
 
-    // Supabaseに保存（バックグラウンド）
+    // Supabaseに保存
     const att = attendances.find((a) => a.member_name === name && a.member_type === type);
     const ab = absences.find((a) => a.member_name === name && a.member_type === type);
     if (att && !String(att.id).startsWith("temp_")) await supabase.from("attendances").delete().eq("id", att.id);
@@ -1022,8 +1023,8 @@ function AttendancePanel({ event, onClose }) {
     if (next === "attend") {
       const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
       if (data) setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
-    } else if (next === "absent") {
-      const { data } = await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
+    } else if (next === "absent" || next === "undecided") {
+      const { data } = await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type, status: next }]).select();
       if (data) setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
     }
   };
@@ -1048,23 +1049,25 @@ function AttendancePanel({ event, onClose }) {
   const totalAttending = adultAttending.length + jrAttending.length;
   const adultAbsent = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
   const jrAbsent = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "absent").length;
+  const adultUndecided = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "undecided").length;
+  const jrUndecided = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "undecided").length;
   const adultUnresponded = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
   const jrUnresponded = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "none").length;
 
   const statusBtnStyle = (status, isPend) => ({
     padding: "5px 12px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
-    background: status === "attend" ? (isPend ? C.success : "#2E7D3220") : status === "absent" ? (isPend ? C.danger : "#CC1F1F15") : C.border,
-    color: status === "attend" ? (isPend ? "#fff" : C.success) : status === "absent" ? (isPend ? "#fff" : C.danger) : C.textMuted,
+    background: status === "attend" ? (isPend ? C.success : "#2E7D3220") : status === "absent" ? (isPend ? C.danger : "#CC1F1F15") : status === "undecided" ? (isPend ? "#E65100" : "#E6510015") : C.border,
+    color: status === "attend" ? (isPend ? "#fff" : C.success) : status === "absent" ? (isPend ? "#fff" : C.danger) : status === "undecided" ? (isPend ? "#fff" : "#E65100") : C.textMuted,
   });
 
   const cardStyle = (status) => ({
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "12px 14px", borderRadius: 10, marginBottom: 6,
-    background: status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F08" : C.card,
-    border: status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : `1.5px solid ${C.border}`,
+    background: status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F08" : status === "undecided" ? "#E6510008" : C.card,
+    border: status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : status === "undecided" ? `2px solid #E65100` : `1.5px solid ${C.border}`,
   });
 
-  const statusText = (status) => status === "attend" ? "✓ 参加" : status === "absent" ? "✗ 欠席" : "未登録";
+  const statusText = (status) => status === "attend" ? "✓ 参加" : status === "absent" ? "✗ 欠席" : status === "undecided" ? "？ 未定" : "未登録";
 
   const renderMember = (name, subLabel, type, key) => {
     const status = getStatus(name, type);
@@ -1092,11 +1095,11 @@ function AttendancePanel({ event, onClose }) {
             <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
             <div style={{ marginBottom: 3 }}>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未回答{adultUnresponded}</div>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未定{adultUndecided} 未回答{adultUnresponded}</div>
               {adultAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{adultAttending.map((n) => <span key={n} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
             </div>
             <div>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未回答{jrUnresponded}</div>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未定{jrUndecided} 未回答{jrUnresponded}</div>
               {jrAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{jrAttending.map((n) => <span key={n} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
             </div>
           </div>
@@ -1107,7 +1110,7 @@ function AttendancePanel({ event, onClose }) {
           {loading && <Loading />}
           {!loading && (
             <>
-              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 欠席 → 未登録　（タップで即時保存）</div>
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 欠席 → 未定 → 未登録　（タップで即時保存）</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>🏉 大人</button>
                 <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>⭐ Jr</button>
