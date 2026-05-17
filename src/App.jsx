@@ -1928,7 +1928,12 @@ function JrFeesTab({ isAdmin }) {
   const [trialName, setTrialName] = useState("");
   const [showTrialInput, setShowTrialInput] = useState(false);
 
-  // その他（jr_feesにlabelが"その他:名前"または"体験:名前"形式で保存）
+  const removeTrial = async (feeId) => {
+    await supabase.from("jr_fees").delete().eq("id", feeId);
+    setJrFees(jrFees.filter((f) => f.id !== feeId));
+  };
+
+  // その他（体験:も含む両方の形式に対応）
   const getTrialUnits = (eventId) =>
     jrFees.filter((f) => f.event_id === eventId && (String(f.family_id).startsWith("その他:") || String(f.family_id).startsWith("体験:")))
       .map((f) => ({ label: String(f.family_id).replace(/^(その他:|体験:)/, ""), key: f.id }));
