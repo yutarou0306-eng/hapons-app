@@ -2287,6 +2287,7 @@ export default function HaponsApp() {
   const [showMJSPass, setShowMJSPass] = useState(false);
   const [showClubSong, setShowClubSong] = useState(false);
   const [showMinutes, setShowMinutes] = useState(false);
+  const [showTranslateGuide, setShowTranslateGuide] = useState(false);
   const isAdmin = role === "admin";
 
   const handleLogin = (newRole) => {
@@ -2393,9 +2394,7 @@ export default function HaponsApp() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <a href="https://www.deepl.com/ja/translator#ja/en/https://hapons-app.vercel.app" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-            <button style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🌐 EN</button>
-          </a>
+          <button onClick={() => setShowTranslateGuide(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🌐 EN</button>
           {isAdmin ? (
             <button onClick={handleAdminExit} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
           ) : (
@@ -2428,6 +2427,34 @@ export default function HaponsApp() {
       </nav>
 
       {showAdminLogin && <AdminLoginModal onLogin={handleAdminLogin} onClose={() => setShowAdminLogin(false)} />}
+
+      {/* Translation Guide Modal */}
+      {showTranslateGuide && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900, color: C.text }}>🌐 How to Translate</h3>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+              This app is in Japanese. You can translate it using your browser's built-in translation feature:
+            </p>
+            <div style={{ ...S.card, marginBottom: 10, borderLeft: `4px solid #1E88E5` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 iPhone (Safari)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"AA"</strong> in the address bar → Select <strong>"Translate to English"</strong>
+              </div>
+            </div>
+            <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid #2E7D32` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 Android (Chrome)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"⋮"</strong> (top right) → Select <strong>"Translate"</strong>
+              </div>
+            </div>
+            <button onClick={() => setShowTranslateGuide(false)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: C.primary, color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
