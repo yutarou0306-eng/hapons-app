@@ -1946,11 +1946,6 @@ function JrFeesTab({ isAdmin }) {
     setTrialName(""); setShowTrialInput(false);
   };
 
-  const removeTrial = async (feeId) => {
-    await supabase.from("jr_fees").delete().eq("id", feeId);
-    setJrFees(jrFees.filter((f) => f.id !== feeId));
-  };
-
   // 練習詳細ページ
   if (selectedEvent) {
     const ev = events.find((e) => e.id === selectedEvent);
