@@ -803,7 +803,7 @@ function MembersTab({ isAdmin }) {
       const [m, j, s] = await Promise.all([
         supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("supporters").select("*").order("created_at"),
+        supabase.from("supporters").select("*").order("join_date", { ascending: true }),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
@@ -854,6 +854,7 @@ function MembersTab({ isAdmin }) {
     { key: "name_jp", label: "名前" },
     { key: "name_en", label: "Name" },
     { key: "phone", label: "電話番号" },
+    { key: "join_date", label: "加入日", type: "date" },
   ];
 
   const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
@@ -901,7 +902,7 @@ function MembersTab({ isAdmin }) {
 
   const defaultAdult = { position: "", name_jp: "", name_en: "", birth_date: "", phone: "", mjs_id_submitted: false };
   const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "", waiver_submitted: false };
-  const defaultSupporter = { name_jp: "", name_en: "", phone: "" };
+  const defaultSupporter = { name_jp: "", name_en: "", phone: "", join_date: "" };
 
   return (
     <div style={S.content}>
@@ -912,13 +913,13 @@ function MembersTab({ isAdmin }) {
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <button onClick={() => { setActiveTab("adult"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-          🏉 Hapons（{members.length}）
+          🏉 Hapons<br />{members.length}名
         </button>
         <button onClick={() => { setActiveTab("jr"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-          ⭐ Jr（{jrMembers.length}）
+          ⭐ Jr<br />{jrMembers.length}名
         </button>
         <button onClick={() => { setActiveTab("supporter"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-          💛 SP（{supporters.length}）
+          💛 サポーター<br />{supporters.length}名
         </button>
       </div>
 
@@ -944,7 +945,7 @@ function MembersTab({ isAdmin }) {
                     {isAdmin && m.phone && <><a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br /></>}
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
-                      : isSupporter ? <></>
+                      : isSupporter ? <>{m.join_date && <span>加入日：{m.join_date}　</span>}</>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
                     }
                     {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
@@ -993,7 +994,7 @@ function AttendancePanel({ event, onClose }) {
       const [m, j, s, a, ab] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
-        supabase.from("supporters").select("id, name_jp").order("created_at"),
+        supabase.from("supporters").select("id, name_jp").order("join_date", { ascending: true }),
         supabase.from("attendances").select("*").eq("event_id", event.id),
         supabase.from("absences").select("*").eq("event_id", event.id),
       ]);
@@ -1147,7 +1148,7 @@ function AttendancePanel({ event, onClose }) {
                   ⭐ Jr
                 </button>
                 <button onClick={() => setActiveTab("supporter")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
-                  💛 SP
+                  💛 サポーター
                 </button>
               </div>
               {activeTab === "adult" && (members.length === 0
