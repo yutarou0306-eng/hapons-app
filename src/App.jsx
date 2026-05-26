@@ -855,6 +855,7 @@ function MembersTab({ isAdmin }) {
     { key: "name_en", label: "Name" },
     { key: "phone", label: "電話番号" },
     { key: "join_date", label: "加入日", type: "date" },
+    { key: "in_philippines", label: "在比", type: "checkbox" },
   ];
 
   const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
@@ -902,7 +903,7 @@ function MembersTab({ isAdmin }) {
 
   const defaultAdult = { position: "", name_jp: "", name_en: "", birth_date: "", phone: "", mjs_id_submitted: false };
   const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "", waiver_submitted: false };
-  const defaultSupporter = { name_jp: "", name_en: "", phone: "", join_date: "" };
+  const defaultSupporter = { name_jp: "", name_en: "", phone: "", join_date: "", in_philippines: false };
 
   return (
     <div style={S.content}>
@@ -945,7 +946,7 @@ function MembersTab({ isAdmin }) {
                     {isAdmin && m.phone && <><a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br /></>}
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
-                      : isSupporter ? <>{m.join_date && <span>加入日：{m.join_date}　</span>}</>
+                      : isSupporter ? <>{m.join_date && <span>加入日：{m.join_date}　</span>}{m.in_philippines && <span style={{ color: C.success, fontWeight: 700 }}>🇵🇭 在比</span>}</>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
                     }
                     {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
