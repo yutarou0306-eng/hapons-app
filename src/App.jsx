@@ -791,6 +791,7 @@ function MembersTab({ isAdmin }) {
   const [activeTab, setActiveTab] = useState("adult");
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
+  const [supporters, setSupporters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -799,12 +800,14 @@ function MembersTab({ isAdmin }) {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j] = await Promise.all([
+      const [m, j, s] = await Promise.all([
         supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("*").order("created_at"),
+        supabase.from("supporters").select("*").order("created_at"),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
+      if (s.data) setSupporters(s.data);
       setLoading(false);
     };
     fetchAll();
@@ -812,9 +815,10 @@ function MembersTab({ isAdmin }) {
 
   const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
   const isAdult = activeTab === "adult";
-  const table = isAdult ? "members" : "jr_members";
-  const list = isAdult ? members : jrMembers;
-  const setList = isAdult ? setMembers : setJrMembers;
+  const isSupporter = activeTab === "supporter";
+  const table = isAdult ? "members" : isSupporter ? "supporters" : "jr_members";
+  const list = isAdult ? members : isSupporter ? supporters : jrMembers;
+  const setList = isAdult ? setMembers : isSupporter ? setSupporters : setJrMembers;
 
   // 生年月日から年齢を自動計算
   const calcAge = (birthDate) => {
@@ -846,7 +850,13 @@ function MembersTab({ isAdmin }) {
     { key: "waiver_submitted", label: "Waiver提出済み", type: "checkbox" },
   ];
 
-  const fields = isAdult ? adultFields : jrFields;
+  const supporterFields = [
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
+    { key: "phone", label: "電話番号" },
+  ];
+
+  const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
   const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
   const sortedList = isAdult ? [...list].sort((a, b) => {
     const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
@@ -891,20 +901,24 @@ function MembersTab({ isAdmin }) {
 
   const defaultAdult = { position: "", name_jp: "", name_en: "", birth_date: "", phone: "", mjs_id_submitted: false };
   const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "", waiver_submitted: false };
+  const defaultSupporter = { name_jp: "", name_en: "", phone: "" };
 
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ ...S.sectionTitle, margin: 0 }}>メンバー名簿</h2>
-        {isAdmin && <button style={S.btn(isAdult ? "accent" : "jr", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
+        {isAdmin && <button style={S.btn(isAdult ? "accent" : isSupporter ? "ghost" : "jr", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <button onClick={() => { setActiveTab("adult"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-          🏉 Haponsメンバー（{members.length}名）
+        <button onClick={() => { setActiveTab("adult"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          🏉 Hapons（{members.length}）
         </button>
-        <button onClick={() => { setActiveTab("jr"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-          ⭐ Jr（{jrMembers.length}名）
+        <button onClick={() => { setActiveTab("jr"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          ⭐ Jr（{jrMembers.length}）
+        </button>
+        <button onClick={() => { setActiveTab("supporter"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          💛 SP（{supporters.length}）
         </button>
       </div>
 
@@ -930,6 +944,7 @@ function MembersTab({ isAdmin }) {
                     {isAdmin && m.phone && <><a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br /></>}
                     {isAdult
                       ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
+                      : isSupporter ? <></>
                       : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
                     }
                     {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
@@ -955,8 +970,8 @@ function MembersTab({ isAdmin }) {
         </>
       )}
 
-      {editing && <EditModal title={`${isAdult ? "メンバー" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
-      {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
+      {editing && <EditModal title={`${isAdult ? "メンバー" : isSupporter ? "サポーター" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
+      {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : isSupporter ? "サポーター" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : isSupporter ? defaultSupporter : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
@@ -965,6 +980,7 @@ function MembersTab({ isAdmin }) {
 function AttendancePanel({ event, onClose }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
+  const [supporters, setSupporters] = useState([]);
   const [attendances, setAttendances] = useState([]);
   const [absences, setAbsences] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -974,14 +990,16 @@ function AttendancePanel({ event, onClose }) {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, a, ab] = await Promise.all([
+      const [m, j, s, a, ab] = await Promise.all([
         supabase.from("members").select("id, name_jp, position").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
+        supabase.from("supporters").select("id, name_jp").order("created_at"),
         supabase.from("attendances").select("*").eq("event_id", event.id),
         supabase.from("absences").select("*").eq("event_id", event.id),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
+      if (s.data) setSupporters(s.data);
       if (a.data) setAttendances(a.data);
       if (ab.data) setAbsences(ab.data);
       setLoading(false);
@@ -1046,13 +1064,17 @@ function AttendancePanel({ event, onClose }) {
   // バナーはリアルタイム計算
   const adultAttending = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
   const jrAttending = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "attend").map((m) => m.name_jp);
-  const totalAttending = adultAttending.length + jrAttending.length;
+  const supporterAttending = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "attend").map((m) => m.name_jp);
+  const totalAttending = adultAttending.length + jrAttending.length + supporterAttending.length;
   const adultAbsent = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
   const jrAbsent = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "absent").length;
+  const supporterAbsent = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "absent").length;
   const adultUndecided = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "undecided").length;
   const jrUndecided = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "undecided").length;
+  const supporterUndecided = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "undecided").length;
   const adultUnresponded = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
   const jrUnresponded = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "none").length;
+  const supporterUnresponded = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "none").length;
 
   const statusBtnStyle = (status, isPend) => ({
     padding: "5px 12px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
@@ -1102,6 +1124,12 @@ function AttendancePanel({ event, onClose }) {
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未定{jrUndecided} 未回答{jrUnresponded}</div>
               {jrAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{jrAttending.map((n) => <span key={n} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
             </div>
+            {(supporterAttending.length > 0 || supporterAbsent > 0 || supporterUnresponded > 0) && (
+            <div style={{ marginTop: 3 }}>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>💛 SP　出席{supporterAttending.length} 欠席{supporterAbsent} 未定{supporterUndecided} 未回答{supporterUnresponded}</div>
+              {supporterAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{supporterAttending.map((n) => <span key={n} style={{ background: "rgba(255,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
+            </div>
+            )}
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
@@ -1112,8 +1140,15 @@ function AttendancePanel({ event, onClose }) {
             <>
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>🏉 大人</button>
-                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>⭐ Jr</button>
+                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  🏉 大人
+                </button>
+                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  ⭐ Jr
+                </button>
+                <button onClick={() => setActiveTab("supporter")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  💛 SP
+                </button>
               </div>
               {activeTab === "adult" && (members.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
@@ -1122,6 +1157,10 @@ function AttendancePanel({ event, onClose }) {
               {activeTab === "jr" && (jrUnits.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
                 : jrUnits.map((u) => renderMember(u.label, u.subLabel, "jr", u.key))
+              )}
+              {activeTab === "supporter" && (supporters.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>サポーターが登録されていません</div>
+                : supporters.map((m) => renderMember(m.name_jp, "Supporter", "supporter", m.id))
               )}
             </>
           )}
