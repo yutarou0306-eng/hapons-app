@@ -2393,7 +2393,7 @@ export default function HaponsApp() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <a href="https://translate.google.com/translate?sl=ja&tl=en&u=https://hapons-app.vercel.app" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <a href="https://hapons-app-vercel-app.translate.goog/?_x_tr_sl=ja&_x_tr_tl=en&_x_tr_hl=en" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
             <button style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🌐 EN</button>
           </a>
           {isAdmin ? (
