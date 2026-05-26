@@ -803,7 +803,7 @@ function MembersTab({ isAdmin }) {
       const [m, j, s] = await Promise.all([
         supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("*").order("created_at"),
-        supabase.from("supporters").select("*").order("join_date", { ascending: true }),
+        supabase.from("supporters").select("*").order("join_date", { ascending: false }),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
