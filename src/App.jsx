@@ -2424,6 +2424,27 @@ export default function HaponsApp() {
     { id: "fees", label: "部費", icon: "💴" },
   ];
 
+  const tabIds = tabs.map((t) => t.id);
+
+  const touchStartX = useRef(null);
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) < 50) return; // 50px未満は無視
+    const currentIdx = tabIds.indexOf(tab);
+    if (diff > 0) {
+      // 左スワイプ→次のタブ
+      const nextIdx = (currentIdx + 1) % tabIds.length;
+      setTab(tabIds[nextIdx]);
+    } else {
+      // 右スワイプ→前のタブ
+      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
+      setTab(tabIds[prevIdx]);
+    }
+    touchStartX.current = null;
+  };
+
   return (
     <div style={S.app}>
       <div style={S.header}>
@@ -2452,11 +2473,13 @@ export default function HaponsApp() {
         </div>
       )}
 
-      {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
-      {tab === "members" && <MembersTab isAdmin={isAdmin} />}
-      {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
-      {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
-      {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ flex: 1, overflowY: "auto" }}>
+        {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+        {tab === "members" && <MembersTab isAdmin={isAdmin} />}
+        {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
+        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
+        {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
+      </div>
 
       <nav style={S.nav}>
         {tabs.map((t) => (
