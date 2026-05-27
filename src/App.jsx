@@ -2379,7 +2379,7 @@ export default function HaponsApp() {
   };
 
   const fetchAnnouncements = async () => {
-    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase.from("announcements").select("*").order("date", { ascending: false });
     if (data) setAnnouncements(data);
   };
 
@@ -2447,16 +2447,23 @@ export default function HaponsApp() {
 
   const tabIds = tabs.map((t) => t.id);
   const touchStartX = useRef(null);
-  const [slideDir, setSlideDir] = useState(null); // "left" | "right"
+  const touchStartY = useRef(null);
+  const [slideDir, setSlideDir] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
   const handleTouchEnd = (e) => {
     if (touchStartX.current === null || isAnimating) return;
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) < 50) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - e.changedTouches[0].clientY;
+    // 縦スクロールが優先（縦の動きが横より大きい場合は無視）
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+    if (Math.abs(diffX) < 70) return;
     const currentIdx = tabIds.indexOf(tab);
-    if (diff > 0) {
+    if (diffX > 0) {
       const nextIdx = (currentIdx + 1) % tabIds.length;
       setSlideDir("left");
       setIsAnimating(true);
@@ -2468,6 +2475,7 @@ export default function HaponsApp() {
       setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
     }
     touchStartX.current = null;
+    touchStartY.current = null;
   };
 
   return (
