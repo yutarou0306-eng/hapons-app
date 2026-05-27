@@ -711,6 +711,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
   const [saving, setSaving] = useState(false);
   const [formState, setFormState] = useState({ title: "", date: "", important: false });
   const [bodyValue, setBodyValue] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const openAdd = () => { setFormState({ title: "", date: "", important: false }); setBodyValue(""); setShowAdd(true); };
   const openEdit = (a) => { setFormState({ title: a.title, date: a.date, important: a.important }); setBodyValue(a.body || ""); setEditing(a); };
@@ -734,6 +735,8 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
     setAnnouncements(announcements.filter((i) => i.id !== id));
   };
 
+  const displayAnnouncements = showAll ? announcements : announcements.slice(0, 3);
+
   return (
     <div style={S.content}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -742,7 +745,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
       </div>
       {loading && <Loading />}
       {!loading && announcements.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
-      {announcements.map((a) => (
+      {displayAnnouncements.map((a) => (
         <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
@@ -758,6 +761,12 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
           </div>
         </div>
       ))}
+      {!loading && announcements.length > 3 && (
+        <button onClick={() => setShowAll(!showAll)}
+          style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
+          {showAll ? "▲ 閉じる" : `▼ もっと見る（残り${announcements.length - 3}件）`}
+        </button>
+      )}
       {(showAdd || editing) && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
@@ -2358,7 +2367,7 @@ export default function HaponsApp() {
   };
 
   const fetchAnnouncements = async () => {
-    const { data } = await supabase.from("announcements").select("*").order("date", { ascending: false });
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
     if (data) setAnnouncements(data);
   };
 
@@ -2425,22 +2434,26 @@ export default function HaponsApp() {
   ];
 
   const tabIds = tabs.map((t) => t.id);
-
   const touchStartX = useRef(null);
+  const [slideDir, setSlideDir] = useState(null); // "left" | "right"
+  const [isAnimating, setIsAnimating] = useState(false);
+
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
+    if (touchStartX.current === null || isAnimating) return;
     const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) < 50) return; // 50px未満は無視
+    if (Math.abs(diff) < 50) return;
     const currentIdx = tabIds.indexOf(tab);
     if (diff > 0) {
-      // 左スワイプ→次のタブ
       const nextIdx = (currentIdx + 1) % tabIds.length;
-      setTab(tabIds[nextIdx]);
+      setSlideDir("left");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
     } else {
-      // 右スワイプ→前のタブ
       const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
-      setTab(tabIds[prevIdx]);
+      setSlideDir("right");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
     }
     touchStartX.current = null;
   };
@@ -2473,7 +2486,13 @@ export default function HaponsApp() {
         </div>
       )}
 
-      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ flex: 1, overflowY: "auto" }}>
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
+        style={{
+          flex: 1, overflowY: "auto", overflowX: "hidden",
+          transform: slideDir === "left" ? "translateX(-30px)" : slideDir === "right" ? "translateX(30px)" : "translateX(0)",
+          opacity: slideDir ? 0 : 1,
+          transition: slideDir ? "transform 0.25s ease, opacity 0.25s ease" : "none",
+        }}>
         {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
         {tab === "members" && <MembersTab isAdmin={isAdmin} />}
         {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
