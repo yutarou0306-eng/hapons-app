@@ -559,7 +559,41 @@ function MinutesPage({ onClose, isAdmin }) {
   );
 }
 
-// ── HOME TAB ──
+// ── お知らせカード（折りたたみ対応）──
+function AnnouncementCard({ a, isAdmin, onEdit, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = a.body && a.body.length > 200;
+  return (
+    <div style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
+        {a.important && <span style={S.badge(C.primary)}>重要</span>}
+      </div>
+      <div style={{
+        fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.7,
+        overflow: "hidden",
+        display: "-webkit-box",
+        WebkitLineClamp: expanded ? "unset" : 4,
+        WebkitBoxOrient: "vertical",
+      }} dangerouslySetInnerHTML={{ __html: a.body }} />
+      {isLong && (
+        <button onClick={() => setExpanded(!expanded)}
+          style={{ background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "0 0 6px" }}>
+          {expanded ? "▲ 閉じる" : "▼ もっと見る"}
+        </button>
+      )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
+        {isAdmin && onEdit && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button style={S.btn("ghost", "sm")} onClick={() => onEdit(a)}>編集</button>
+            <button style={S.btn("danger", "sm")} onClick={() => onDelete(a.id)}>削除</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
@@ -659,16 +693,7 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
       <h2 style={S.sectionTitle}>最新のお知らせ</h2>
       {loading && <Loading />}
       {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
-      {latest.map((a) => (
-        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
-            {a.important && <span style={S.badge(C.primary)}>重要</span>}
-            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
-          </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: a.body }} />
-          <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-        </div>
-      ))}
+      {latest.map((a) => <AnnouncementCard key={a.id} a={a} isAdmin={false} />)}
       <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>クラブ資料</h2>
       <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
@@ -735,7 +760,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
     setAnnouncements(announcements.filter((i) => i.id !== id));
   };
 
-  const displayAnnouncements = showAll ? announcements : announcements.slice(0, 3);
+  const displayAnnouncements = showAll ? announcements : announcements.slice(0, 10);
 
   return (
     <div style={S.content}>
@@ -746,25 +771,12 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
       {loading && <Loading />}
       {!loading && announcements.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
       {displayAnnouncements.map((a) => (
-        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
-            {a.important && <span style={S.badge(C.primary)}>重要</span>}
-          </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 6px", lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: a.body }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-            {isAdmin && <div style={{ display: "flex", gap: 6 }}>
-              <button style={S.btn("ghost", "sm")} onClick={() => openEdit(a)}>編集</button>
-              <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
-            </div>}
-          </div>
-        </div>
+        <AnnouncementCard key={a.id} a={a} isAdmin={isAdmin} onEdit={openEdit} onDelete={del} />
       ))}
-      {!loading && announcements.length > 3 && (
+      {!loading && announcements.length > 10 && (
         <button onClick={() => setShowAll(!showAll)}
           style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
-          {showAll ? "▲ 閉じる" : `▼ もっと見る（残り${announcements.length - 3}件）`}
+          {showAll ? "▲ 閉じる" : `▼ 全て表示（残り${announcements.length - 10}件）`}
         </button>
       )}
       {(showAdd || editing) && (
