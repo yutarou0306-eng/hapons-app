@@ -559,41 +559,6 @@ function MinutesPage({ onClose, isAdmin }) {
   );
 }
 
-// ── お知らせカード（折りたたみ対応）──
-function AnnouncementCard({ a, isAdmin, onEdit, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
-  const isLong = a.body && a.body.length > 200;
-  return (
-    <div style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
-        {a.important && <span style={S.badge(C.primary)}>重要</span>}
-      </div>
-      <div style={{
-        fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.7,
-        overflow: "hidden",
-        display: "-webkit-box",
-        WebkitLineClamp: expanded ? "unset" : 4,
-        WebkitBoxOrient: "vertical",
-      }} dangerouslySetInnerHTML={{ __html: a.body }} />
-      {isLong && (
-        <button onClick={() => setExpanded(!expanded)}
-          style={{ background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "0 0 6px" }}>
-          {expanded ? "▲ 閉じる" : "▼ もっと見る"}
-        </button>
-      )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-        {isAdmin && onEdit && (
-          <div style={{ display: "flex", gap: 6 }}>
-            <button style={S.btn("ghost", "sm")} onClick={() => onEdit(a)}>編集</button>
-            <button style={S.btn("danger", "sm")} onClick={() => onDelete(a.id)}>削除</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
