@@ -2513,9 +2513,6 @@ export default function HaponsApp() {
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
         style={{
           flex: 1, overflowY: "auto", overflowX: "hidden",
-          transform: slideDir === "left" ? "translateX(-30px)" : slideDir === "right" ? "translateX(30px)" : "translateX(0)",
-          opacity: slideDir ? 0 : 1,
-          transition: slideDir ? "transform 0.25s ease, opacity 0.25s ease" : "none",
         }}>
         {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
         {tab === "members" && <MembersTab isAdmin={isAdmin} />}
