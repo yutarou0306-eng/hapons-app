@@ -2350,6 +2350,8 @@ export default function HaponsApp() {
   const [showClubSong, setShowClubSong] = useState(false);
   const [showMinutes, setShowMinutes] = useState(false);
   const [showTranslateGuide, setShowTranslateGuide] = useState(false);
+  const [slideDir, setSlideDir] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const isAdmin = role === "admin";
 
   const handleLogin = (newRole) => {
@@ -2448,8 +2450,6 @@ export default function HaponsApp() {
   const tabIds = tabs.map((t) => t.id);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
-  const [slideDir, setSlideDir] = useState(null);
-  const [isAnimating, setIsAnimating] = useState(false);
   const handleTouchStart = (e) => {};
   const handleTouchEnd = (e) => {};
 
