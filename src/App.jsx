@@ -2450,8 +2450,34 @@ export default function HaponsApp() {
   ];
 
   const tabIds = tabs.map((t) => t.id);
-  const handleTouchStart = (e) => {};
-  const handleTouchEnd = (e) => {};
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null || isAnimating) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+    if (diffY > Math.abs(diffX) || Math.abs(diffX) < 70) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
+    const currentIdx = tabIds.indexOf(tab);
+    if (diffX > 0) {
+      const nextIdx = (currentIdx + 1) % tabIds.length;
+      setSlideDir("left");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    } else {
+      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
+      setSlideDir("right");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   return (
     <div style={S.app}>
