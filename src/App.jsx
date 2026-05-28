@@ -2450,44 +2450,8 @@ export default function HaponsApp() {
   const touchStartY = useRef(null);
   const [slideDir, setSlideDir] = useState(null);
   const [isAnimating, setIsAnimating] = useState(false);
-
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null || isAnimating) return;
-    const diffX = touchStartX.current - e.changedTouches[0].clientX;
-    const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
-    // 縦スクロールが優先、横移動が70px未満は無視
-    if (diffY > Math.abs(diffX) || Math.abs(diffX) < 70) {
-      touchStartX.current = null;
-      touchStartY.current = null;
-      return;
-    }
-    // クリック可能な要素ではスワイプしない
-    const target = e.target;
-    if (target.closest('button, a, [role="button"]')) {
-      touchStartX.current = null;
-      touchStartY.current = null;
-      return;
-    }
-    const currentIdx = tabIds.indexOf(tab);
-    e.preventDefault();
-    if (diffX > 0) {
-      const nextIdx = (currentIdx + 1) % tabIds.length;
-      setSlideDir("left");
-      setIsAnimating(true);
-      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
-    } else {
-      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
-      setSlideDir("right");
-      setIsAnimating(true);
-      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
+  const handleTouchStart = (e) => {};
+  const handleTouchEnd = (e) => {};
 
   return (
     <div style={S.app}>
