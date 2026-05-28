@@ -93,15 +93,12 @@ function DocSection({ num, title, children }) {
 function Item({ children }) { return <div style={{ paddingLeft: 12, borderLeft: `3px solid ${C.sakura}`, marginBottom: 8, fontSize: 13, lineHeight: 1.7, color: C.text }}>{children}</div>; }
 function Bold({ children }) { return <span style={{ fontWeight: 800, color: C.primary }}>{children}</span>; }
 
-function EditModal({ title, fields, data, onSave, onClose, clickY }) {
+function EditModal({ title, fields, data, onSave, onClose }) {
   const [form, setForm] = useState({ ...data });
-  const windowH = window.innerHeight;
-  // クリック位置が画面下半分なら上に、上半分なら下に表示
-  const showAbove = clickY && clickY > windowH / 2;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", flexDirection: "column", justifyContent: showAbove ? "flex-start" : "flex-end" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: C.card, borderRadius: showAbove ? "0 0 20px 20px" : "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, margin: "0 auto", maxHeight: "80vh", overflowY: "auto", boxShadow: showAbove ? "0 8px 40px rgba(0,0,0,0.3)" : "0 -8px 40px rgba(0,0,0,0.3)" }}
+      <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.3)" }}
         onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>{title}</h3>
