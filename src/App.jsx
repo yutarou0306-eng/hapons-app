@@ -838,8 +838,6 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
             <input style={S.input} value={formState.title} onChange={(e) => setFormState({ ...formState, title: e.target.value })} placeholder="タイトルを入力" />
             <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>内容</label>
             <RichTextEditor value={bodyValue} onChange={setBodyValue} />
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>日付</label>
-            <input style={S.input} type="date" value={formState.date} onChange={(e) => setFormState({ ...formState, date: e.target.value })} />
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 16, cursor: "pointer" }}>
               <input type="checkbox" checked={!!formState.important} onChange={(e) => setFormState({ ...formState, important: e.target.checked })} />重要なお知らせとしてマーク
             </label>
@@ -2432,7 +2430,7 @@ export default function HaponsApp() {
   };
 
   const fetchAnnouncements = async () => {
-    const { data } = await supabase.from("announcements").select("*").order("date", { ascending: false });
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
     if (data) setAnnouncements(data);
   };
 
@@ -2540,7 +2538,6 @@ export default function HaponsApp() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={() => setShowTranslateGuide(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🌐 EN</button>
           {isAdmin ? (
             <button onClick={handleAdminExit} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
           ) : (
@@ -2560,6 +2557,8 @@ export default function HaponsApp() {
       <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
         style={{
           flex: 1, overflowY: "auto", overflowX: "hidden",
+          opacity: slideDir ? 0 : 1,
+          transition: slideDir ? "opacity 0.2s ease" : "opacity 0.2s ease",
         }}>
         {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
         {tab === "members" && <MembersTab isAdmin={isAdmin} />}
