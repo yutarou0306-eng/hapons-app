@@ -574,6 +574,45 @@ function MinutesPage({ onClose, isAdmin }) {
   );
 }
 
+// ── DOCS TAB ──
+function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
+  return (
+    <div style={S.content}>
+      <h2 style={S.sectionTitle}>📋 クラブ資料</h2>
+      <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📌</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons重要事項</div><div style={{ fontSize: 12, color: C.textMuted }}>チームの重要なお知らせ・決まり事</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenEntryForms} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div><div style={{ fontSize: 12, color: C.textMuted }}>入部届・参加同意書のダウンロード</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMJSPass} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏫</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>MJSパス＆スティッカー申請</div><div style={{ fontSize: 12, color: C.textMuted }}>MJS ID・CAR STICKERの申請方法</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+    </div>
+  );
+}
+
 function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   const latest = announcements.slice(0, 3);
   const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
@@ -670,8 +709,22 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
         </div>
       )}
 
-      <h2 style={S.sectionTitle}>🏉 Haponsの想い</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+      <h2 style={S.sectionTitle}>最新のお知らせ</h2>
+      {loading && <Loading />}
+      {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
+      {latest.map((a) => (
+        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+            {a.important && <span style={S.badge(C.primary)}>重要</span>}
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
+          </div>
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: a.body }} />
+          <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
+        </div>
+      ))}
+
+      <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>Haponsの基本方針</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
         <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 28, flexShrink: 0 }}>🏉</span>
           <div>
@@ -693,51 +746,6 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
             <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>次世代へラグビーの楽しさを伝え、フィリピンでのラグビー文化の継承に取り組みます。</div>
           </div>
         </div>
-      </div>
-
-      <h2 style={S.sectionTitle}>最新のお知らせ</h2>
-      {loading && <Loading />}
-      {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
-      {latest.map((a) => (
-        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
-            {a.important && <span style={S.badge(C.primary)}>重要</span>}
-            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
-          </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: a.body }} />
-          <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
-        </div>
-      ))}
-      <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>クラブ資料</h2>
-      <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons 重要事項</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブの重要なお知らせ・規則</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenEntryForms} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div><div style={{ fontSize: 12, color: C.textMuted }}>入部届・参加同意書のダウンロード</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenMJSPass} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏫</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>MJSパス＆スティッカー申請</div><div style={{ fontSize: 12, color: C.textMuted }}>MJS ID・CAR STICKERの申請方法</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
-      </div>
-      <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
-        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
     </div>
   );
@@ -2488,6 +2496,7 @@ export default function HaponsApp() {
     { id: "schedule", label: "日程", icon: "📅" },
     { id: "members", label: "メンバー", icon: "🏉" },
     { id: "fees", label: "部費", icon: "💴" },
+    { id: "docs", label: "資料", icon: "📋" },
   ];
 
   const tabIds = tabs.map((t) => t.id);
@@ -2557,6 +2566,7 @@ export default function HaponsApp() {
         {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
         {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
         {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
+        {tab === "docs" && <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
       </div>
 
       <nav style={S.nav}>
