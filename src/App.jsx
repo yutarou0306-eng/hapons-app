@@ -203,9 +203,22 @@ function RulesPage({ onClose }) {
         <Item>選手（Jr・大人）、指導者、運営スタッフ、保護者・見学者を含むすべての関係者に適用</Item>
       </DocSection>
       <DocSection num="３" title="基本方針（Team Principles）">
-        <Item><Bold>Jrチームは「ラグビーを楽しむこと」を基本方針とする</Bold></Item>
-        <Item>運動を楽しむこと・ラグビーに親しむことを最優先とし、競技力・勝敗の追求はこれを妨げない範囲で行う</Item>
-        {["関係者すべてに感謝と敬意をもって接すること", "地域・他チームとの交流を大切にし積極的に関係を築くこと", "挨拶を大きな声で行うこと", "仲間を大切にし互いを尊重すること", "良いプレーや前向きな行動に積極的に声をかけること", "何よりも、ラグビーを楽しむこと"].map((item, i) => <Item key={i}>{i + 1}. {item}</Item>)}
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10, lineHeight: 1.8 }}>
+          本チームは「ラグビーを楽しむこと」はもちろん、子どもと大人の交流、ラグビーの普及・継承を基本方針としています。
+        </div>
+        <Bold>3.1 チームの方向性</Bold>
+        <Item>本チームは特にJrチームは「ラグビーを楽しむこと」を基本方針とする</Item>
+        <Item>運動そのものを楽しむこと、ならびにラグビーに親しむことを最優先とし、競技力や勝敗の追求はこれを妨げない範囲で行うものとする</Item>
+        <Item>より高いレベルでの技術・競技力の向上を目指すメンバーについては、その意欲を尊重しつつ、必要に応じてローカルのラグビーチーム等の活用を推奨する</Item>
+        <Item>本チームは、Jr世代へラグビーの楽しさを広げ、次世代へのラグビー文化の継承及び育成に取り組むことを大切にする。チームに関わるすべての者が自らラグビーを楽しむとともに、次世代へラグビーを繋いでいく活動を尊重する</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.2 成長意欲への配慮</Bold></div>
+        <Item>本チームは、「楽しみたい」という想いと「強くなりたい」という想いの双方が存在することを理解し、これを尊重する</Item>
+        <Item>競技力向上を志向する姿勢を否定することなく、まずはラグビーに触れ、ラグビーを好きになる機会を提供することを重視する</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.3 チームとしての目標</Bold></div>
+        <Item>本チームは、個人及びチームとして達成感を共有できる組織となることを目指す</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.4 行動原則</Bold></div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6, lineHeight: 1.6 }}>チームに関わる全ての者は、以下の行動原則を共有し、実践するものとする。</div>
+        {["関係者すべてに対し、感謝と敬意をもって接すること", "地域及び他チームとの交流を大切にし、積極的に関係を築くこと", "挨拶を大きな声で行うこと", "仲間を大切にし、互いを尊重すること", "良いプレーや前向きな行動に対して、積極的に声をかけること", "何よりも、ラグビーを楽しむこと"].map((item, i) => <Item key={i}>{i + 1}. {item}</Item>)}
       </DocSection>
       <DocSection num="４" title="運営体制・役割">
         {[{ role: "部長", desc: "クラブ方針・日本人学校対応・毎月の施設使用願い等" }, { role: "キャプテン", desc: "練習開催・中止連絡、コーチ・練習リード（大人）" }, { role: "副キャプテン", desc: "キャプテンサポート・試合リード（大人）" }, { role: "ジュニアコーチ", desc: "開催・中止連絡、コーチ、Jr対外試合調整" }, { role: "主務", desc: "幹事会招集・イベント設定・メンバー名簿管理" }, { role: "会計", desc: "部費徴収・グラウンド代支払・入出金管理" }, { role: "広報", desc: "日本人会・SNS・Facebook・新入部員獲得活動" }, { role: "渉外・対外", desc: "日本人会対応・対外試合・AJRC調整" }, { role: "備品", desc: "倉庫管理・備品確認・ユニフォーム管理" }, { role: "保護者窓口", desc: "議事共有・名簿管理・新入部員受け入れ対応" }].map((r) => (
@@ -656,6 +669,31 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
           </div>
         </div>
       )}
+
+      <h2 style={S.sectionTitle}>🏉 Haponsの想い</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>🏉</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーを楽しむ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>勝敗より楽しむことを最優先に。大人もJrも、ラグビーの楽しさを共有します。</div>
+          </div>
+        </div>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.jr}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>⭐</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>子どもと大人が一緒に楽しむ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>Jr・大人・保護者が交流し、世代を超えてラグビーを楽しめる場所を目指します。</div>
+          </div>
+        </div>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.success}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>🌏</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーを広める・繋ぐ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>次世代へラグビーの楽しさを伝え、フィリピンでのラグビー文化の継承に取り組みます。</div>
+          </div>
+        </div>
+      </div>
 
       <h2 style={S.sectionTitle}>最新のお知らせ</h2>
       {loading && <Loading />}
