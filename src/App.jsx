@@ -718,7 +718,7 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
           </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: a.body }} />
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
@@ -750,6 +750,15 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
     </div>
   );
 }
+
+// URLを自動リンク化
+const autoLink = (html) => {
+  if (!html) return "";
+  return html.replace(
+    /(https?:\/\/[^\s<>"]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
+  );
+};
 
 // ── ANNOUNCEMENTS TAB ──
 function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading }) {
@@ -805,7 +814,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
             display: "-webkit-box",
             WebkitLineClamp: expandedIds[a.id] ? "unset" : 4,
             WebkitBoxOrient: "vertical",
-          }} dangerouslySetInnerHTML={{ __html: a.body }} />
+          }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           {a.body && a.body.length > 200 && (
             <button onClick={() => setExpandedIds((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
               style={{ background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "0 0 6px" }}>
