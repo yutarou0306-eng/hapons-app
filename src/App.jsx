@@ -2515,7 +2515,7 @@ export default function HaponsApp() {
 
   // アプリ起動時に未登録チェック
   useEffect(() => {
-    if (myGroup.length === 0) return;
+    if (myGroup.length === 0 || !role) return;
     const checkUnregistered = async () => {
       const today = new Date().toISOString().slice(0, 10);
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -2537,7 +2537,7 @@ export default function HaponsApp() {
       }
     };
     checkUnregistered();
-  }, [myGroup]);
+  }, [myGroup, role]);
 
   const isAdmin = role === "admin";
 
