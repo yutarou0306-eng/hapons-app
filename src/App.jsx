@@ -1056,7 +1056,7 @@ function MembersTab({ isAdmin }) {
 }
 
 // ── ATTENDANCE PANEL ──
-function AttendancePanel({ event, onClose }) {
+function AttendancePanel({ event, onClose, myGroup }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
   const [supporters, setSupporters] = useState([]);
@@ -1095,9 +1095,9 @@ function AttendancePanel({ event, onClose }) {
 
   const getStatus = (name, type) => getCommittedStatus(name, type);
 
-  const cycleStatus = async (name, type) => {
+  const cycleStatus = async (name, type, forceStatus = null) => {
     const current = getCommittedStatus(name, type);
-    const next = current === "none" ? "attend" : current === "attend" ? "undecided" : current === "undecided" ? "absent" : "none";
+    const next = forceStatus || (current === "none" ? "attend" : current === "attend" ? "undecided" : current === "undecided" ? "absent" : "none");
 
     // stateを即座に更新
     if (next === "attend") {
@@ -1217,6 +1217,18 @@ function AttendancePanel({ event, onClose }) {
           {loading && <Loading />}
           {!loading && (
             <>
+              {/* まとめて参加登録 */}
+              {myGroup.length > 0 && (
+                <button onClick={async () => {
+                  for (const name of myGroup) {
+                    const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                    await cycleStatus(name, type, "attend");
+                  }
+                }}
+                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: C.success, marginBottom: 14 }}>
+                  👨‍👩‍👧‍👦 {myGroup.join("・")} を全員参加登録
+                </button>
+              )}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
@@ -1477,7 +1489,7 @@ function ScheduleTab({ isAdmin }) {
 
       {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
-      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} myGroup={myGroup} />}
 
       {/* 繰り返し登録モーダル */}
       {showRepeat && (
@@ -2393,6 +2405,81 @@ function JrFeesTab({ isAdmin }) {
 }
 
 // ── MAIN APP ──
+// ── マイグループ設定 ──
+function MyGroupSetup({ onSave, onClose, currentGroup }) {
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
+  const [selected, setSelected] = useState(currentGroup || []);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const [m, j] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, parent_name").order("created_at"),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  const toggle = (name) => {
+    setSelected((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 マイグループ設定</h3>
+        <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+          出欠登録をまとめて行う家族・グループを選択してください。未登録の時に通知されます。
+        </p>
+        {loading && <Loading />}
+        {!loading && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.primary, marginBottom: 8 }}>🏉 大人</div>
+            {members.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.sakuraLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}`, background: selected.includes(m.name_jp) ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.position}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.jr, margin: "12px 0 8px" }}>⭐ Jr</div>
+            {jrMembers.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.jrLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}`, background: selected.includes(m.name_jp) ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.parent_name && `👨‍👩‍👧‍👦 ${m.parent_name}`}</div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={onClose} style={{ ...S.btn("ghost"), flex: 1 }}>キャンセル</button>
+          <button onClick={() => onSave(selected)} style={{ ...S.btn("primary"), flex: 2 }}>
+            {selected.length}名を登録する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HaponsApp() {
   const [role, setRole] = useState(() => localStorage.getItem("hapons_role") || null);
   const [tab, setTab] = useState("home");
@@ -2410,6 +2497,48 @@ export default function HaponsApp() {
   const [isAnimating, setIsAnimating] = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+
+  // マイグループ機能
+  const [myGroup, setMyGroup] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hapons_my_group") || "[]"); } catch { return []; }
+  });
+  const [showGroupSetup, setShowGroupSetup] = useState(false);
+  const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
+  const [unregisteredEvent, setUnregisteredEvent] = useState(null);
+  const [unregisteredMembers, setUnregisteredMembers] = useState([]);
+
+  const saveMyGroup = (group) => {
+    localStorage.setItem("hapons_my_group", JSON.stringify(group));
+    setMyGroup(group);
+    setShowGroupSetup(false);
+  };
+
+  // アプリ起動時に未登録チェック
+  useEffect(() => {
+    if (myGroup.length === 0) return;
+    const checkUnregistered = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data: events } = await supabase.from("events")
+        .select("*").gte("date", today).lte("date", tomorrow).eq("type", "practice").order("date");
+      if (!events || events.length === 0) return;
+      const nextEvent = events[0];
+      const { data: attendances } = await supabase.from("attendances").select("*").eq("event_id", nextEvent.id);
+      const { data: absences } = await supabase.from("absences").select("*").eq("event_id", nextEvent.id);
+      const registered = [
+        ...(attendances || []).map((a) => a.member_name),
+        ...(absences || []).map((a) => a.member_name),
+      ];
+      const unregistered = myGroup.filter((name) => !registered.includes(name));
+      if (unregistered.length > 0) {
+        setUnregisteredEvent(nextEvent);
+        setUnregisteredMembers(unregistered);
+        setShowUnregisteredAlert(true);
+      }
+    };
+    checkUnregistered();
+  }, [myGroup]);
+
   const isAdmin = role === "admin";
 
   const handleLogin = (newRole) => {
@@ -2547,6 +2676,9 @@ export default function HaponsApp() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={() => setShowGroupSetup(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+            👨‍👩‍👧‍👦 {myGroup.length > 0 ? `${myGroup.length}名` : "設定"}
+          </button>
           {isAdmin ? (
             <button onClick={handleAdminExit} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
           ) : (
@@ -2587,6 +2719,35 @@ export default function HaponsApp() {
       </nav>
 
       {showAdminLogin && <AdminLoginModal onLogin={handleAdminLogin} onClose={() => setShowAdminLogin(false)} />}
+      {showGroupSetup && <MyGroupSetup onSave={saveMyGroup} onClose={() => setShowGroupSetup(false)} currentGroup={myGroup} />}
+
+      {/* 未登録アラート */}
+      {showUnregisteredAlert && unregisteredEvent && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380 }}>
+            <div style={{ fontSize: 24, textAlign: "center", marginBottom: 8 }}>📢</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text, textAlign: "center" }}>出欠登録をお願いします！</h3>
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{unregisteredEvent.title}</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{unregisteredEvent.date}　{unregisteredEvent.time}</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>
+              以下のメンバーがまだ未登録です：
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {unregisteredMembers.map((name) => (
+                  <span key={name} style={{ background: C.sakuraLight, color: C.primary, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>{name}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowUnregisteredAlert(false)}
+                style={{ ...S.btn("ghost"), flex: 1 }}>後で</button>
+              <button onClick={() => { setShowUnregisteredAlert(false); setTab("schedule"); }}
+                style={{ ...S.btn("primary"), flex: 2 }}>📅 日程を開く</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Translation Guide Modal */}
       {showTranslateGuide && (
