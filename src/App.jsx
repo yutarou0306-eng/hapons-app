@@ -2518,9 +2518,9 @@ export default function HaponsApp() {
     if (myGroup.length === 0) return;
     const checkUnregistered = async () => {
       const today = new Date().toISOString().slice(0, 10);
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const { data: events } = await supabase.from("events")
-        .select("*").gte("date", today).lte("date", tomorrow).eq("type", "practice").order("date");
+        .select("*").gte("date", today).lte("date", nextWeek).eq("type", "practice").order("date");
       if (!events || events.length === 0) return;
       const nextEvent = events[0];
       const { data: attendances } = await supabase.from("attendances").select("*").eq("event_id", nextEvent.id);
