@@ -1262,7 +1262,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
 }
 
 // ── SCHEDULE TAB ──
-function ScheduleTab({ isAdmin }) {
+function ScheduleTab({ isAdmin, myGroup = [] }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -2704,7 +2704,7 @@ export default function HaponsApp() {
         {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
         {tab === "members" && <MembersTab isAdmin={isAdmin} />}
         {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
-        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} />}
+        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />}
         {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
         {tab === "docs" && <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
       </div>
