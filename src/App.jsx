@@ -1065,6 +1065,32 @@ function AttendancePanel({ event, onClose, myGroup }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
+  const TAB_ORDER = ["adult", "jr", "supporter"];
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.changedTouches[0].clientX;
+    touchStartY.current = e.changedTouches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    // 横移動が縦移動より大きく、かつ一定距離を超えたときだけ反応（縦スクロールと誤認しない）
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = TAB_ORDER.indexOf(activeTab);
+    if (dx > 0) {
+      // 右スワイプ → 次のタブ（大人→Jr→サポーター→大人）
+      setActiveTab(TAB_ORDER[(idx + 1) % TAB_ORDER.length]);
+    } else {
+      // 左スワイプ → 前のタブ（大人→サポーター→Jr→大人）
+      setActiveTab(TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length]);
+    }
+  };
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -1213,7 +1239,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
 
-        <div style={{ padding: "16px 16px 32px" }}>
+        <div style={{ padding: "16px 16px 32px" }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {loading && <Loading />}
           {!loading && (
             <>
