@@ -1251,10 +1251,17 @@ function AttendancePanel({ event, onClose, myGroup }) {
             <>
               {/* まとめて参加登録 */}
               {myGroup.length > 0 && (() => {
-                const groupStatuses = myGroup.map((name) => {
+                const STATUS_META = {
+                  attend: { label: "参加", color: C.success, bg: "#E8F5E9" },
+                  undecided: { label: "未定", color: "#E65100", bg: "#FFF3E0" },
+                  absent: { label: "欠席", color: C.danger, bg: "#FFEBEE" },
+                  none: { label: "未登録", color: C.textMuted, bg: C.bg },
+                };
+                const memberStatuses = myGroup.map((name) => {
                   const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
-                  return getCommittedStatus(name, type);
+                  return { name, type, status: getCommittedStatus(name, type) };
                 });
+                const groupStatuses = memberStatuses.map((m) => m.status);
                 const allSame = groupStatuses.every((s) => s === groupStatuses[0]);
                 const currentStatus = allSame ? groupStatuses[0] : "none";
                 const nextStatus = currentStatus === "none" ? "attend" : currentStatus === "attend" ? "undecided" : currentStatus === "undecided" ? "absent" : "none";
@@ -1266,15 +1273,42 @@ function AttendancePanel({ event, onClose, myGroup }) {
                 };
                 const cfg = btnConfig[nextStatus];
                 return (
-                  <button onClick={async () => {
-                    for (const name of myGroup) {
-                      const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
-                      await cycleStatus(name, type, nextStatus);
-                    }
-                  }}
-                    style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: cfg.bg, marginBottom: 14 }}>
-                    {cfg.label}
-                  </button>
+                  <>
+                    {/* グループの現在の登録状況 */}
+                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>👨‍👩‍👧‍👦 グループの登録状況</div>
+                      {allSame ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800, color: STATUS_META[currentStatus].color, background: STATUS_META[currentStatus].bg, border: `1px solid ${STATUS_META[currentStatus].color}` }}>
+                            {STATUS_META[currentStatus].label}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
+                            {currentStatus === "none" ? "全員 未登録です" : `全員 ${STATUS_META[currentStatus].label}で登録済み`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {memberStatuses.map((m) => (
+                            <div key={m.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{m.name}</span>
+                              <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, color: STATUS_META[m.status].color, background: STATUS_META[m.status].bg, border: `1px solid ${STATUS_META[m.status].color}` }}>
+                                {m.status === "none" ? "未登録" : `${STATUS_META[m.status].label}で登録済み`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={async () => {
+                      for (const name of myGroup) {
+                        const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                        await cycleStatus(name, type, nextStatus);
+                      }
+                    }}
+                      style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: cfg.bg, marginBottom: 14 }}>
+                      {cfg.label}
+                    </button>
+                  </>
                 );
               })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
