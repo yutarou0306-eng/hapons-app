@@ -2547,11 +2547,16 @@ export default function HaponsApp() {
       const { data: events } = await supabase.from("events")
         .select("*").gte("date", today).lte("date", nextWeek).eq("type", "practice").order("date");
       if (!events || events.length === 0) return;
-      const nextEvent = events[0];
-      const daysUntil = Math.ceil((new Date(nextEvent.date) - new Date(today)) / (24 * 60 * 60 * 1000));
 
-      // スキップ状態を確認
-      const dismissedPhase = localStorage.getItem(`hapons_alert_${nextEvent.id}`);
+      // 直近の練習日を特定し、その日の全イベントを対象にする
+      const nextDate = String(events[0].date).slice(0, 10);
+      const sameDayEvents = events.filter((e) => String(e.date).slice(0, 10) === nextDate);
+      const nextEvent = sameDayEvents[0];
+      const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+
+      // スキップ状態を確認（同一日のイベント群をまとめて1つのキーで管理）
+      const alertKey = `hapons_alert_${nextDate}`;
+      const dismissedPhase = localStorage.getItem(alertKey);
 
       // 表示条件：7日前（未スキップ）、3日前（7日前スキップ済みでも再表示）、1日前（常に表示）
       let shouldShow = false;
@@ -2565,13 +2570,23 @@ export default function HaponsApp() {
 
       if (!shouldShow) return;
 
-      const { data: attendances } = await supabase.from("attendances").select("*").eq("event_id", nextEvent.id);
-      const { data: absences } = await supabase.from("absences").select("*").eq("event_id", nextEvent.id);
-      const registered = [
-        ...(attendances || []).map((a) => a.member_name),
-        ...(absences || []).map((a) => a.member_name),
-      ];
-      const unregistered = myGroup.filter((name) => !registered.includes(name));
+      // 同一日の全イベントについて出欠登録状況を取得
+      const eventIds = sameDayEvents.map((e) => e.id);
+      const { data: attendances } = await supabase.from("attendances").select("*").in("event_id", eventIds);
+      const { data: absences } = await supabase.from("absences").select("*").in("event_id", eventIds);
+
+      // 「全イベントで登録済み」のメンバーのみ登録完了とみなす
+      // = どれか1つでも未登録のイベントがあれば、そのメンバーは未登録扱い
+      const unregistered = myGroup.filter((name) => {
+        return sameDayEvents.some((ev) => {
+          const registeredForThisEvent = [
+            ...(attendances || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+            ...(absences || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+          ];
+          return !registeredForThisEvent.includes(name);
+        });
+      });
+
       if (unregistered.length > 0) {
         setUnregisteredEvent(nextEvent);
         setUnregisteredMembers(unregistered);
@@ -2787,8 +2802,9 @@ export default function HaponsApp() {
                 <button onClick={() => {
                   if (unregisteredEvent) {
                     const today = new Date().toISOString().slice(0, 10);
-                    const daysUntil = Math.ceil((new Date(unregisteredEvent.date) - new Date(today)) / (24 * 60 * 60 * 1000));
-                    localStorage.setItem(`hapons_alert_${unregisteredEvent.id}`, daysUntil <= 3 ? "3" : "7");
+                    const nextDate = String(unregisteredEvent.date).slice(0, 10);
+                    const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+                    localStorage.setItem(`hapons_alert_${nextDate}`, daysUntil <= 3 ? "3" : "7");
                   }
                   setShowUnregisteredAlert(false);
                 }}
