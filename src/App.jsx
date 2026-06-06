@@ -1218,19 +1218,33 @@ function AttendancePanel({ event, onClose, myGroup }) {
           {!loading && (
             <>
               {/* まとめて参加登録 */}
-              {myGroup.length > 0 && (
-                <button onClick={async () => {
-                  for (const name of myGroup) {
-                    const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
-                    if (getCommittedStatus(name, type) === "none") {
-                      await cycleStatus(name, type, "attend");
+              {myGroup.length > 0 && (() => {
+                const groupStatuses = myGroup.map((name) => {
+                  const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                  return getCommittedStatus(name, type);
+                });
+                const allSame = groupStatuses.every((s) => s === groupStatuses[0]);
+                const currentStatus = allSame ? groupStatuses[0] : "none";
+                const nextStatus = currentStatus === "none" ? "attend" : currentStatus === "attend" ? "undecided" : currentStatus === "undecided" ? "absent" : "none";
+                const btnConfig = {
+                  attend: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員参加登録`, bg: C.success },
+                  undecided: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員未定登録`, bg: "#E65100" },
+                  absent: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員欠席登録`, bg: C.danger },
+                  none: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員未登録に戻す`, bg: C.textMuted },
+                };
+                const cfg = btnConfig[nextStatus];
+                return (
+                  <button onClick={async () => {
+                    for (const name of myGroup) {
+                      const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                      await cycleStatus(name, type, nextStatus);
                     }
-                  }
-                }}
-                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: C.success, marginBottom: 14 }}>
-                  👨‍👩‍👧‍👦 {myGroup.join("・")} を全員参加登録
-                </button>
-              )}
+                  }}
+                    style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: cfg.bg, marginBottom: 14 }}>
+                    {cfg.label}
+                  </button>
+                );
+              })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
