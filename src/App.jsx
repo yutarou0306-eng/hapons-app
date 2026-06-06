@@ -1222,7 +1222,9 @@ function AttendancePanel({ event, onClose, myGroup }) {
                 <button onClick={async () => {
                   for (const name of myGroup) {
                     const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
-                    await cycleStatus(name, type, "attend");
+                    if (getCommittedStatus(name, type) === "none") {
+                      await cycleStatus(name, type, "attend");
+                    }
                   }
                 }}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: C.success, marginBottom: 14 }}>
@@ -2436,7 +2438,7 @@ function MyGroupSetup({ onSave, onClose, currentGroup }) {
         onClick={(e) => e.stopPropagation()}>
         <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 マイグループ設定</h3>
         <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
-          出欠登録をまとめて行う家族・グループを選択してください。未登録の時に通知されます。
+          出欠登録をまとめて行うメンバーを選択してください。お一人の場合もご自身を選択してください。練習前に未登録の場合は通知されます。
         </p>
         {loading && <Loading />}
         {!loading && (
@@ -2470,7 +2472,7 @@ function MyGroupSetup({ onSave, onClose, currentGroup }) {
           </>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} style={{ ...S.btn("ghost"), flex: 1 }}>キャンセル</button>
+          <button onClick={() => { localStorage.setItem("hapons_group_skipped", "1"); onClose(); }} style={{ ...S.btn("ghost"), flex: 1 }}>後で設定</button>
           <button onClick={() => onSave(selected)} style={{ ...S.btn("primary"), flex: 2 }}>
             {selected.length}名を登録する
           </button>
@@ -2506,14 +2508,23 @@ export default function HaponsApp() {
   const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
   const [unregisteredEvent, setUnregisteredEvent] = useState(null);
   const [unregisteredMembers, setUnregisteredMembers] = useState([]);
+  const [alertIsUrgent, setAlertIsUrgent] = useState(false); // 1日前はスキップ不可
 
   const saveMyGroup = (group) => {
     localStorage.setItem("hapons_my_group", JSON.stringify(group));
+    localStorage.removeItem("hapons_group_skipped");
     setMyGroup(group);
     setShowGroupSetup(false);
   };
 
-  // アプリ起動時に未登録チェック
+  // グループ未設定なら初回表示（スキップ済みでなければ）
+  useEffect(() => {
+    if (role && myGroup.length === 0 && !localStorage.getItem("hapons_group_skipped")) {
+      setShowGroupSetup(true);
+    }
+  }, [role]);
+
+  // アプリ起動時に未登録チェック（7日前・3日前・1日前）
   useEffect(() => {
     if (myGroup.length === 0 || !role) return;
     const checkUnregistered = async () => {
@@ -2523,6 +2534,23 @@ export default function HaponsApp() {
         .select("*").gte("date", today).lte("date", nextWeek).eq("type", "practice").order("date");
       if (!events || events.length === 0) return;
       const nextEvent = events[0];
+      const daysUntil = Math.ceil((new Date(nextEvent.date) - new Date(today)) / (24 * 60 * 60 * 1000));
+
+      // スキップ状態を確認
+      const dismissedPhase = localStorage.getItem(`hapons_alert_${nextEvent.id}`);
+
+      // 表示条件：7日前（未スキップ）、3日前（7日前スキップ済みでも再表示）、1日前（常に表示）
+      let shouldShow = false;
+      if (daysUntil <= 1) {
+        shouldShow = true; // 1日前は常に表示
+      } else if (daysUntil <= 3 && dismissedPhase !== "3") {
+        shouldShow = true;
+      } else if (daysUntil <= 7 && !dismissedPhase) {
+        shouldShow = true;
+      }
+
+      if (!shouldShow) return;
+
       const { data: attendances } = await supabase.from("attendances").select("*").eq("event_id", nextEvent.id);
       const { data: absences } = await supabase.from("absences").select("*").eq("event_id", nextEvent.id);
       const registered = [
@@ -2533,6 +2561,7 @@ export default function HaponsApp() {
       if (unregistered.length > 0) {
         setUnregisteredEvent(nextEvent);
         setUnregisteredMembers(unregistered);
+        setAlertIsUrgent(daysUntil <= 1);
         setShowUnregisteredAlert(true);
       }
     };
@@ -2740,8 +2769,17 @@ export default function HaponsApp() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowUnregisteredAlert(false)}
-                style={{ ...S.btn("ghost"), flex: 1 }}>後で</button>
+              {!alertIsUrgent && (
+                <button onClick={() => {
+                  if (unregisteredEvent) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const daysUntil = Math.ceil((new Date(unregisteredEvent.date) - new Date(today)) / (24 * 60 * 60 * 1000));
+                    localStorage.setItem(`hapons_alert_${unregisteredEvent.id}`, daysUntil <= 3 ? "3" : "7");
+                  }
+                  setShowUnregisteredAlert(false);
+                }}
+                  style={{ ...S.btn("ghost"), flex: 1 }}>後で</button>
+              )}
               <button onClick={() => { setShowUnregisteredAlert(false); setTab("schedule"); }}
                 style={{ ...S.btn("primary"), flex: 2 }}>📅 日程を開く</button>
             </div>
