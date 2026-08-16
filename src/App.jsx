@@ -936,14 +936,16 @@ function MembersTab({ isAdmin }) {
   ];
 
   const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
-  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Assistant Coach", "Jr Coach", "PR", "Parent Relation"];
-  const sortedList = isAdult ? [...list].sort((a, b) => {
-    const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
-    const bIdx = BOTTOM_POSITIONS.indexOf(b.position);
-    const aBottom = aIdx >= 0 ? aIdx + 1 : 0;
-    const bBottom = bIdx >= 0 ? bIdx + 1 : 0;
-    return aBottom - bBottom;
-  }) : list;
+  const TOP_POSITIONS = ["Club President", "Captain", "Vice Captain", "Assistant Vice Captain"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const posRank = (pos) => {
+    const t = TOP_POSITIONS.indexOf(pos);
+    if (t >= 0) return t;                 // 上位役職：定義順
+    const b = BOTTOM_POSITIONS.indexOf(pos);
+    if (b >= 0) return 1000 + b;          // 下位役職：定義順で末尾へ
+    return 500;                            // その他（Player・一般メンバー）：中間、登録順
+  };
+  const sortedList = isAdult ? [...list].sort((a, b) => posRank(a.position) - posRank(b.position)) : list;
   const filtered = sortedList.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
 
   const save = async (form) => {
@@ -1174,14 +1176,16 @@ function AttendancePanel({ event, onClose, myGroup }) {
     }
   };
 
-  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Assistant Coach", "Jr Coach", "PR", "Parent Relation"];
-  const sortedMembers = [...members].sort((a, b) => {
-    const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
-    const bIdx = BOTTOM_POSITIONS.indexOf(b.position);
-    const aBottom = aIdx >= 0 ? aIdx + 1 : 0;
-    const bBottom = bIdx >= 0 ? bIdx + 1 : 0;
-    return aBottom - bBottom;
-  });
+  const TOP_POSITIONS = ["Club President", "Captain", "Vice Captain", "Assistant Vice Captain"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const posRank = (pos) => {
+    const t = TOP_POSITIONS.indexOf(pos);
+    if (t >= 0) return t;                 // 上位役職：定義順
+    const b = BOTTOM_POSITIONS.indexOf(pos);
+    if (b >= 0) return 1000 + b;          // 下位役職：定義順で末尾へ
+    return 500;                            // その他（Player・一般メンバー）：中間、登録順
+  };
+  const sortedMembers = [...members].sort((a, b) => posRank(a.position) - posRank(b.position));
 
   const jrUnits = jrMembers.map((m) => ({
     key: `ind_${m.id}`, label: m.name_jp,
