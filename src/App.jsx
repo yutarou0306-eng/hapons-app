@@ -936,7 +936,7 @@ function MembersTab({ isAdmin }) {
   ];
 
   const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
-  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Assistant Coach", "Jr Coach", "PR", "Parent Relation"];
   const sortedList = isAdult ? [...list].sort((a, b) => {
     const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
     const bIdx = BOTTOM_POSITIONS.indexOf(b.position);
@@ -1174,7 +1174,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
     }
   };
 
-  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Assistant Coach", "Jr Coach", "PR", "Parent Relation"];
   const sortedMembers = [...members].sort((a, b) => {
     const aIdx = BOTTOM_POSITIONS.indexOf(a.position);
     const bIdx = BOTTOM_POSITIONS.indexOf(b.position);
@@ -1236,14 +1236,18 @@ function AttendancePanel({ event, onClose, myGroup }) {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {type === "adult" && status === "attend" && (
-            <button onClick={() => toggleJrHelper(name)} style={jrHelperBtnStyle(isJrHelper(name))} title="Jrの練習を見てもよい方はタップ">
-              {isJrHelper(name) ? "Jr補助" : "-"}
-            </button>
-          )}
-          <button onClick={() => cycleStatus(name, type)} style={statusBtnStyle(status, isPend)}>
+          <button onClick={() => cycleStatus(name, type)} style={{ ...statusBtnStyle(status, isPend), width: 76, boxSizing: "border-box", textAlign: "center" }}>
             {statusText(status)}
           </button>
+          {type === "adult" && (
+            status === "attend" ? (
+              <button onClick={() => toggleJrHelper(name)} style={{ ...jrHelperBtnStyle(isJrHelper(name)), width: 60, boxSizing: "border-box", textAlign: "center" }} title="Jrの練習を見てもよい方はタップ">
+                {isJrHelper(name) ? "Jr補助" : "-"}
+              </button>
+            ) : (
+              <div style={{ width: 60, flexShrink: 0 }} />
+            )
+          )}
         </div>
       </div>
     );
@@ -1352,13 +1356,29 @@ function AttendancePanel({ event, onClose, myGroup }) {
                   💛 サポーター
                 </button>
               </div>
+              {activeTab === "adult" && members.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                  <span style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.jr }}>Jr補助</span>
+                </div>
+              )}
               {activeTab === "adult" && (members.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
                 : sortedMembers.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
               )}
+              {activeTab === "jr" && jrUnits.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                </div>
+              )}
               {activeTab === "jr" && (jrUnits.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
                 : jrUnits.map((u) => renderMember(u.label, u.subLabel, "jr", u.key))
+              )}
+              {activeTab === "supporter" && supporters.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                </div>
               )}
               {activeTab === "supporter" && (supporters.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>サポーターが登録されていません</div>
