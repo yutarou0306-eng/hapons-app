@@ -1123,6 +1123,26 @@ function AttendancePanel({ event, onClose, myGroup }) {
 
   const getStatus = (name, type) => getCommittedStatus(name, type);
 
+  // Jr補助フラグ（大人の参加者のみ）: attendances.jr_helper に保存
+  const isJrHelper = (name) => {
+    const att = attendances.find((a) => a.member_name === name && a.member_type === "adult");
+    return !!(att && att.jr_helper);
+  };
+
+  const toggleJrHelper = async (name) => {
+    const att = attendances.find((a) => a.member_name === name && a.member_type === "adult");
+    if (!att) return; // 参加登録済みの大人のみ対象
+    const newVal = !att.jr_helper;
+    // stateを即座に更新
+    setAttendances((prev) => prev.map((a) =>
+      (a.member_name === name && a.member_type === "adult") ? { ...a, jr_helper: newVal } : a
+    ));
+    // Supabaseに保存（temp_ の間はDB未確定なのでスキップ）
+    if (!String(att.id).startsWith("temp_")) {
+      await supabase.from("attendances").update({ jr_helper: newVal }).eq("id", att.id);
+    }
+  };
+
   const cycleStatus = async (name, type, forceStatus = null) => {
     const current = getCommittedStatus(name, type);
     const next = forceStatus || (current === "none" ? "attend" : current === "attend" ? "undecided" : current === "undecided" ? "absent" : "none");
@@ -1198,6 +1218,12 @@ function AttendancePanel({ event, onClose, myGroup }) {
 
   const statusText = (status) => status === "attend" ? "✓ 参加" : status === "absent" ? "✗ 欠席" : status === "undecided" ? "？ 未定" : "未登録";
 
+  const jrHelperBtnStyle = (on) => ({
+    padding: "5px 10px", borderRadius: 20, border: `1.5px solid ${on ? C.jr : C.border}`,
+    fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0, minWidth: 40,
+    background: on ? C.jrLight : C.card, color: on ? C.jr : C.textMuted, fontFamily: "inherit",
+  });
+
   const renderMember = (name, subLabel, type, key) => {
     const status = getStatus(name, type);
     const isPend = false;
@@ -1209,9 +1235,16 @@ function AttendancePanel({ event, onClose, myGroup }) {
             {subLabel}
           </div>
         </div>
-        <button onClick={() => cycleStatus(name, type)} style={statusBtnStyle(status, isPend)}>
-          {statusText(status)}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {type === "adult" && status === "attend" && (
+            <button onClick={() => toggleJrHelper(name)} style={jrHelperBtnStyle(isJrHelper(name))} title="Jrの練習を見てもよい方はタップ">
+              {isJrHelper(name) ? "Jr補助" : "-"}
+            </button>
+          )}
+          <button onClick={() => cycleStatus(name, type)} style={statusBtnStyle(status, isPend)}>
+            {statusText(status)}
+          </button>
+        </div>
       </div>
     );
   };
@@ -1274,30 +1307,26 @@ function AttendancePanel({ event, onClose, myGroup }) {
                 const cfg = btnConfig[nextStatus];
                 return (
                   <>
-                    {/* グループの現在の登録状況 */}
+                    {/* グループの現在の登録状況（各メンバーを個別にタップで変更可） */}
                     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>👨‍👩‍👧‍👦 グループの登録状況</div>
-                      {allSame ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 800, color: STATUS_META[currentStatus].color, background: STATUS_META[currentStatus].bg, border: `1px solid ${STATUS_META[currentStatus].color}` }}>
-                            {STATUS_META[currentStatus].label}
-                          </span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-                            {currentStatus === "none" ? "全員 未登録です" : `全員 ${STATUS_META[currentStatus].label}で登録済み`}
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {memberStatuses.map((m) => (
-                            <div key={m.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{m.name}</span>
-                              <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, color: STATUS_META[m.status].color, background: STATUS_META[m.status].bg, border: `1px solid ${STATUS_META[m.status].color}` }}>
-                                {m.status === "none" ? "未登録" : `${STATUS_META[m.status].label}で登録済み`}
-                              </span>
-                            </div>
-                          ))}
+                      <div style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>
+                        👨‍👩‍👧‍👦 グループの登録状況（各ボタンをタップで個別に変更）
+                      </div>
+                      {allSame && currentStatus !== "none" && (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: STATUS_META[currentStatus].color, marginBottom: 8 }}>
+                          ✓ 全員 {STATUS_META[currentStatus].label}で登録済み
                         </div>
                       )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {memberStatuses.map((m) => (
+                          <div key={m.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{m.name}</span>
+                            <button onClick={() => cycleStatus(m.name, m.type)} style={statusBtnStyle(m.status, false)}>
+                              {statusText(m.status)}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <button onClick={async () => {
                       for (const name of myGroup) {
