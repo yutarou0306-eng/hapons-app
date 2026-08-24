@@ -751,13 +751,21 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
   );
 }
 
-// URLを自動リンク化
+// URLを自動リンク化（すでに <a> タグになっている部分は二重リンク化しない）
 const autoLink = (html) => {
   if (!html) return "";
-  return html.replace(
-    /(https?:\/\/[^\s<>"]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
-  );
+  // 既存の <a>...</a> はそのまま残し、それ以外のテキスト内のURLだけをリンク化する
+  return html
+    .split(/(<a\b[^>]*>.*?<\/a>)/gis)
+    .map((part) =>
+      /^<a\b/i.test(part)
+        ? part
+        : part.replace(
+            /(https?:\/\/[^\s<>"]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
+          )
+    )
+    .join("");
 };
 
 // ── ANNOUNCEMENTS TAB ──
@@ -936,7 +944,7 @@ function MembersTab({ isAdmin }) {
   ];
 
   const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
-  const TOP_POSITIONS = ["Club President", "Captain", "Vice Captain", "Assistant Vice Captain"];
+  const TOP_POSITIONS = ["Club President", "Captain", "Senior Vice Captain", "Vice Captain", "Assistant Vice Captain"];
   const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
   const posRank = (pos) => {
     const t = TOP_POSITIONS.indexOf(pos);
@@ -1176,7 +1184,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
     }
   };
 
-  const TOP_POSITIONS = ["Club President", "Captain", "Vice Captain", "Assistant Vice Captain"];
+  const TOP_POSITIONS = ["Club President", "Captain", "Senior Vice Captain", "Vice Captain", "Assistant Vice Captain"];
   const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
   const posRank = (pos) => {
     const t = TOP_POSITIONS.indexOf(pos);
