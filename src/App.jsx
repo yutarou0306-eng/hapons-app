@@ -1753,6 +1753,7 @@ function FeesTab({ isAdmin }) {
     return mo >= 10 ? y : y - 1;
   };
   const fyLabel = (fy) => `${fy}年10月〜${fy + 1}年9月`;
+  const fyName = (fy) => `${fy + 1}年度`; // 9月決算：終了年で「◯◯年度」と呼ぶ
   const currentFiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
 
   // 表示する年度：データにある年度＋現年度のうち、新しい順に直近3年度だけ。それより古い年度は表示しない
@@ -1766,7 +1767,6 @@ function FeesTab({ isAdmin }) {
   // 選択中の年度（初期値＝現年度）と、その年度に属する月
   const activeFy = selectedFy != null && visibleFiscalYears.includes(selectedFy) ? selectedFy : currentFiscalYear;
   const fyMonths = months.filter((mo) => fiscalYearOf(mo) === activeFy);
-  const recentMonths = fyMonths.slice(0, 5);
 
   // 年度ごとの納入済み合計
   const fyTotal = (fy) => fees.filter((f) => f.paid && fiscalYearOf(f.month) === fy).reduce((sum, f) => sum + (f.amount || 0), 0);
@@ -2032,22 +2032,22 @@ function FeesTab({ isAdmin }) {
       <div style={S.content}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
-          <h2 style={{ ...S.sectionTitle, margin: 0 }}>支払い履歴（{activeFy}年度）</h2>
+          <h2 style={{ ...S.sectionTitle, margin: 0 }}>支払い履歴（{fyName(activeFy)}）</h2>
         </div>
         {visibleFiscalYears.length >= 2 && (
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {visibleFiscalYears.map((fy) => (
               <button key={fy} onClick={() => setSelectedFy(fy)}
                 style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-                {fy}年度{fy === currentFiscalYear ? "（今年度）" : ""}
+                {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
               </button>
             ))}
           </div>
         )}
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyLabel(activeFy)}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
           <div style={{ fontSize: 28, fontWeight: 900 }}>P{fyTotal(activeFy).toLocaleString()}</div>
-          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>{activeFy}年度 {fyMonths.length}か月分</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>{fyMonths.length}か月分</div>
         </div>
         {fyMonths.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度のデータがありません</div>}
         {fyMonths.map((month) => (
@@ -2078,19 +2078,19 @@ function FeesTab({ isAdmin }) {
               {visibleFiscalYears.map((fy) => (
                 <button key={fy} onClick={() => setSelectedFy(fy)}
                   style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-                  {fy}年度{fy === currentFiscalYear ? "（今年度）" : ""}
+                  {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
                 </button>
               ))}
             </div>
           )}
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyLabel(activeFy)}</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
             <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{fyTotal(activeFy).toLocaleString()}</div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>{activeFy}年度 {fyMonths.length}か月分の記録</div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>{fyMonths.length}か月分の記録</div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>直近5か月</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>月別一覧（{fyName(activeFy)}）</div>
           </div>
 
           {fyMonths.length === 0 ? (
@@ -2098,16 +2098,9 @@ function FeesTab({ isAdmin }) {
               {isAdmin ? "「＋ 月を追加」から月を作成してください" : "この年度の部費データがありません"}
             </div>
           ) : (
-            recentMonths.map((month) => (
+            fyMonths.map((month) => (
               <MonthCard key={month} month={month} onClick={() => setSelectedMonth(month)} />
             ))
-          )}
-
-          {fyMonths.length > 0 && (
-            <button onClick={() => setShowHistory(true)}
-              style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.primary}`, background: C.sakuraLight, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
-              📋 {activeFy}年度の全履歴を見る（{fyMonths.length}か月分）
-            </button>
           )}
         </>
       )}
@@ -2205,8 +2198,25 @@ function JrFeesTab({ isAdmin }) {
 
   const [showHistory, setShowHistory] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState(null);
+  const [selectedFy, setSelectedFy] = useState(null); // 選択中の会計年度（nullなら現年度）
   const today = new Date().toISOString().slice(0, 10);
-  const topEvents = [...events].filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4); // 今日以降を古い順に4回
+
+  // 会計年度（9月決算：10月〜翌9月）。年度は終了年で「◯◯年度」と呼ぶ
+  const fyOfDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.getMonth() >= 9 ? d.getFullYear() : d.getFullYear() - 1;
+  };
+  const fyLabel = (fy) => `${fy}年10月〜${fy + 1}年9月`;
+  const fyName = (fy) => `${fy + 1}年度`;
+  const currentFiscalYear = (() => { const t = new Date(); return t.getMonth() >= 9 ? t.getFullYear() : t.getFullYear() - 1; })();
+  const visibleFiscalYears = [...new Set([currentFiscalYear, ...events.map((e) => fyOfDate(e.date))])].sort((a, b) => b - a).slice(0, 3);
+  const activeFy = selectedFy != null && visibleFiscalYears.includes(selectedFy) ? selectedFy : currentFiscalYear;
+  const fyEvents = events.filter((e) => fyOfDate(e.date) === activeFy);
+
+  // 選択年度の練習（今年度＝今日以降4回／他年度＝直近4回）
+  const topEvents = activeFy === currentFiscalYear
+    ? fyEvents.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4)
+    : [...fyEvents].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
 
   // 保護者名が同じ → 家族グループ、それ以外は個人
   const getFeeUnits = () => {
@@ -2386,29 +2396,16 @@ function JrFeesTab({ isAdmin }) {
     );
   }
 
-  // 年間合計（10月〜翌9月）
-  const getYearTotal = () => {
-    const today = new Date();
-    const fiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
-    const start = new Date(fiscalYear, 9, 1); // 10月1日
-    const end = new Date(fiscalYear + 1, 8, 30); // 翌9月30日
-    const yearEventIds = events.filter((e) => {
-      const d = new Date(e.date);
-      return d >= start && d <= end;
-    }).map((e) => e.id);
-    return jrFees.filter((f) => yearEventIds.includes(f.event_id)).length * unitFee;
+  // 年間合計（選択年度）
+  const getYearTotal = (fy) => {
+    const ids = events.filter((e) => fyOfDate(e.date) === fy).map((e) => e.id);
+    return jrFees.filter((f) => ids.includes(f.event_id)).length * unitFee;
   };
-
-  const yearLabel = (() => {
-    const today = new Date();
-    const y = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
-    return `${y}年10月〜${y + 1}年9月`;
-  })();
 
   // 全履歴ページ
   if (showHistory) {
-    // 月別グループ化（古い順）
-    const sortedEvents = [...events].reverse();
+    // 月別グループ化（古い順・選択年度のみ）
+    const sortedEvents = [...fyEvents].sort((a, b) => a.date.localeCompare(b.date));
     const monthGroups = {};
     sortedEvents.forEach((e) => {
       const month = e.date.slice(0, 7);
@@ -2490,12 +2487,22 @@ function JrFeesTab({ isAdmin }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <button onClick={() => setShowHistory(false)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
         </div>
+        {visibleFiscalYears.length >= 2 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {visibleFiscalYears.map((fy) => (
+              <button key={fy} onClick={() => { setSelectedFy(fy); setExpandedMonth(null); }}
+                style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
-          <div style={{ fontSize: 28, fontWeight: 900 }}>P{getYearTotal().toLocaleString()}</div>
-          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{events.length}回分の記録</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{fyEvents.length}回分の記録</div>
         </div>
-        {events.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>}
+        {fyEvents.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>}
         {monthEntries.map(([month, monthEvs]) => {
           const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
           const [y, m] = month.split("-");
@@ -2526,10 +2533,21 @@ function JrFeesTab({ isAdmin }) {
       {loading && <Loading />}
       {!loading && (
         <>
+          {/* 年度切替ボタン（翌年度以降の練習が登録されると自動で増える） */}
+          {visibleFiscalYears.length >= 2 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {visibleFiscalYears.map((fy) => (
+                <button key={fy} onClick={() => setSelectedFy(fy)}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+                </button>
+              ))}
+            </div>
+          )}
           {/* 年間合計 */}
           <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
-            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{yearLabel}</div>
-            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal().toLocaleString()}</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {editingFee ? (
                 <>
@@ -2554,10 +2572,10 @@ function JrFeesTab({ isAdmin }) {
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>直近4回の練習</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{activeFy === currentFiscalYear ? "直近4回の練習" : `${fyName(activeFy)}の直近4回`}</div>
           </div>
           {topEvents.length === 0 && (
-            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>練習の記録がありません</div>
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>
           )}
           {topEvents.map((e) => {
             const d = new Date(e.date);
@@ -2586,10 +2604,10 @@ function JrFeesTab({ isAdmin }) {
             );
           })}
 
-          {events.length > 0 && (
+          {fyEvents.length > 0 && (
             <button onClick={() => setShowHistory(true)}
               style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.jr}`, background: C.jrLight, color: C.jr, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
-              📋 全履歴を見る（{events.length}回分）
+              📋 {fyName(activeFy)}の全履歴を見る（{fyEvents.length}回分）
             </button>
           )}
         </>
