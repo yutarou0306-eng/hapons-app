@@ -1850,13 +1850,27 @@ function FeesTab({ isAdmin }) {
     setFees(fees.map((f) => f.id === record.id ? { ...f, paid: false, paid_date: null, payment_method: null } : f));
   };
 
+  const deleteMonth = async (month) => {
+    if (!window.confirm(`「${month}」の部費ページを削除しますか？\n\nこの月の全メンバーの納入記録がすべて削除されます。\nこの操作は元に戻せません。`)) return;
+    const { error } = await supabase.from("fees").delete().eq("month", month);
+    if (error) { alert("削除に失敗しました：" + error.message); return; }
+    setFees(fees.filter((f) => f.month !== month));
+    if (selectedMonth === month) setSelectedMonth(null);
+  };
+
   const MonthCard = ({ month, onClick }) => {
     const s = getMonthSummary(month);
     return (
       <div onClick={onClick} style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${s.pct === 100 ? C.success : C.primary}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{month}</div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: C.primary }}>P{s.amount.toLocaleString()}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.primary }}>P{s.amount.toLocaleString()}</div>
+            {isAdmin && (
+              <button onClick={(e) => { e.stopPropagation(); deleteMonth(month); }}
+                style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "#CC1F1F15", color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>削除</button>
+            )}
+          </div>
         </div>
         <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
           <div style={{ height: "100%", width: `${s.pct}%`, background: s.pct === 100 ? C.success : C.primary, borderRadius: 99 }} />
@@ -1888,6 +1902,9 @@ function FeesTab({ isAdmin }) {
           <h2 style={{ ...S.sectionTitle, margin: 0, flex: 1 }}>{selectedMonth}</h2>
           {isAdmin && notInMonth.length > 0 && (
             <button style={{ ...S.btn("ghost", "sm") }} onClick={() => setShowAddMember(true)}>＋ 追加</button>
+          )}
+          {isAdmin && (
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deleteMonth(selectedMonth)}>削除</button>
           )}
         </div>
 
@@ -2267,6 +2284,14 @@ function JrFeesTab({ isAdmin }) {
     setJrFees(jrFees.filter((f) => f.id !== feeId));
   };
 
+  // この練習の参加費記録をすべて削除（練習日そのものは日程に残る）
+  const clearEventFees = async (eventId) => {
+    if (!window.confirm(`この練習の参加費記録をすべて削除しますか？\n\n参加登録された全グループ・体験者の記録が削除されます。\n（練習日そのものは「日程」に残ります）\nこの操作は元に戻せません。`)) return;
+    const { error } = await supabase.from("jr_fees").delete().eq("event_id", eventId);
+    if (error) { alert("削除に失敗しました：" + error.message); return; }
+    setJrFees(jrFees.filter((f) => f.event_id !== eventId));
+  };
+
   // その他（体験:も含む両方の形式に対応）
   const getTrialUnits = (eventId) =>
     jrFees.filter((f) => f.event_id === eventId && (String(f.family_id).startsWith("その他:") || String(f.family_id).startsWith("体験:")))
@@ -2298,6 +2323,9 @@ function JrFeesTab({ isAdmin }) {
           <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr, flex: 1 }}>{ev?.title}</h2>
           {isAdmin && (
             <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
+          )}
+          {isAdmin && (
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => clearEventFees(selectedEvent)}>記録削除</button>
           )}
         </div>
 
