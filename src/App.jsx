@@ -1147,9 +1147,20 @@ function AttendancePanel({ event, onClose, myGroup }) {
     setAttendances((prev) => prev.map((a) =>
       (a.member_name === name && a.member_type === "adult") ? { ...a, jr_helper: newVal } : a
     ));
-    // Supabaseに保存（temp_ の間はDB未確定なのでスキップ）
-    if (!String(att.id).startsWith("temp_")) {
-      await supabase.from("attendances").update({ jr_helper: newVal }).eq("id", att.id);
+    // IDではなく「イベント＋名前」で更新（参加登録直後の temp_ 状態でも実レコードに届く）
+    const persist = async () => await supabase
+      .from("attendances")
+      .update({ jr_helper: newVal })
+      .eq("event_id", event.id).eq("member_name", name).eq("member_type", "adult")
+      .select();
+    let { data, error } = await persist();
+    // 参加登録がまだDBに反映されていない場合は、少し待って一度だけ再試行
+    if (!error && (!data || data.length === 0)) {
+      await new Promise((r) => setTimeout(r, 600));
+      ({ data, error } = await persist());
+    }
+    if (error) {
+      alert("Jr補助の保存に失敗しました：" + error.message + "\n（attendancesテーブルに jr_helper 列があるかご確認ください）");
     }
   };
 
