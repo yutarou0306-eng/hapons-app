@@ -1288,8 +1288,18 @@ function AttendancePanel({ event, onClose, myGroup }) {
             <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
             <div style={{ marginBottom: 3 }}>
-              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未定{adultUndecided} 未回答{adultUnresponded}</div>
-              {adultAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{adultAttending.map((n) => <span key={n} style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未定{adultUndecided} 未回答{adultUnresponded}{adultAttending.some((n) => isJrHelper(n)) ? "　※網掛け＝Jr補助OK" : ""}</div>
+              {adultAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{adultAttending.map((n) => {
+                const helper = isJrHelper(n);
+                return (
+                  <span key={n} title={helper ? "Jr補助OK" : undefined} style={{
+                    background: "rgba(255,255,255,0.2)",
+                    backgroundImage: helper ? "repeating-linear-gradient(45deg, rgba(0,0,0,0.22) 0px, rgba(0,0,0,0.22) 1.5px, transparent 1.5px, transparent 5px)" : "none",
+                    border: helper ? "1px solid rgba(255,255,255,0.85)" : "1px solid transparent",
+                    borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff", fontWeight: helper ? 800 : 400,
+                  }}>{n}</span>
+                );
+              })}</div>}
             </div>
             <div>
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未定{jrUndecided} 未回答{jrUnresponded}</div>
