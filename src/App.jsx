@@ -2209,7 +2209,7 @@ function JrFeesTab({ isAdmin }) {
         supabase.from("jr_fees").select("*"),
       ]);
       if (j.data) setJrMembers(j.data);
-      if (e.data) setEvents(e.data);
+      if (e.data) setEvents(e.data.filter((ev) => !ev.jr_fee_hidden)); // 参加費一覧から除外された練習は表示しない
       if (jf.data) setJrFees(jf.data);
       setLoading(false);
     };
@@ -2287,13 +2287,11 @@ function JrFeesTab({ isAdmin }) {
     setJrFees(jrFees.filter((f) => f.id !== feeId));
   };
 
-  // この練習を丸ごと削除（参加費・出欠・日程からすべて削除）
+  // この練習を参加費一覧から削除（参加費記録は消すが、日程・出欠には残す）
   const deletePractice = async (eventId) => {
-    if (!window.confirm(`この練習を丸ごと削除しますか？\n\n次のデータがすべて削除されます：\n・この練習の参加費記録\n・この練習の出欠記録\n・「日程」からもこの練習が消えます\n\nこの操作は元に戻せません。`)) return;
+    if (!window.confirm(`この練習を参加費一覧から削除しますか？\n\n・この練習の参加費記録が削除されます\n・参加費一覧から見えなくなります\n（「日程」タブと出欠登録には残ります）\n\nこの操作は元に戻せません。`)) return;
     await supabase.from("jr_fees").delete().eq("event_id", eventId);
-    await supabase.from("attendances").delete().eq("event_id", eventId);
-    await supabase.from("absences").delete().eq("event_id", eventId);
-    const { error } = await supabase.from("events").delete().eq("id", eventId);
+    const { error } = await supabase.from("events").update({ jr_fee_hidden: true }).eq("id", eventId);
     if (error) { alert("削除に失敗しました：" + error.message); return; }
     setJrFees(jrFees.filter((f) => f.event_id !== eventId));
     setEvents(events.filter((e) => e.id !== eventId));
@@ -2333,7 +2331,7 @@ function JrFeesTab({ isAdmin }) {
             <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
           )}
           {isAdmin && (
-            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deletePractice(selectedEvent)}>この練習を削除</button>
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deletePractice(selectedEvent)}>一覧から削除</button>
           )}
         </div>
 
