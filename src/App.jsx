@@ -2492,7 +2492,7 @@ function JrFeesTab({ isAdmin }) {
             const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
             const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
             return (
-              <div key={e.id} onClick={() => { setShowHistory(false); setSelectedEvent(e.id); }}
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
                 style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                   <div>
