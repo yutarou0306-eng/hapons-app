@@ -1738,6 +1738,9 @@ function FeesTab({ isAdmin }) {
   }, []);
 
   const today = new Date();
+  // 部費を徴収しない役職（最初から対象外）
+  const FEE_EXEMPT_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const feeMembers = members.filter((m) => !FEE_EXEMPT_POSITIONS.includes(m.position));
   // 月文字列を数値キーに（"2026年10月" が "2026年9月" より新しく並ぶよう数値比較）
   const monthKey = (monthStr) => {
     const m = monthStr.match(/(\d+)年(\d+)月/);
@@ -1787,12 +1790,12 @@ function FeesTab({ isAdmin }) {
   const monthFees = selectedMonth ? getMonthFees(selectedMonth) : [];
   const monthAmount = monthFees.length > 0 ? monthFees[0].amount : 0;
   const getRecord = (name) => monthFees.find((f) => f.member_name === name);
-  const notInMonth = members.filter((m) => !monthFees.some((f) => f.member_name === m.name_jp));
+  const notInMonth = feeMembers.filter((m) => !monthFees.some((f) => f.member_name === m.name_jp));
 
   const toggleSelectMember = (name) => setSelectedMembers((prev) =>
     prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
   );
-  const selectAll = () => setSelectedMembers(members.map((m) => m.name_jp));
+  const selectAll = () => setSelectedMembers(feeMembers.map((m) => m.name_jp));
   const clearAll = () => setSelectedMembers([]);
 
   const createMonth = async () => {
@@ -2083,7 +2086,7 @@ function FeesTab({ isAdmin }) {
           <a href="https://kanjiro.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
             <button style={S.btn("ghost", "sm")}>🎉 幹事郎</button>
           </a>
-          {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(members.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
+          {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(feeMembers.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
         </div>
       </div>
       {loading && <Loading />}
@@ -2141,7 +2144,7 @@ function FeesTab({ isAdmin }) {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-              {members.map((m) => (
+              {feeMembers.map((m) => (
                 <button key={m.id} onClick={() => toggleSelectMember(m.name_jp)}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selectedMembers.includes(m.name_jp) ? C.primary : C.border}`, background: selectedMembers.includes(m.name_jp) ? C.sakuraLight : C.card, cursor: "pointer", fontFamily: "inherit" }}>
                   <div>
@@ -2284,12 +2287,17 @@ function JrFeesTab({ isAdmin }) {
     setJrFees(jrFees.filter((f) => f.id !== feeId));
   };
 
-  // この練習の参加費記録をすべて削除（練習日そのものは日程に残る）
-  const clearEventFees = async (eventId) => {
-    if (!window.confirm(`この練習の参加費記録をすべて削除しますか？\n\n参加登録された全グループ・体験者の記録が削除されます。\n（練習日そのものは「日程」に残ります）\nこの操作は元に戻せません。`)) return;
-    const { error } = await supabase.from("jr_fees").delete().eq("event_id", eventId);
+  // この練習を丸ごと削除（参加費・出欠・日程からすべて削除）
+  const deletePractice = async (eventId) => {
+    if (!window.confirm(`この練習を丸ごと削除しますか？\n\n次のデータがすべて削除されます：\n・この練習の参加費記録\n・この練習の出欠記録\n・「日程」からもこの練習が消えます\n\nこの操作は元に戻せません。`)) return;
+    await supabase.from("jr_fees").delete().eq("event_id", eventId);
+    await supabase.from("attendances").delete().eq("event_id", eventId);
+    await supabase.from("absences").delete().eq("event_id", eventId);
+    const { error } = await supabase.from("events").delete().eq("id", eventId);
     if (error) { alert("削除に失敗しました：" + error.message); return; }
     setJrFees(jrFees.filter((f) => f.event_id !== eventId));
+    setEvents(events.filter((e) => e.id !== eventId));
+    setSelectedEvent(null);
   };
 
   // その他（体験:も含む両方の形式に対応）
@@ -2325,7 +2333,7 @@ function JrFeesTab({ isAdmin }) {
             <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
           )}
           {isAdmin && (
-            <button style={{ ...S.btn("danger", "sm") }} onClick={() => clearEventFees(selectedEvent)}>記録削除</button>
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deletePractice(selectedEvent)}>この練習を削除</button>
           )}
         </div>
 
