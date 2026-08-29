@@ -124,6 +124,25 @@ function EditModal({ title, fields, data, onSave, onClose }) {
               <textarea style={{ ...S.input, minHeight: 80, resize: "vertical" }} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
             </div>
           );
+          if (f.type === "timerange") {
+            const raw = form[f.key] || "";
+            const parts = raw.split(/[〜～~]/);
+            const start = (parts[0] || "").trim();
+            const end = (parts[1] || "").trim();
+            const combine = (s, e) => (!s && !e) ? "" : `${s}〜${e}`;
+            return (
+              <div key={f.key}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="time" style={{ ...S.input, flex: 1, minWidth: 0 }} value={start}
+                    onChange={(e) => setForm({ ...form, [f.key]: combine(e.target.value, end) })} />
+                  <span style={{ fontWeight: 800, color: C.textMuted, flexShrink: 0 }}>〜</span>
+                  <input type="time" style={{ ...S.input, flex: 1, minWidth: 0 }} value={end}
+                    onChange={(e) => setForm({ ...form, [f.key]: combine(start, e.target.value) })} />
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={f.key}>
               <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -1459,7 +1478,7 @@ function ScheduleTab({ isAdmin, myGroup = [] }) {
   const fields = [
     { key: "title", label: "タイトル" },
     { key: "date", label: "日付", type: "date" },
-    { key: "time", label: "時間（例：09:00〜11:00）" },
+    { key: "time", label: "時間（開始〜終了）", type: "timerange" },
     { key: "location", label: "場所" },
     { key: "type", label: "種別", type: "select", options: Object.entries(typeConfig).map(([v, c]) => ({ value: v, label: c.label })) },
   ];
