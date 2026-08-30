@@ -1094,8 +1094,26 @@ function AttendancePanel({ event, onClose, myGroup }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
+  const [showCleanup, setShowCleanup] = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+
+  // 片づけ当番チェック（大人メンバー・全員完了で自動リセット）
+  const toggleCleanup = async (member) => {
+    const newVal = !member.cleanup_done;
+    const afterToggle = members.map((m) => m.id === member.id ? { ...m, cleanup_done: newVal } : m);
+    const allDone = afterToggle.length > 0 && afterToggle.every((m) => m.cleanup_done);
+    if (newVal && allDone) {
+      // 全員完了 → 全員リセット（次の周へ）
+      setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
+      const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
+      if (error) alert("更新に失敗しました：" + error.message);
+    } else {
+      setMembers(afterToggle);
+      const { error } = await supabase.from("members").update({ cleanup_done: newVal }).eq("id", member.id);
+      if (error) alert("更新に失敗しました：" + error.message);
+    }
+  };
 
   // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
   const TAB_ORDER = ["adult", "jr", "supporter"];
@@ -1127,7 +1145,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
     const fetchAll = async () => {
       setLoading(true);
       const [m, j, s, a, ab] = await Promise.all([
-        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("members").select("id, name_jp, position, cleanup_done").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
         supabase.from("supporters").select("id, name_jp").order("join_date", { ascending: true }),
         supabase.from("attendances").select("*").eq("event_id", event.id),
@@ -1397,6 +1415,34 @@ function AttendancePanel({ event, onClose, myGroup }) {
                 );
               })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
+
+              {/* 片づけ当番チェックリスト（大人・全員完了で自動リセット） */}
+              {members.length > 0 && (() => {
+                const remaining = members.filter((m) => !m.cleanup_done).length;
+                return (
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: "hidden" }}>
+                    <button onClick={() => setShowCleanup((v) => !v)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.bg, border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>🧹 片づけ当番チェック</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted }}>残り{remaining}人　{showCleanup ? "▲" : "▼"}</span>
+                    </button>
+                    {showCleanup && (
+                      <div style={{ padding: "10px 12px" }}>
+                        <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8 }}>片づけをやった人にチェック。全員にチェックが付いたら自動でリセットされます。</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {members.map((m) => (
+                            <label key={m.id} onClick={() => toggleCleanup(m)}
+                              style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: 8, cursor: "pointer", background: m.cleanup_done ? "#E8F5E9" : C.card, border: `1px solid ${m.cleanup_done ? C.success : C.border}` }}>
+                              <span style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${m.cleanup_done ? C.success : C.border}`, background: m.cleanup_done ? C.success : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{m.cleanup_done ? "✓" : ""}</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.text, textDecoration: m.cleanup_done ? "none" : "none" }}>{m.name_jp}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
                   🏉 大人
