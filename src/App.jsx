@@ -1085,7 +1085,7 @@ function MembersTab({ isAdmin }) {
 }
 
 // ── ATTENDANCE PANEL ──
-function AttendancePanel({ event, onClose, myGroup }) {
+function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   const [members, setMembers] = useState([]);
   const [jrMembers, setJrMembers] = useState([]);
   const [supporters, setSupporters] = useState([]);
@@ -1094,15 +1094,21 @@ function AttendancePanel({ event, onClose, myGroup }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
-  const [showCleanup, setShowCleanup] = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
-  // 片づけ当番チェック（大人メンバー・全員完了で自動リセット）
+  // 片づけ当番チェック（大人メンバー・全員完了で自動リセット／管理者のみ操作可）
+  // 次の役職は当番対象外
+  const CLEANUP_EXEMPT = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const cleanupEligible = members.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
+  const cleanupRemaining = cleanupEligible.filter((m) => !m.cleanup_done).length;
+
   const toggleCleanup = async (member) => {
+    if (!isAdmin || !member || CLEANUP_EXEMPT.includes(member.position)) return;
     const newVal = !member.cleanup_done;
     const afterToggle = members.map((m) => m.id === member.id ? { ...m, cleanup_done: newVal } : m);
-    const allDone = afterToggle.length > 0 && afterToggle.every((m) => m.cleanup_done);
+    const eligibleAfter = afterToggle.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
+    const allDone = eligibleAfter.length > 0 && eligibleAfter.every((m) => m.cleanup_done);
     if (newVal && allDone) {
       // 全員完了 → 全員リセット（次の周へ）
       setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
@@ -1113,6 +1119,15 @@ function AttendancePanel({ event, onClose, myGroup }) {
       const { error } = await supabase.from("members").update({ cleanup_done: newVal }).eq("id", member.id);
       if (error) alert("更新に失敗しました：" + error.message);
     }
+  };
+
+  // 管理者による手動リセット
+  const resetCleanup = async () => {
+    if (!isAdmin) return;
+    if (!window.confirm("片づけ当番のチェックを全員分リセットしますか？")) return;
+    setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
+    const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
+    if (error) alert("リセットに失敗しました：" + error.message);
   };
 
   // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
@@ -1284,6 +1299,14 @@ function AttendancePanel({ event, onClose, myGroup }) {
     background: on ? C.jrLight : C.card, color: on ? C.jr : C.textMuted, fontFamily: "inherit",
   });
 
+  const cleanupBoxStyle = (done, clickable) => ({
+    width: 40, height: 28, borderRadius: 8, boxSizing: "border-box", flexShrink: 0, padding: 0,
+    border: `2px solid ${done ? C.success : C.border}`,
+    background: done ? C.success : "#fff", color: "#fff", fontSize: 14, fontWeight: 900,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: clickable ? "pointer" : "default", fontFamily: "inherit",
+  });
+
   const renderMember = (name, subLabel, type, key) => {
     const status = getStatus(name, type);
     const isPend = false;
@@ -1306,6 +1329,19 @@ function AttendancePanel({ event, onClose, myGroup }) {
               </button>
             ) : (
               <div style={{ width: 60, flexShrink: 0 }} />
+            )
+          )}
+          {type === "adult" && (
+            !CLEANUP_EXEMPT.includes(subLabel) ? (() => {
+              const mem = members.find((mm) => mm.id === key);
+              const done = !!mem?.cleanup_done;
+              return (
+                <button onClick={() => toggleCleanup(mem)} disabled={!isAdmin} style={cleanupBoxStyle(done, isAdmin)} title="片づけ当番（管理者のみ）">
+                  {done ? "✓" : ""}
+                </button>
+              );
+            })() : (
+              <div style={{ width: 40, flexShrink: 0 }} />
             )
           )}
         </div>
@@ -1416,33 +1452,18 @@ function AttendancePanel({ event, onClose, myGroup }) {
               })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
 
-              {/* 片づけ当番チェックリスト（大人・全員完了で自動リセット） */}
-              {members.length > 0 && (() => {
-                const remaining = members.filter((m) => !m.cleanup_done).length;
-                return (
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: "hidden" }}>
-                    <button onClick={() => setShowCleanup((v) => !v)}
-                      style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: C.bg, border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>🧹 片づけ当番チェック</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted }}>残り{remaining}人　{showCleanup ? "▲" : "▼"}</span>
+              {/* 片づけ当番（各メンバー行の「片づけ」列でチェック。全員完了で自動リセット） */}
+              {cleanupEligible.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: `1px solid ${C.border}`, borderRadius: 12, padding: "9px 12px", marginBottom: 14, background: C.bg }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ当番　残り{cleanupRemaining}人</span>
+                  {isAdmin && (
+                    <button onClick={resetCleanup}
+                      style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${C.danger}`, background: "#fff", color: C.danger, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                      リセット
                     </button>
-                    {showCleanup && (
-                      <div style={{ padding: "10px 12px" }}>
-                        <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8 }}>片づけをやった人にチェック。全員にチェックが付いたら自動でリセットされます。</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {members.map((m) => (
-                            <label key={m.id} onClick={() => toggleCleanup(m)}
-                              style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: 8, cursor: "pointer", background: m.cleanup_done ? "#E8F5E9" : C.card, border: `1px solid ${m.cleanup_done ? C.success : C.border}` }}>
-                              <span style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${m.cleanup_done ? C.success : C.border}`, background: m.cleanup_done ? C.success : "#fff", color: "#fff", fontSize: 13, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{m.cleanup_done ? "✓" : ""}</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: C.text, textDecoration: m.cleanup_done ? "none" : "none" }}>{m.name_jp}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+                  )}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
                   🏉 大人
@@ -1458,6 +1479,7 @@ function AttendancePanel({ event, onClose, myGroup }) {
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, padding: "0 14px 6px" }}>
                   <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
                   <span style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.jr }}>Jr補助</span>
+                  <span style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.success }}>片づけ</span>
                 </div>
               )}
               {activeTab === "adult" && (members.length === 0
@@ -1718,7 +1740,7 @@ function ScheduleTab({ isAdmin, myGroup = [] }) {
 
       {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
       {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
-      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} myGroup={myGroup} />}
+      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} myGroup={myGroup} isAdmin={isAdmin} />}
 
       {/* 繰り返し登録モーダル */}
       {showRepeat && (
