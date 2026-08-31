@@ -770,20 +770,26 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
   );
 }
 
-// URLを自動リンク化（すでに <a> タグになっている部分は二重リンク化しない）
+// URLを自動リンク化（不可視文字を除去し、既存リンクにもスタイルを補う）
 const autoLink = (html) => {
   if (!html) return "";
-  // 既存の <a>...</a> はそのまま残し、それ以外のテキスト内のURLだけをリンク化する
-  return html
+  // コピペ等で紛れ込む不可視文字（ゼロ幅スペース・BOM・語結合子など）を除去
+  const cleaned = html.replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+  return cleaned
     .split(/(<a\b[^>]*>.*?<\/a>)/gis)
-    .map((part) =>
-      /^<a\b/i.test(part)
-        ? part
-        : part.replace(
-            /(https?:\/\/[^\s<>"]+)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
-          )
-    )
+    .map((part) => {
+      if (/^<a\b/i.test(part)) {
+        // 既存リンク：色と target を補って必ずリンクらしく見せる
+        let a = part;
+        if (!/\btarget\s*=/i.test(a)) a = a.replace(/^<a\b/i, '<a target="_blank" rel="noopener noreferrer"');
+        if (!/\bstyle\s*=/i.test(a)) a = a.replace(/^<a\b/i, '<a style="color:#1E88E5;word-break:break-all;"');
+        return a;
+      }
+      return part.replace(
+        /(https?:\/\/[^\s<>"]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
+      );
+    })
     .join("");
 };
 
