@@ -1094,6 +1094,7 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("adult");
+  const [showRemaining, setShowRemaining] = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
@@ -1452,15 +1453,32 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
               })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
 
-              {/* 片づけ当番（各メンバー行の「片づけ」列でチェック。全員完了で自動リセット） */}
+              {/* 片づけ当番（各メンバー行の「片づけ済」列でチェック。全員完了で自動リセット） */}
               {cleanupEligible.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: `1px solid ${C.border}`, borderRadius: 12, padding: "9px 12px", marginBottom: 14, background: C.bg }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ当番　残り{cleanupRemaining}人</span>
-                  {isAdmin && (
-                    <button onClick={resetCleanup}
-                      style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${C.danger}`, background: "#fff", color: C.danger, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                      リセット
-                    </button>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.bg }}>
+                  <div onClick={() => setShowRemaining((v) => !v)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 12px", cursor: "pointer" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ当番　残り{cleanupRemaining}人　{showRemaining ? "▲" : "▼"}</span>
+                    {isAdmin && (
+                      <button onClick={(e) => { e.stopPropagation(); resetCleanup(); }}
+                        style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${C.danger}`, background: "#fff", color: C.danger, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                        リセット
+                      </button>
+                    )}
+                  </div>
+                  {showRemaining && (
+                    <div style={{ padding: "0 12px 10px" }}>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>まだ片づけをしていない人</div>
+                      {cleanupRemaining === 0 ? (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.success }}>全員が片づけ済みです 🎉</div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {cleanupEligible.filter((m) => !m.cleanup_done).map((m) => (
+                            <span key={m.id} style={{ fontSize: 12, fontWeight: 700, color: C.text, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px" }}>{m.name_jp}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1479,7 +1497,7 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, padding: "0 14px 6px" }}>
                   <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
                   <span style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.jr }}>Jr補助</span>
-                  <span style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.success }}>片づけ</span>
+                  <span style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.success }}>片づけ済</span>
                 </div>
               )}
               {activeTab === "adult" && (members.length === 0
