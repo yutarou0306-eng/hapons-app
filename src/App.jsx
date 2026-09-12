@@ -1,2412 +1,2851 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { pickRandomVariant, getVariant, finalFormImage, stageImage, stageIndex, stageImageAt, stageCount, stageLabel, computeCardStats, STAT_LABELS, STAT_KEYS, MASTER_LEVEL } from "./mascots.js";
-import { computeOverallStats } from "./progress.js";
-import { Lock, Unlock, Settings, Plus, X, ArrowLeft } from "lucide-react";
-import { supabase } from "./db.js";
-import ShareBar from "./ShareBar.jsx";
+import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const STORAGE_KEY = "pearl-sea-schedule-v2";
-// Backup PIN — always accepted alongside whatever PIN the parent set, in case
-// they forget their own. Intentionally not a secret kept from the parent.
-const MASTER_PIN = "5963";
-const DAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]; // index 0=Mon ... 6=Sun
+const SUPABASE_URL = "https://opaelfaglzewknhgqufw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wYWVsZmFnbHpld2tuaGdxdWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzIxNzgsImV4cCI6MjA5MjQwODE3OH0.Gv2Udb64zcqQda85mgGOmJKumauuu89YhfHd1LW403A";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const PASTELS = [
-  { name: "さくら", hex: "#FFD6E0" },
-  { name: "もも", hex: "#FFC9DE" },
-  { name: "ぴーち", hex: "#FFE3C2" },
-  { name: "れもん", hex: "#FFF3B0" },
-  { name: "みんと", hex: "#CFF3DE" },
-  { name: "そら", hex: "#C6E9F9" },
-  { name: "らべんだー", hex: "#DCCBF7" },
-  { name: "らいらっく", hex: "#F3C9EA" },
-];
+const MEMBER_ID = "hapons";
+const MEMBER_PASS = "member2026";
+const ADMIN_ID = "hapons";
+const ADMIN_PASS = "rugby2026";
+const LOGO_SRC = "/logo.jpg";
 
-const BOY_PALETTE = [
-  { name: "ソード", hex: "#4B7A3C" },
-  { name: "フレイム", hex: "#B4432F" },
-  { name: "ジェム", hex: "#2E7D8C" },
-  { name: "リーフ", hex: "#6B4C93" },
-  { name: "ゴールド", hex: "#C89B3C" },
-  { name: "スター", hex: "#3A6EA5" },
-  { name: "フェザー", hex: "#8B2E2E" },
-  { name: "アース", hex: "#6B4226" },
-];
-
-const SHAPES = [
-  // seal
-  (c) => (
-    <>
-      <circle cx="7.2" cy="6.2" r="2.1" fill={c} />
-      <circle cx="16.8" cy="6.2" r="2.1" fill={c} />
-      <circle cx="12" cy="13.3" r="9" fill={c} />
-    </>
-  ),
-  // star
-  (c) => <path d="M12 2.5l2.6 6.2 6.7.5-5.1 4.4 1.6 6.6L12 16.8 6.2 20.2l1.6-6.6-5.1-4.4 6.7-.5L12 2.5z" fill={c} />,
-  // ghost / pearl
-  (c) => (
-    <path
-      d="M12 3c5 0 8 3.7 8 8.6v8.4l-2.1-1.8-2 1.8-1.9-1.8-2 1.8-2-1.8-2 1.8V11.6C4 6.7 7 3 12 3z"
-      fill={c}
-    />
-  ),
-  // heart
-  (c) => (
-    <path
-      d="M12 20.5S3 14.8 3 8.9C3 5.9 5.3 3.7 8 3.7c1.7 0 3.2.9 4 2.3.8-1.4 2.3-2.3 4-2.3 2.7 0 5 2.2 5 5.2 0 5.9-9 11.6-9 11.6z"
-      fill={c}
-    />
-  ),
-  // cloud
-  (c) => (
-    <path
-      d="M6.5 17a3.8 3.8 0 01-.4-7.6A4.6 4.6 0 0114.6 8a4 4 0 015.4 3.8 3.6 3.6 0 01-.6 7.2H7c-.2 0-.3 0-.5 0z"
-      fill={c}
-    />
-  ),
-  // flower
-  (c) => (
-    <>
-      <circle cx="12" cy="6.6" r="3.1" fill={c} />
-      <circle cx="17.4" cy="12" r="3.1" fill={c} />
-      <circle cx="12" cy="17.4" r="3.1" fill={c} />
-      <circle cx="6.6" cy="12" r="3.1" fill={c} />
-      <circle cx="12" cy="12" r="3.3" fill={c} />
-    </>
-  ),
-];
-
-const HUNTER_SHAPES = [
-  // baby dragon (used as the mascot / signature icon) — friendly, not fierce
-  (c) => (
-    <>
-      <path d="M8.3 4l-1.6-3.4 3.2 1.6zM15.7 4l1.6-3.4-3.2 1.6z" fill={c} />
-      <path d="M9.6 2.3l-.8-1.8 1.6.7zM12 1.8V0l1.1 1.4zM14.4 2.3l.8-1.8-1.6.7z" fill={c} />
-      <path d="M4 9l-2.4-1 2 2.1zM20 9l2.4-1-2 2.1z" fill={c} />
-      <path
-        d="M12 4.2c3.9 0 7 3 7 7 0 2-.7 3.7-2 5 .3.3.5.8.5 1.3 0 1-.8 1.8-1.8 1.8-.5 0-1-.2-1.3-.6-.6.8-1.5 1.3-2.4 1.3s-1.8-.5-2.4-1.3c-.3.4-.8.6-1.3.6-1 0-1.8-.8-1.8-1.8 0-.5.2-1 .5-1.3-1.3-1.3-2-3-2-5 0-4 3.1-7 7-7z"
-        fill={c}
-      />
-      <circle cx="9" cy="10.5" r="1.2" fill="#1c1c1c" />
-      <circle cx="15" cy="10.5" r="1.2" fill="#1c1c1c" />
-      <circle cx="9.4" cy="10.1" r="0.38" fill="#fff" />
-      <circle cx="15.4" cy="10.1" r="0.38" fill="#fff" />
-      <path d="M10.3 15.6l.6-1 .6 1zM12.5 15.6l.6-1 .6 1z" fill="#1c1c1c" opacity="0.75" />
-      <path d="M10 17.3c1 .8 3 .8 4 0" stroke="#1c1c1c" strokeWidth="1" fill="none" strokeLinecap="round" />
-    </>
-  ),
-  // sword — sharp diagonal blade + crossguard + grip + pommel, angled the
-  // same way as the other diagonal icons (hammer, feather) in this set
-  (c) => (
-    <>
-      <path d="M17.3 1.8 L9.35 11.29 L7.55 9.42 Z" fill={c} />
-      <rect x="5.15" y="9.55" width="6.6" height="1.6" rx="0.7" transform="rotate(46.1 8.45 10.35)" fill={c} />
-      <rect x="3.87" y="10.21" width="1.9" height="4.6" rx="0.95" transform="rotate(136.1 6.22 12.51)" fill={c} />
-      <circle cx="3.41" cy="15.22" r="1.4" fill={c} />
-    </>
-  ),
-  // flame
-  (c) => (
-    <path
-      d="M12 2c1 3-2.5 4-2.5 7.2A2.5 2.5 0 0012 11.7 2.5 2.5 0 0014.5 9.2c0-.9-.4-1.5-.9-2.1 2 1.2 4 3.7 4 7A5.6 5.6 0 0112 19.7 5.6 5.6 0 016.4 14.1c0-4.4 3.6-6.6 3.6-9.4 0-1 .6-2 2-2.7z"
-      fill={c}
-    />
-  ),
-  // gem
-  (c) => <path d="M12 2l6 5-2.5 12.5h-7L6 7z" fill={c} />,
-  // leaf
-  (c) => (
-    <path
-      d="M20 4C10 4 4 10 4 18c0 1 .8 2 2 2 8 0 14-6 14-16 0-.3 0-.7 0 0z"
-      fill={c}
-    />
-  ),
-  // hammer
-  (c) => (
-    <>
-      <rect x="3" y="3" width="10" height="7" rx="1.5" transform="rotate(-30 8 6.5)" fill={c} />
-      <rect x="10.5" y="10" width="3" height="11" rx="1.3" transform="rotate(-30 12 15.5)" fill={c} />
-    </>
-  ),
-  // star
-  (c) => <path d="M12 2.5l2.6 6.2 6.7.5-5.1 4.4 1.6 6.6L12 16.8 6.2 20.2l1.6-6.6-5.1-4.4 6.7-.5L12 2.5z" fill={c} />,
-  // feather
-  (c) => (
-    <path
-      d="M18 3C10 5 5 11 4 20c6-1 10-4 12-9-2 .5-4 .5-5.5-.5 2-.3 3.8-1.3 5-3-1.8.4-3.3.1-4.2-1 2-.2 3.7-1.3 4.7-2.7-1.6.3-3 0-3.7-1C14 3.3 16 3 18 3z"
-      fill={c}
-    />
-  ),
-];
-
-function Face() {
-  return (
-    <>
-      <circle cx="9.2" cy="12.7" r="1.15" fill="#2b2b2b" />
-      <circle cx="14.8" cy="12.7" r="1.15" fill="#2b2b2b" />
-      <path d="M9.4 15.4 Q12 17.4 14.6 15.4" stroke="#2b2b2b" strokeWidth="1.1" fill="none" strokeLinecap="round" />
-      <ellipse cx="7" cy="14.2" rx="1.3" ry="0.85" fill="#FF8FA3" opacity="0.6" />
-      <ellipse cx="17" cy="14.2" rx="1.3" ry="0.85" fill="#FF8FA3" opacity="0.6" />
-    </>
-  );
-}
-
-function StampIcon({ index, color, size = 30, withFace = true, shapes }) {
-  const set = shapes || SHAPES;
-  const draw = set[index % set.length];
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24">
-      {draw(color)}
-      {withFace && <Face />}
-    </svg>
-  );
-}
-
-const THEMES = {
-  girl: {
-    key: "girl",
-    label: "女の子むけ",
-    emoji: "🎀",
-    bg: "linear-gradient(180deg, #0B3D62 0%, #14588C 42%, #2E9BC7 78%, #6FCFEB 100%)",
-    accentGradient: "linear-gradient(90deg,#FFD6E0,#F4C95D)",
-    palette: PASTELS,
-    headingFont: "'Kaisei Decol', serif",
-    headingColor: "#0B3D62",
-    headingShadow: "none",
-    mascotBg: "#FFD6E0",
-    mascotIconIndex: 0,
-    shapes: SHAPES,
-    withFace: true,
-    headerTextColor: "#EAF7FB",
-    overlayBg: "rgba(255,255,255,0.15)",
-    isMapTheme: false,
-  },
-  boy: {
-    key: "boy",
-    label: "男の子むけ",
-    emoji: "🐉",
-    bg: "linear-gradient(180deg, #3E2A16 0%, #6B4E2A 25%, #A9885A 58%, #D9C48C 100%)",
-    accentGradient: "linear-gradient(90deg,#C89B3C,#8B5E34)",
-    palette: BOY_PALETTE,
-    headingFont: "'Dela Gothic One', sans-serif",
-    headingColor: "#5C3A21",
-    headingShadow: "2px 2px 0 #C89B3C, -1px -1px 0 #F4E9CE, 0 3px 6px rgba(0,0,0,0.35)",
-    mascotBg: "#3F6B35",
-    mascotIconIndex: 0,
-    shapes: HUNTER_SHAPES,
-    withFace: false,
-    headerTextColor: "#3E2415",
-    overlayBg: "rgba(255,251,240,0.55)",
-    isMapTheme: true,
-  },
+const C = {
+  primary: "#CC1F1F", primaryDark: "#9B0000", accent: "#F5C800",
+  sakura: "#F4A7B0", sakuraLight: "#FDE8EC",
+  bg: "#FDF8F8", card: "#FFFFFF", text: "#1A0505", textMuted: "#7A5050",
+  border: "#F0DADA", success: "#2E7D32", danger: "#9B0000", warning: "#D4A800",
+  adminBg: "#7A0000", jr: "#1565C0", jrLight: "#E3F2FD",
 };
 
-function getTheme(key) {
-  return THEMES[key] || THEMES.girl;
+const S = {
+  app: { minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80 },
+  header: { background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: `2px solid ${C.border}`, display: "flex", zIndex: 100, boxShadow: "0 -2px 12px rgba(204,31,31,0.08)" },
+  navBtn: (active) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px 6px", cursor: "pointer", background: active ? C.sakuraLight : "none", border: "none", color: active ? C.primary : C.textMuted, gap: 2 }),
+  content: { padding: "16px 16px 0" },
+  sectionTitle: { fontSize: 17, fontWeight: 900, color: C.text, margin: "0 0 14px" },
+  card: { background: C.card, borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(204,31,31,0.07)", border: `1px solid ${C.border}` },
+  badge: (color) => ({ display: "inline-block", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + "22", color }),
+  btn: (variant = "primary", size = "md") => ({
+    background: variant === "primary" ? C.primary : variant === "danger" ? C.primaryDark : variant === "accent" ? C.accent : variant === "jr" ? C.jr : "transparent",
+    color: variant === "accent" ? C.primaryDark : variant === "ghost" ? C.primary : variant === "ghostJr" ? C.jr : "#fff",
+    border: variant === "ghost" ? `1.5px solid ${C.primary}` : variant === "ghostJr" ? `1.5px solid ${C.jr}` : "none",
+    borderRadius: 8, padding: size === "sm" ? "5px 10px" : "9px 18px",
+    fontSize: size === "sm" ? 12 : 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+  }),
+  input: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.bg, color: C.text, boxSizing: "border-box", marginBottom: 8, outline: "none", fontFamily: "inherit" },
+};
+
+function Loading() {
+  return <div style={{ textAlign: "center", color: C.textMuted, padding: 30, fontSize: 13 }}>読み込み中...</div>;
 }
 
-const CHEERS = ["やったね！", "すごいね！", "よくできました！", "ピカピカ★", "偉いね！", "ナイス！", "完璧！"];
-
-function uid() {
-  return Math.random().toString(36).slice(2, 9);
-}
-
-// parentComments used to store one plain string per date (a single parent
-// comment). It's now a list per date, since a grandparent or tutor might
-// also want to leave one — this upgrades any old-format string found in
-// storage into a one-item list instead of breaking on it.
-function normalizeParentComments(raw) {
-  const out = {};
-  Object.entries(raw || {}).forEach(([k, v]) => {
-    if (Array.isArray(v)) out[k] = v;
-    else if (typeof v === "string" && v.trim()) out[k] = [{ id: uid(), name: "保護者", text: v }];
-  });
-  return out;
-}
-
-function parseDate(s) {
-  if (!s) return null;
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function addDays(d, n) {
-  const nd = new Date(d);
-  nd.setDate(nd.getDate() + n);
-  nd.setHours(0, 0, 0, 0);
-  return nd;
-}
-
-function dateKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function dayIndexMon0(d) {
-  return (d.getDay() + 6) % 7;
-}
-
-function isBetween(d, start, end) {
-  const t = d.getTime();
-  return t >= start.getTime() && t <= end.getTime();
-}
-
-function subjectAppliesOnDate(subject, date, startDate, endDate) {
-  if (!isBetween(date, startDate, endDate)) return false;
-  if (subject.freqType === "weekday") {
-    return (subject.weekdays || []).includes(dayIndexMon0(date));
-  }
-  if (subject.freqType === "interval") {
-    const diffDays = Math.round((date.getTime() - startDate.getTime()) / 86400000);
-    const n = Math.max(1, subject.intervalDays || 2);
-    return diffDays >= 0 && diffDays % n === 0;
-  }
-  return true; // daily
-}
-
-function todayStr() {
-  return dateKey(new Date());
-}
-
-function clampDuration(v) {
-  let n = Math.round(Number(v) / 10) * 10;
-  if (!Number.isFinite(n) || n <= 0) n = 10;
-  return Math.max(10, Math.min(100, n));
-}
-
-function describeFrequency(subject) {
-  if (subject.freqType === "weekday") {
-    const days = (subject.weekdays || []).slice().sort();
-    if (days.length === 0) return "曜日未定";
-    return days.map((i) => DAY_LABELS[i]).join("・") + "曜日";
-  }
-  if (subject.freqType === "interval") {
-    return `${Math.max(1, subject.intervalDays || 2)}日に1回`;
-  }
-  return "毎日";
-}
-
-function describeTargets(subject) {
-  const parts = [];
-  // measureTime defaults on — older schedules (from before pages/problems
-  // existed) never set this explicitly, so treat "not explicitly off" as on
-  // rather than requiring a truthy value.
-  if (subject.measureTime !== false) parts.push(`⏱${subject.targetMinutes || subject.durationMinutes || 30}分`);
-  if (subject.measurePages) parts.push(`📖${subject.targetPages || 5}ページ`);
-  if (subject.measureProblems) parts.push(`✏️${subject.targetProblems || 10}問`);
-  return parts;
-}
-
-function subjectIsMeasurable(subject) {
-  return !!(subject.measureTime !== false || subject.measurePages || subject.measureProblems);
-}
-
-function formatAchvShort(vals) {
-  const parts = [];
-  if (vals.minutes) parts.push(`⏱${vals.minutes}分`);
-  if (vals.pages) parts.push(`📖${vals.pages}p`);
-  if (vals.problems) parts.push(`✏️${vals.problems}問`);
-  return parts.join(" ");
-}
-
-// Which vector icon represents a given subject/task. Used consistently
-// everywhere a subject's icon is shown (the spotlight card, blank-stamp
-// hints, practice stamps) so the same subject always shows the same icon.
-// For the boy theme, index 0 is reserved for the dragon completion image,
-// so regular task icons cycle through the other shapes instead — the
-// dragon shape is never handed out as an ordinary task icon.
-function taskIconIndex(idx, useDragonStamp, shapesLength) {
-  if (useDragonStamp && shapesLength > 1) return (idx % (shapesLength - 1)) + 1;
-  return idx % shapesLength;
-}
-
-const DURATION_OPTIONS = Array.from({ length: 10 }, (_, i) => (i + 1) * 10);
-const PAGE_OPTIONS = Array.from({ length: 50 }, (_, i) => i + 1);
-const PROBLEM_OPTIONS = Array.from({ length: 100 }, (_, i) => i + 1);
-const BIRTH_YEAR_OPTIONS = Array.from({ length: 57 }, (_, i) => 2026 - i); // 2026 down to 1970
-const BIRTH_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
-const BIRTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1);
-
-// Year / month / day as three drum-roll <select> wheels instead of a native
-// date input — some browsers only let year+month scroll and make day a
-// separate calendar tap, so this keeps all three consistently quick.
-function BirthdateSelects({ value, onChange, style }) {
-  const [y, m, d] = (value || "").split("-");
-  function update(ny, nm, nd) {
-    if (ny && nm && nd) onChange(`${ny}-${String(nm).padStart(2, "0")}-${String(nd).padStart(2, "0")}`);
-    else onChange("");
-  }
-  const selStyle = { ...styles.measureSelect, width: "auto", flex: 1, minWidth: 0, padding: "8px 4px", ...(style || {}) };
-  const yearStyle = { ...selStyle, flex: 1.6, minWidth: 66, padding: "8px 2px" };
-  return (
-    <div style={{ display: "flex", gap: 6 }}>
-      <select value={y || ""} onChange={(e) => update(e.target.value, m, d)} style={yearStyle}>
-        <option value="">年</option>
-        {BIRTH_YEAR_OPTIONS.map((yy) => (
-          <option key={yy} value={yy}>
-            {yy}
-          </option>
-        ))}
-      </select>
-      <select value={m ? Number(m) : ""} onChange={(e) => update(y, e.target.value, d)} style={selStyle}>
-        <option value="">月</option>
-        {BIRTH_MONTH_OPTIONS.map((mm) => (
-          <option key={mm} value={mm}>
-            {mm}
-          </option>
-        ))}
-      </select>
-      <select value={d ? Number(d) : ""} onChange={(e) => update(y, m, e.target.value)} style={selStyle}>
-        <option value="">日</option>
-        {BIRTH_DAY_OPTIONS.map((dd) => (
-          <option key={dd} value={dd}>
-            {dd}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-// Default schedule length: one month from the start date, inclusive — e.g.
-// starting 9/1 defaults to ending 9/30, starting 9/10 defaults to 10/9.
-function defaultEndDateFor(startStr) {
-  const d = parseDate(startStr) || new Date();
-  const nd = new Date(d);
-  nd.setMonth(nd.getMonth() + 1);
-  nd.setDate(nd.getDate() - 1);
-  return dateKey(nd);
-}
-
-const DEFAULT_SUBJECT = (palette) => ({
-  id: uid(),
-  name: "",
-  color: (palette || PASTELS)[0].hex,
-  freqType: "daily",
-  intervalDays: 2,
-  weekdays: [0, 1, 2, 3, 4],
-  durationMinutes: 10,
-  measureTime: true,
-  targetMinutes: 30,
-  measurePages: false,
-  targetPages: 5,
-  measureProblems: false,
-  targetProblems: 10,
-});
-
-function freshConfig() {
-  return {
-    title: "",
-    theme: "girl",
-    startDate: todayStr(),
-    endDate: defaultEndDateFor(todayStr()),
-    subjects: [DEFAULT_SUBJECT()],
-    pin: "",
-    reward: "",
+function RichTextEditor({ value, onChange }) {
+  const editorRef = useRef(null);
+  useEffect(() => { if (editorRef.current) editorRef.current.innerHTML = value || ""; }, []);
+  const setFontSize = (size) => {
+    editorRef.current.focus();
+    document.execCommand("fontSize", false, size === "large" ? "5" : size === "medium" ? "3" : "1");
+    const fonts = editorRef.current.querySelectorAll("font[size]");
+    fonts.forEach((f) => { const s = f.getAttribute("size"); f.removeAttribute("size"); f.style.fontSize = s === "5" ? "20px" : s === "3" ? "15px" : "11px"; });
+    onChange(editorRef.current.innerHTML);
   };
+  const tb = () => ({ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 4, padding: "8px 10px", background: C.bg, border: `1.5px solid ${C.border}`, borderRadius: "10px 10px 0 0", borderBottom: "none" }}>
+        <button style={tb()} onClick={() => setFontSize("large")} type="button">大</button>
+        <button style={tb()} onClick={() => setFontSize("medium")} type="button">中</button>
+        <button style={tb()} onClick={() => setFontSize("small")} type="button">小</button>
+        <div style={{ width: 1, background: C.border, margin: "0 4px" }} />
+        <button style={tb()} onClick={() => { editorRef.current.focus(); document.execCommand("bold"); onChange(editorRef.current.innerHTML); }} type="button"><b>B</b></button>
+      </div>
+      <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={() => onChange(editorRef.current.innerHTML)}
+        style={{ minHeight: 100, padding: "10px 12px", border: `1.5px solid ${C.border}`, borderRadius: "0 0 10px 10px", fontSize: 14, background: C.card, color: C.text, outline: "none", lineHeight: 1.7, fontFamily: "'Noto Sans JP', sans-serif" }} />
+      <p style={{ fontSize: 11, color: C.textMuted, margin: "4px 0 0" }}>文字を選択してからボタンを押すと書式が適用されます</p>
+    </div>
+  );
 }
 
-export default function KidsScheduleApp() {
-  const [loaded, setLoaded] = useState(false);
-  const [view, setView] = useState("loading");
-  const [focusSubjectId, setFocusSubjectId] = useState(null);
-  const [config, setConfig] = useState(freshConfig());
-  const [completions, setCompletions] = useState({});
-  const [recoveries, setRecoveries] = useState({});
-  const [funStamps, setFunStamps] = useState({});
-  const [notes, setNotes] = useState({});
-  const [parentComments, setParentComments] = useState({});
-  const [achievements, setAchievements] = useState({});
-  const [noteModalDate, setNoteModalDate] = useState(null);
-  const [linkedProfile, setLinkedProfile] = useState(null); // { name, totalStamps } | null
-  const [showRecordsList, setShowRecordsList] = useState(false);
-  const [locked, setLocked] = useState(true);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [celebrateDay, setCelebrateDay] = useState(null);
-  const [celebrateSchedule, setCelebrateSchedule] = useState(false);
-  const [toast, setToast] = useState("");
-  const skipSave = useRef(true);
-  const unlockTimer = useRef(null);
-  const toastTimer = useRef(null);
+function DocViewer({ title, onClose, children }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 150, overflowY: "auto", maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 }}>
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← 戻る</button>
+        <h2 style={{ color: "#fff", fontSize: 14, fontWeight: 900, margin: 0, flex: 1 }}>{title}</h2>
+      </div>
+      <div style={{ padding: "16px 16px 32px" }}>{children}</div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await window.storage.get(STORAGE_KEY, false);
-        if (res && res.value) {
-          const data = JSON.parse(res.value);
-          if (data.config && data.config.subjects && data.config.subjects.length > 0) {
-            setConfig(data.config);
-            setCompletions(data.completions || {});
-            setRecoveries(data.recoveries || {});
-            setFunStamps(data.funStamps || {});
-            setNotes(data.notes || {});
-            setParentComments(normalizeParentComments(data.parentComments));
-            setAchievements(data.achievements || {});
-            // A "?edit=1" URL flag (used by the top-page's edit button) jumps
-            // straight into the setup/edit screen instead of the main view.
-            // "?records=1" (used by the stamp book's "つながっているスケジュール"
-            // list) opens the 記録を見る modal on top of the main view instead.
-            let wantsEdit = false;
-            let wantsRecords = false;
-            try {
-              const params = new URLSearchParams(window.location.search);
-              wantsEdit = params.get("edit") === "1";
-              wantsRecords = params.get("records") === "1";
-            } catch (e) {}
-            setView(wantsEdit ? "setup" : "main");
-            if (wantsRecords && !wantsEdit) setShowRecordsList(true);
-          } else {
-            applyThemeFromUrl();
-            setView("setup");
-          }
-        } else {
-          applyThemeFromUrl();
-          setView("setup");
-        }
-      } catch (e) {
-        applyThemeFromUrl();
-        setView("setup");
-      }
-      setLoaded(true);
-    })();
+function DocSection({ num, title, children }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ background: C.primary, color: "#fff", padding: "8px 14px", borderRadius: "10px 10px 0 0", fontSize: 13, fontWeight: 800 }}>{num && <span style={{ marginRight: 8 }}>{num}</span>}{title}</div>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "12px 14px", fontSize: 13, lineHeight: 1.8, color: C.text }}>{children}</div>
+    </div>
+  );
+}
 
-    function applyThemeFromUrl() {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const t = params.get("theme");
-        const p = params.get("profileId");
-        setConfig((prev) => {
-          const nextTheme = t === "girl" || t === "boy" ? t : prev.theme;
-          return {
-            ...prev,
-            ...(t === "girl" || t === "boy" ? { theme: t } : {}),
-            ...(p ? { profileId: p } : {}),
-            // New schedule (this only runs when nothing was loaded from
-            // storage yet) — roll which color egg this schedule will grow.
-            ...(!prev.mascotVariant ? { mascotVariant: pickRandomVariant(nextTheme) } : {}),
-          };
-        });
-      } catch (e) {}
-    }
-  }, []);
+function Item({ children }) { return <div style={{ paddingLeft: 12, borderLeft: `3px solid ${C.sakura}`, marginBottom: 8, fontSize: 13, lineHeight: 1.7, color: C.text }}>{children}</div>; }
+function Bold({ children }) { return <span style={{ fontWeight: 800, color: C.primary }}>{children}</span>; }
 
-  useEffect(() => {
-    if (!loaded) return;
-    if (skipSave.current) {
-      skipSave.current = false;
-      return;
-    }
-    const t = setTimeout(async () => {
-      try {
-        await window.storage.set(
-          STORAGE_KEY,
-          JSON.stringify({ config, completions, recoveries, funStamps, notes, parentComments, achievements }),
-          false
-        );
-      } catch (e) {}
-    }, 350);
-    return () => clearTimeout(t);
-  }, [config, completions, recoveries, funStamps, notes, parentComments, achievements, loaded]);
-
-  // iOS home-screen apps often get suspended instead of fully closed, and
-  // reopening them can show whatever was last in memory instead of fetching
-  // fresh data. Re-fetch whenever the app becomes visible again — but only
-  // while on the main calendar and not mid-memo, so this can't wipe out
-  // anything the person is in the middle of typing. Also throttled so it
-  // can't fire more than once every 20 seconds even if focus/visibility
-  // events fire in quick succession (e.g. the keyboard showing/hiding).
-  const lastRefreshRef = useRef(0);
-  useEffect(() => {
-    if (!loaded) return;
-    function refresh() {
-      if (view !== "main") return;
-      if (noteModalDate) return;
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      const now = Date.now();
-      if (now - lastRefreshRef.current < 20000) return;
-      lastRefreshRef.current = now;
-      (async () => {
-        try {
-          const res = await window.storage.get(STORAGE_KEY, false);
-          if (res && res.value) {
-            const data = JSON.parse(res.value);
-            if (data.config && data.config.subjects && data.config.subjects.length > 0) {
-              setConfig(data.config);
-            }
-            setCompletions(data.completions || {});
-            setRecoveries(data.recoveries || {});
-            setFunStamps(data.funStamps || {});
-            setNotes(data.notes || {});
-            setParentComments(normalizeParentComments(data.parentComments));
-            setAchievements(data.achievements || {});
-          }
-        } catch (e) {}
-      })();
-    }
-    document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("pageshow", refresh);
-    return () => {
-      document.removeEventListener("visibilitychange", refresh);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("pageshow", refresh);
-    };
-  }, [loaded, view, noteModalDate]);
-
-  // Names the egg once it hatches (growth stage moves past "still an egg").
-  // Fires once per schedule — guarded by config.mascotHatchPrompted so it
-  // never re-shows after the parent/kid has already named (or skipped
-  // naming) this schedule's mascot.
-  const [showHatchNaming, setShowHatchNaming] = useState(false);
-  const [hatchDefaultName, setHatchDefaultName] = useState("");
-  const [hatchStageIdx, setHatchStageIdx] = useState(0);
-  const [hatchNamingSnoozed, setHatchNamingSnoozed] = useState(false); // "あとで" was pressed this session
-  useEffect(() => {
-    if (!loaded || view !== "main") return;
-    if (!config.subjects || config.subjects.length === 0) return;
-    if (config.mascotHatchPrompted) return;
-    if (hatchNamingSnoozed) return; // wait for next app open, not this session
-    const variant = getVariant(config.theme, config.mascotVariant);
-    const overall = computeOverallStats(config, completions);
-    const overallPct = overall.need > 0 ? Math.round((overall.done / overall.need) * 100) : 0;
-    const idx = stageIndex(variant.species, overallPct);
-    if (idx < 1) return;
-    setHatchDefaultName(variant.name);
-    setHatchStageIdx(idx);
-    setShowHatchNaming(true);
-  }, [loaded, view, config, completions, hatchNamingSnoozed]);
-
-  // Plays a Pokémon-style evolution animation whenever the mascot's growth
-  // stage advances past the one last shown — silhouette shake, white
-  // flash, then the new stage bursts in with light rays. Guarded by
-  // config.mascotStageSeen so it only fires once per stage jump, and
-  // deliberately skips the very first stage (hatching), since
-  // HatchNamingModal above already gives that moment its own reveal.
-  const [evolution, setEvolution] = useState(null); // { fromSrc, toSrc, filter, cardBg, isFinal } | null
-  const [pendingEvolution, setPendingEvolution] = useState(null); // same shape + idx, awaiting 声をかける/放っておく
-  const [evolutionSnoozed, setEvolutionSnoozed] = useState(false); // "放っておく" was pressed this session
-  useEffect(() => {
-    if (!loaded || view !== "main") return;
-    if (!config.subjects || config.subjects.length === 0) return;
-    if (!config.mascotHatchPrompted) return; // hatching not handled yet — let that effect go first
-    if (pendingEvolution || evolution) return; // already showing something about this
-    if (evolutionSnoozed) return; // parent chose 放っておく — wait for next app open, not this session
-    const variant = getVariant(config.theme, config.mascotVariant);
-    const overall = computeOverallStats(config, completions);
-    const overallPct = overall.need > 0 ? Math.round((overall.done / overall.need) * 100) : 0;
-    const idx = stageIndex(variant.species, overallPct);
-
-    if (config.mascotStageSeen === undefined) {
-      // Backfill for schedules that hatched before this feature existed —
-      // just record the current stage as the baseline, no animation.
-      setConfig((prev) => (prev.mascotStageSeen === undefined ? { ...prev, mascotStageSeen: idx } : prev));
-      return;
-    }
-    if (idx > config.mascotStageSeen) {
-      // Don't jump straight to the animation — a parent unlocking the app
-      // to do something unrelated could stumble onto it before the kid
-      // ever sees it. Ask first; only commit mascotStageSeen (and actually
-      // play it) once someone chooses to watch now.
-      setPendingEvolution({
-        idx,
-        fromSrc: stageImageAt(variant.species, config.mascotStageSeen),
-        toSrc: stageImageAt(variant.species, idx),
-        filter: variant.filter,
-        cardBg: variant.cardBg,
-        isFinal: idx >= stageCount(variant.species) - 1,
-      });
-    }
-  }, [loaded, view, config, completions, pendingEvolution, evolution, evolutionSnoozed]);
-
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 2200);
-  }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-    if (!config.profileId) {
-      setLinkedProfile(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const [{ data: profData }, { data: schedData }] = await Promise.all([
-          supabase.from("profiles").select("blob").eq("id", config.profileId).maybeSingle(),
-          supabase.from("schedules").select("blob").eq("blob->config->>profileId", config.profileId),
-        ]);
-        let total = 0;
-        (schedData || []).forEach((row) => {
-          const completions = (row.blob && row.blob.completions) || {};
-          Object.values(completions).forEach((day) => {
-            Object.values(day || {}).forEach((v) => {
-              total += Math.min(2, Math.max(0, v || 0));
-            });
-          });
-        });
-        if (!cancelled) {
-          setLinkedProfile({ name: (profData && profData.blob && profData.blob.name) || "", totalStamps: total });
-        }
-      } catch (e) {}
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loaded, config.profileId]);
-
-  const startDate = parseDate(config.startDate) || new Date();
-  const endDate = parseDate(config.endDate) || addDays(startDate, 27);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = dateKey(today);
-
-  function daySubjectsFor(date) {
-    return config.subjects.filter((s) => subjectAppliesOnDate(s, date, startDate, endDate));
-  }
-
-  function countFor(dKey, subjId) {
-    return (completions[dKey] && completions[dKey][subjId]) || 0;
-  }
-
-  function isStamped(dKey, subjId) {
-    return countFor(dKey, subjId) >= 1;
-  }
-
-  function funStampFor(dKey, subjId) {
-    return !!(funStamps[dKey] && funStamps[dKey][subjId]);
-  }
-
-  // how many past required occurrences of this subject were never done, minus what's already been recovered
-  function missedBacklog(subject) {
-    let missed = 0;
-    for (let d = new Date(startDate); d.getTime() < today.getTime(); d = addDays(d, 1)) {
-      if (subjectAppliesOnDate(subject, d, startDate, endDate) && countFor(dateKey(d), subject.id) === 0) {
-        missed++;
-      }
-    }
-    return Math.max(0, missed - (recoveries[subject.id] || 0));
-  }
-
-  function handleTapStamp(date, subjId) {
-    if (dateKey(date) !== todayKey) {
-      showToast("スタンプは今日の分だけ押せるよ");
-      return;
-    }
-    if (locked) {
-      if (config.pin && config.pin.length > 0) setShowPinModal(true);
-      else setShowConfirmModal(true);
-      return;
-    }
-    const subject = config.subjects.find((s) => s.id === subjId);
-    if (!subject) return;
-    const dKey = dateKey(date);
-    const cur = countFor(dKey, subjId);
-
-    let next;
-    let recoveryDelta = 0;
-    if (cur === 0) {
-      next = 1;
-    } else if (cur === 1) {
-      const backlog = missedBacklog(subject);
-      if (backlog <= 0) {
-        showToast("すでに1回押してあるよ。取り消すときは×ボタンを押してね");
-        return;
-      }
-      next = 2;
-      recoveryDelta = 1;
-    } else {
-      next = 0;
-      recoveryDelta = -1;
-    }
-
-    setCompletions((prev) => {
-      const day = { ...(prev[dKey] || {}) };
-      if (next === 0) delete day[subjId];
-      else day[subjId] = next;
-      const updated = { ...prev, [dKey]: day };
-
-      const need = daySubjectsFor(date).map((s) => s.id);
-      const allDone = need.length > 0 && need.every((id) => (day[id] || 0) >= 1);
-      if (allDone) setTimeout(() => setCelebrateDay(dKey), 50);
-
-      if (dateKey(today) === dateKey(endDate)) {
-        // Whether the whole schedule counts as done — by total stamp value
-        // vs. total required (see computeOverallStats), not "is every day
-        // individually marked". A caught-up day (double-tap on a different
-        // day, worth 2) can cover a day that's still literally blank, so
-        // checking every day would miss schedules that were actually
-        // finished this way.
-        const overall = computeOverallStats(config, updated);
-        const scheduleAllDone = overall.need > 0 && overall.done >= overall.need;
-        if (scheduleAllDone) {
-          setTimeout(() => setCelebrateSchedule(true), 700);
-          awardCardIfNeeded(overall.need);
-        }
-      }
-      return updated;
-    });
-
-    if (recoveryDelta !== 0) {
-      setRecoveries((prev) => ({ ...prev, [subjId]: Math.max(0, (prev[subjId] || 0) + recoveryDelta) }));
-    }
-
-    if (next === 2) showToast("すごい！2日分取り戻したね！");
-  }
-
-  function handleClearStamp(date, subjId) {
-    if (dateKey(date) !== todayKey) {
-      showToast("スタンプは今日の分だけ操作できるよ");
-      return;
-    }
-    if (locked) {
-      if (config.pin && config.pin.length > 0) setShowPinModal(true);
-      else setShowConfirmModal(true);
-      return;
-    }
-    const dKey = dateKey(date);
-    const cur = countFor(dKey, subjId);
-    if (cur === 0) return;
-    const recoveryDelta = cur === 2 ? -1 : 0;
-
-    setCompletions((prev) => {
-      const day = { ...(prev[dKey] || {}) };
-      delete day[subjId];
-      return { ...prev, [dKey]: day };
-    });
-
-    if (recoveryDelta !== 0) {
-      setRecoveries((prev) => ({ ...prev, [subjId]: Math.max(0, (prev[subjId] || 0) + recoveryDelta) }));
-    }
-
-    showToast("スタンプを取り消したよ");
-  }
-
-  // Playful "practice" stamps for cells that aren't real yet (not today) — freely
-  // toggled on/off, always allowed regardless of lock state, and never counted
-  // toward backlog, streaks, or the completion percentage. Purely for fun so the
-  // app doesn't feel inert on every cell that isn't tappable "for real".
-  function handleToggleFunStamp(date, subjId) {
-    const dKey = dateKey(date);
-    if (dKey === todayKey) return; // today already has the real stamp
-    setFunStamps((prev) => {
-      const day = { ...(prev[dKey] || {}) };
-      if (day[subjId]) delete day[subjId];
-      else day[subjId] = true;
-      return { ...prev, [dKey]: day };
-    });
-  }
-
-  // Lets an unlocked (parent-confirmed) view mark or unmark a genuine
-  // completion on a PAST day — for backfilling a forgotten stamp. Mirrors
-  // today's tap cycle: 1st tap marks the day done, a 2nd tap on the same
-  // day recovers one missed day from this subject's backlog (same pool
-  // handleTapStamp draws from) and shows the "×2" badge, and tapping again
-  // clears it back to empty. Only ever called while unlocked; never
-  // touches today (that uses the normal flow) or future days.
-  function handleTogglePastStamp(date, subjId) {
-    if (locked) return;
-    const dKey = dateKey(date);
-    if (dKey >= todayKey) return;
-    const subject = config.subjects.find((s) => s.id === subjId);
-    if (!subject) return;
-    const cur = countFor(dKey, subjId);
-
-    let next;
-    let recoveryDelta = 0;
-    if (cur === 0) {
-      next = 1;
-    } else if (cur === 1) {
-      const backlog = missedBacklog(subject);
-      if (backlog <= 0) {
-        next = 0;
-      } else {
-        next = 2;
-        recoveryDelta = 1;
-      }
-    } else {
-      next = 0;
-      recoveryDelta = -1;
-    }
-
-    setCompletions((prev) => {
-      const day = { ...(prev[dKey] || {}) };
-      if (next === 0) delete day[subjId];
-      else day[subjId] = next;
-      const updated = { ...prev, [dKey]: day };
-
-      const need = daySubjectsFor(date).map((s) => s.id);
-      const allDone = need.length > 0 && need.every((id) => (day[id] || 0) >= 1);
-      if (allDone) setTimeout(() => setCelebrateDay(dKey), 50);
-
-      // Whether the whole schedule counts as done — by total stamp value
-      // vs. total required (see computeOverallStats), not "is every day
-      // individually marked". A caught-up day can cover a day that's
-      // still literally blank in the data.
-      const overall = computeOverallStats(config, updated);
-      const scheduleAllDone = overall.need > 0 && overall.done >= overall.need;
-      if (scheduleAllDone) {
-        setTimeout(() => setCelebrateSchedule(true), 400);
-        awardCardIfNeeded(overall.need);
-      }
-
-      return updated;
-    });
-
-    if (recoveryDelta !== 0) {
-      setRecoveries((prev) => ({ ...prev, [subjId]: Math.max(0, (prev[subjId] || 0) + recoveryDelta) }));
-    }
-    if (next === 2) showToast("すごい！2日分取り戻したね！");
-  }
-
-  // The explicit "×" undo for a past-day mark, mirroring handleClearStamp.
-  // Separate from the tap cycle above so a mis-tap can always be corrected
-  // directly instead of having to cycle all the way back around to 0.
-  function handleClearPastStamp(date, subjId) {
-    if (locked) return;
-    const dKey = dateKey(date);
-    if (dKey >= todayKey) return;
-    const cur = countFor(dKey, subjId);
-    if (cur === 0) return;
-    const recoveryDelta = cur === 2 ? -1 : 0;
-
-    setCompletions((prev) => {
-      const day = { ...(prev[dKey] || {}) };
-      delete day[subjId];
-      return { ...prev, [dKey]: day };
-    });
-
-    if (recoveryDelta !== 0) {
-      setRecoveries((prev) => ({ ...prev, [subjId]: Math.max(0, (prev[subjId] || 0) + recoveryDelta) }));
-    }
-  }
-
-  // Hands out the growth-mascot card the first time a schedule reaches
-  // 100% — but only for schedules substantial enough to matter: at least
-  // 30 days long AND at least 50 total stamps required. Short schedules
-  // reaching 100% don't earn a card, so cards can't be farmed with tiny
-  // schedules. Idempotent (checks config.awardedCard) so re-triggering the
-  // "all done" check (e.g. toggling a past stamp back and forth) never
-  // hands out a second card for the same schedule.
-  function awardCardIfNeeded(totalStamps) {
-    const scheduleDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
-    if (scheduleDays < 30 || totalStamps < 50) return;
-    setConfig((prev) => {
-      if (prev.awardedCard) return prev;
-      return {
-        ...prev,
-        awardedCard: {
-          theme: prev.theme,
-          variant: prev.mascotVariant || pickRandomVariant(prev.theme),
-          earnedAt: todayStr(),
-          // Stars this card was earned with — the stamp book lets the kid
-          // spend these as points on whichever stats they like, so this
-          // needs to be locked in at award time as their point budget.
-          stars: totalStamps,
-        },
-      };
-    });
-  }
-
-  function buildRecordsList() {
-    const entries = [];
-    for (let d = new Date(startDate); d.getTime() <= endDate.getTime(); d = addDays(d, 1)) {
-      const dKey = dateKey(d);
-      const note = notes[dKey];
-      const comments = parentComments[dKey] || [];
-      const achv = achievements[dKey];
-      const hasAchv = achv && Object.keys(achv).length > 0;
-      if (note || comments.length > 0 || hasAchv) {
-        entries.push({ date: new Date(d), dKey, note, comments, achv: hasAchv ? achv : null });
-      }
-    }
-    entries.sort((a, b) => b.date.getTime() - a.date.getTime());
-    return entries;
-  }
-
-  function handleOpenNote(date) {
-    setNoteModalDate(date);
-  }
-
-  function handleCloseNote() {
-    setNoteModalDate(null);
-  }
-
-  // Adds one comment to a day's record — from "記録を見る", not gated by
-  // the parent PIN, since grandparents/tutors reading via the share link
-  // won't have it. Each reply carries its own name, so multiple people can
-  // comment on the same day without overwriting each other.
-  function handleAddParentComment(dKey, name, text) {
-    const cleanText = (text || "").trim();
-    if (!cleanText) return;
-    const cleanName = (name || "").trim() || "コメント";
-    setParentComments((prev) => {
-      const list = prev[dKey] ? [...prev[dKey]] : [];
-      list.push({ id: uid(), name: cleanName, text: cleanText, createdAt: todayStr() });
-      return { ...prev, [dKey]: list };
-    });
-  }
-
-  // Edits or deletes a previously-posted comment. Not gated by the parent
-  // PIN — same as posting, since grandparents/tutors reading via the share
-  // link don't have it either.
-  function handleEditParentComment(dKey, commentId, newText) {
-    const cleanText = (newText || "").trim();
-    if (!cleanText) return;
-    setParentComments((prev) => {
-      const list = (prev[dKey] || []).map((c) => (c.id === commentId ? { ...c, text: cleanText } : c));
-      return { ...prev, [dKey]: list };
-    });
-  }
-
-  function handleDeleteParentComment(dKey, commentId) {
-    setParentComments((prev) => {
-      const list = (prev[dKey] || []).filter((c) => c.id !== commentId);
-      const next = { ...prev };
-      if (list.length > 0) next[dKey] = list;
-      else delete next[dKey];
-      return next;
-    });
-  }
-
-  function handleSaveNote(text, achv) {
-    if (!noteModalDate) return;
-    const dKey = dateKey(noteModalDate);
-    setNotes((prev) => {
-      const next = { ...prev };
-      if (text.trim()) next[dKey] = text;
-      else delete next[dKey];
-      return next;
-    });
-    if (achv && Object.keys(achv).length > 0) {
-      setAchievements((prev) => {
-        // drop subjects whose fields are all empty so we don't store clutter
-        const cleaned = {};
-        Object.entries(achv).forEach(([subjId, vals]) => {
-          const hasAny = ["minutes", "pages", "problems"].some(
-            (k) => vals[k] !== undefined && vals[k] !== "" && vals[k] !== null
+function EditModal({ title, fields, data, onSave, onClose }) {
+  const [form, setForm] = useState({ ...data });
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 40px rgba(0,0,0,0.3)" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+        </div>
+        {fields.map((f) => {
+          if (f.type === "checkbox") return (
+            <label key={f.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.checked })} />{f.label}
+            </label>
           );
-          if (hasAny) cleaned[subjId] = vals;
-        });
-        const next = { ...prev };
-        if (Object.keys(cleaned).length > 0) next[dKey] = cleaned;
-        else delete next[dKey];
-        return next;
-      });
-    }
-    setNoteModalDate(null);
-  }
-
-  async function handleDeleteSchedule() {
-    setDeleting(true);
-    try {
-      await window.storage.delete(STORAGE_KEY, false);
-    } catch (e) {
-      // even if the network call fails, still leave via the top page —
-      // there is nothing more this screen can usefully do about it
-    }
-    try {
-      window.location.href = window.location.pathname;
-    } catch (e) {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-    }
-  }
-
-  function doUnlock() {
-    setLocked(false);
-    setShowConfirmModal(false);
-    setShowPinModal(false);
-    showToast("スタンプが押せるようになったよ！3分後に自動でロックします");
-    clearTimeout(unlockTimer.current);
-    unlockTimer.current = setTimeout(() => {
-      setLocked(true);
-      showToast("自動的にロックしました");
-    }, 3 * 60 * 1000);
-  }
-
-  function handleRelock() {
-    clearTimeout(unlockTimer.current);
-    setLocked(true);
-  }
-
-  // Delegates to progress.js so the schedule's own progress bar counts the
-  // same way as everywhere else (top page, stamp book): total stamp value
-  // vs. total required, not "is every day marked" — see the comment on
-  // computeOverallStats for why (the catch-up double-tap needs this).
-  function totalStats() {
-    return computeOverallStats(config, completions);
-  }
-
-  function todayStats() {
-    if (!isBetween(today, startDate, endDate)) return { done: 0, need: 0 };
-    const req = daySubjectsFor(today).map((s) => s.id);
-    const rec = completions[todayKey] || {};
-    const done = req.filter((id) => (rec[id] || 0) >= 1).length;
-    return { done, need: req.length };
-  }
-
-  function streakDays() {
-    const t = todayStats();
-    const todayComplete = isBetween(today, startDate, endDate) && t.need > 0 && t.done === t.need;
-    let streak = 0;
-    let cursor = addDays(today, todayComplete ? 0 : -1);
-    while (isBetween(cursor, startDate, endDate)) {
-      const req = daySubjectsFor(cursor).map((s) => s.id);
-      if (req.length === 0) {
-        cursor = addDays(cursor, -1);
-        continue;
-      }
-      const rec = completions[dateKey(cursor)] || {};
-      const complete = req.every((id) => (rec[id] || 0) >= 1);
-      if (!complete) break;
-      streak++;
-      cursor = addDays(cursor, -1);
-    }
-    return streak;
-  }
-
-  if (view === "loading") {
-    return (
-      <div style={styles.loadingWrap}>
-        <div style={styles.loadingBubble} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={styles.appRoot}>
-      <GlobalStyle />
-      <ShareBar profileId={config.profileId} profileName={linkedProfile ? linkedProfile.name : ""} />
-      {view === "setup" && (
-        <SetupScreen
-          initial={config}
-          hasExisting={!!config.title}
-          focusSubjectId={focusSubjectId}
-          onCancel={config.title ? () => setView("main") : null}
-          onRequestDelete={config.title ? () => setShowDeleteConfirm(true) : null}
-          onSave={(cfg) => {
-            setConfig(cfg);
-            setView("main");
-            setFocusSubjectId(null);
-            // Clear the ?edit=1 flag so a later refresh lands on the main view.
-            try {
-              const url = new URL(window.location.href);
-              if (url.searchParams.has("edit")) {
-                url.searchParams.delete("edit");
-                window.history.replaceState(null, "", url.toString());
-              }
-            } catch (e) {}
-          }}
-        />
-      )}
-      {view === "main" && (
-        <MainScreen
-          config={config}
-          completions={completions}
-          startDate={startDate}
-          endDate={endDate}
-          todayKey={todayKey}
-          locked={locked}
-          onLockToggle={() =>
-            locked
-              ? config.pin && config.pin.length > 0
-                ? setShowPinModal(true)
-                : setShowConfirmModal(true)
-              : handleRelock()
-          }
-          onTapStamp={handleTapStamp}
-          onClearStamp={handleClearStamp}
-          onToggleFunStamp={handleToggleFunStamp}
-          onTogglePastStamp={handleTogglePastStamp}
-          onClearPastStamp={handleClearPastStamp}
-          notes={notes}
-          achievements={achievements}
-          onOpenNote={handleOpenNote}
-          onOpenRecords={() => setShowRecordsList(true)}
-          linkedProfile={linkedProfile}
-          daySubjectsFor={daySubjectsFor}
-          isStamped={isStamped}
-          countFor={countFor}
-          funStampFor={funStampFor}
-          missedBacklog={missedBacklog}
-          onOpenSettings={() => setView("setup")}
-          onEditSubject={(subjectId) => {
-            setFocusSubjectId(subjectId);
-            setView("setup");
-          }}
-          onRequestDelete={() => setShowDeleteConfirm(true)}
-          stats={totalStats()}
-          todayStats={todayStats()}
-          streak={streakDays()}
-        />
-      )}
-
-      {showConfirmModal && (
-        <ConfirmModal
-          title="保護者の方へ"
-          message="ここから先はスタンプを押せるようになります。保護者の方が操作していますか？"
-          confirmLabel="はい、開けます"
-          cancelLabel="やめる"
-          onConfirm={doUnlock}
-          onCancel={() => setShowConfirmModal(false)}
-        />
-      )}
-
-      {showPinModal && (
-        <PinModal
-          correctPin={config.pin}
-          onSuccess={doUnlock}
-          onFail={() => showToast("暗証番号が違います")}
-          onCancel={() => setShowPinModal(false)}
-        />
-      )}
-
-      {showDeleteConfirm && (
-        <ConfirmModal
-          title="このスケジュールを削除しますか？"
-          message={`「${config.title}」を削除します。これまでの記録もすべて消え、元に戻せません。`}
-          confirmLabel={deleting ? "削除中…" : "削除する"}
-          cancelLabel="やめる"
-          onConfirm={handleDeleteSchedule}
-          onCancel={() => setShowDeleteConfirm(false)}
-          danger
-        />
-      )}
-
-      {noteModalDate && (
-        <NoteModal
-          date={noteModalDate}
-          initialText={notes[dateKey(noteModalDate)] || ""}
-          initialAchievements={achievements[dateKey(noteModalDate)] || {}}
-          comments={parentComments[dateKey(noteModalDate)] || []}
-          subjects={config.subjects}
-          isMapTheme={getTheme(config.theme).isMapTheme}
-          onSave={handleSaveNote}
-          onClose={handleCloseNote}
-        />
-      )}
-
-      {showRecordsList && (
-        <RecordsListModal
-          entries={buildRecordsList()}
-          subjects={config.subjects}
-          profileId={config.profileId}
-          profileName={linkedProfile ? linkedProfile.name : ""}
-          onAddComment={handleAddParentComment}
-          onEditComment={handleEditParentComment}
-          onDeleteComment={handleDeleteParentComment}
-          onClose={() => {
-            setShowRecordsList(false);
-            // Clear the ?records=1 flag so a later refresh doesn't reopen it.
-            try {
-              const url = new URL(window.location.href);
-              if (url.searchParams.has("records")) {
-                url.searchParams.delete("records");
-                window.history.replaceState(null, "", url.toString());
-              }
-            } catch (e) {}
-          }}
-        />
-      )}
-
-      {celebrateDay && <DayCelebration onClose={() => setCelebrateDay(null)} theme={config.theme} />}
-      {celebrateSchedule && (
-        <ScheduleCompleteCelebration
-          onClose={() => setCelebrateSchedule(false)}
-          title={config.title}
-          reward={config.reward}
-          theme={config.theme}
-          variantKey={config.mascotVariant}
-          awarded={!!config.awardedCard}
-          stars={config.awardedCard ? config.awardedCard.stars : 0}
-        />
-      )}
-      {showHatchNaming && (
-        <HatchNamingModal
-          theme={config.theme}
-          variantKey={config.mascotVariant}
-          defaultName={hatchDefaultName}
-          onSave={(name) => {
-            setConfig((prev) => ({
-              ...prev,
-              mascotName: (name || "").trim() || hatchDefaultName,
-              mascotHatchPrompted: true,
-              mascotStageSeen: hatchStageIdx,
-            }));
-            setShowHatchNaming(false);
-          }}
-          onSkip={() => {
-            setShowHatchNaming(false);
-            setHatchNamingSnoozed(true);
-          }}
-        />
-      )}
-      {pendingEvolution && (
-        <EvolutionNoticeModal
-          mascotName={config.mascotName}
-          onTalk={() => {
-            setEvolution(pendingEvolution);
-            setConfig((prev) => ({ ...prev, mascotStageSeen: pendingEvolution.idx }));
-            setPendingEvolution(null);
-          }}
-          onLeave={() => {
-            setPendingEvolution(null);
-            setEvolutionSnoozed(true);
-          }}
-        />
-      )}
-      {evolution && (
-        <EvolutionCelebration
-          fromSrc={evolution.fromSrc}
-          toSrc={evolution.toSrc}
-          filter={evolution.filter}
-          cardBg={evolution.cardBg}
-          isFinal={evolution.isFinal}
-          stageIdx={evolution.idx}
-          mascotName={config.mascotName}
-          onClose={() => setEvolution(null)}
-        />
-      )}
-      {toast && <div style={styles.toast}>{toast}</div>}
-    </div>
-  );
-}
-
-/* ---------------- Setup Screen ---------------- */
-
-function SubjectCard({ subject, onChange, onRemove, canRemove, palette, isMapTheme, isFocused }) {
-  function set(patch) {
-    onChange({ ...subject, ...patch });
-  }
-  function toggleWeekday(i) {
-    const cur = subject.weekdays || [];
-    const next = cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i].sort();
-    set({ weekdays: next });
-  }
-  return (
-    <div
-      id={`subject-card-${subject.id}`}
-      style={{
-        ...styles.subjCard,
-        ...(isFocused ? { boxShadow: "0 0 0 3px #F4C95D, 0 0 20px rgba(244,201,93,0.6)", borderColor: "#F4C95D" } : {}),
-      }}
-    >
-      <div style={styles.subjCardTop}>
-        <input
-          value={subject.name}
-          onChange={(e) => set({ name: e.target.value })}
-          placeholder="何を頑張る？（例：ピアノ）"
-          style={styles.subjNameInput}
-        />
-        {canRemove && (
-          <button style={styles.chipX} onClick={onRemove} aria-label="削除">
-            <X size={16} />
-          </button>
-        )}
-      </div>
-
-      <div style={styles.swatchRow}>
-        {(palette || PASTELS).map((p) => (
-          <button
-            key={p.hex}
-            title={p.name}
-            onClick={() => set({ color: p.hex })}
-            style={{
-              ...styles.swatch,
-              background: p.hex,
-              boxShadow: subject.color === p.hex ? "0 0 0 3px #fff, 0 0 0 5px #14588C" : "none",
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={styles.measureSection}>
-        <span style={styles.measureSectionLabel}>目標（複数選べます）</span>
-
-        <div style={styles.measureRow}>
-          <button
-            onClick={() => set({ measureTime: subject.measureTime === false ? true : false })}
-            style={{ ...styles.measureToggle, ...(subject.measureTime !== false ? styles.measureToggleOn : {}) }}
-          >
-            ⏱ 時間
-          </button>
-          {subject.measureTime !== false && (
-            <>
-              <select
-                value={subject.targetMinutes ?? subject.durationMinutes ?? 30}
-                onChange={(e) => set({ targetMinutes: Number(e.target.value) })}
-                style={styles.measureSelect}
-              >
-                {DURATION_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+          if (f.type === "select") return (
+            <div key={f.key}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+              <select style={S.input} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}>
+                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-              <span style={styles.measureUnit}>分</span>
-            </>
-          )}
-        </div>
-
-        <div style={styles.measureRow}>
-          <button
-            onClick={() => set({ measurePages: !subject.measurePages })}
-            style={{ ...styles.measureToggle, ...(subject.measurePages ? styles.measureToggleOn : {}) }}
-          >
-            📖 ページ数
-          </button>
-          {subject.measurePages && (
-            <>
-              <select
-                value={subject.targetPages ?? 5}
-                onChange={(e) => set({ targetPages: Number(e.target.value) })}
-                style={styles.measureSelect}
-              >
-                {PAGE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <span style={styles.measureUnit}>ページ</span>
-            </>
-          )}
-        </div>
-
-        <div style={styles.measureRow}>
-          <button
-            onClick={() => set({ measureProblems: !subject.measureProblems })}
-            style={{ ...styles.measureToggle, ...(subject.measureProblems ? styles.measureToggleOn : {}) }}
-          >
-            ✏️ 問題数
-          </button>
-          {subject.measureProblems && (
-            <>
-              <select
-                value={subject.targetProblems ?? 10}
-                onChange={(e) => set({ targetProblems: Number(e.target.value) })}
-                style={styles.measureSelect}
-              >
-                {PROBLEM_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <span style={styles.measureUnit}>問</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div style={styles.freqRow}>
-        {[
-          { k: "daily", label: "毎日" },
-          { k: "interval", label: "〇日に1回" },
-          { k: "weekday", label: "曜日を選ぶ" },
-        ].map((f) => (
-          <button
-            key={f.k}
-            onClick={() => set({ freqType: f.k })}
-            style={{
-              ...styles.freqBtn,
-              background: subject.freqType === f.k ? "#14588C" : "#fff",
-              color: subject.freqType === f.k ? "#fff" : "#14588C",
-            }}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {subject.freqType === "interval" && (
-        <div style={styles.intervalRow}>
-          <input
-            type="number"
-            min={1}
-            max={14}
-            value={subject.intervalDays || 2}
-            onChange={(e) => set({ intervalDays: Math.max(1, Number(e.target.value) || 1) })}
-            style={styles.intervalInput}
-          />
-          <span style={{ fontSize: 13, color: "#4a6c85", fontWeight: 700 }}>日に1回のペース</span>
-        </div>
-      )}
-
-      {subject.freqType === "weekday" && (
-        <div style={styles.weekdayPicker}>
-          {DAY_LABELS.map((label, i) => {
-            const on = (subject.weekdays || []).includes(i);
+            </div>
+          );
+          if (f.type === "textarea") return (
+            <div key={f.key}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+              <textarea style={{ ...S.input, minHeight: 80, resize: "vertical" }} value={form[f.key] || ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+            </div>
+          );
+          if (f.type === "timerange") {
+            const raw = form[f.key] || "";
+            const parts = raw.split(/[〜～~]/);
+            const start = (parts[0] || "").trim();
+            const end = (parts[1] || "").trim();
+            const combine = (s, e) => (!s && !e) ? "" : `${s}〜${e}`;
             return (
-              <button
-                key={i}
-                onClick={() => toggleWeekday(i)}
-                style={{
-                  ...styles.weekdayToggle,
-                  background: on ? subject.color : "#fff",
-                  borderColor: subject.color,
-                  fontWeight: on ? 900 : 600,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SetupScreen({ initial, onSave, onCancel, hasExisting, onRequestDelete, focusSubjectId }) {
-  const [title, setTitle] = useState(initial.title || "");
-  const [theme, setTheme] = useState(initial.theme || "girl");
-  const [startDate, setStartDate] = useState(initial.startDate || todayStr());
-  const [endDate, setEndDate] = useState(initial.endDate || defaultEndDateFor(initial.startDate || todayStr()));
-  const [pin, setPin] = useState(initial.pin || "");
-  const [reward, setReward] = useState(initial.reward || "");
-  const initialPalette = getTheme(initial.theme || "girl").palette;
-  const [subjects, setSubjects] = useState(
-    initial.subjects && initial.subjects.length ? initial.subjects : [DEFAULT_SUBJECT(initialPalette)]
-  );
-
-  const palette = getTheme(theme).palette;
-  const themeObj = getTheme(theme);
-
-  useEffect(() => {
-    if (!focusSubjectId) return;
-    const t = setTimeout(() => {
-      const el = document.getElementById(`subject-card-${focusSubjectId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
-    return () => clearTimeout(t);
-  }, [focusSubjectId]);
-
-  const [profileId, setProfileId] = useState(initial.profileId || "");
-  const [profileName, setProfileName] = useState("");
-  const [linkName, setLinkName] = useState("");
-  const [linkBirthdate, setLinkBirthdate] = useState("2015-01-01");
-  const [linkStatus, setLinkStatus] = useState("idle"); // idle | searching | notfound
-
-  useEffect(() => {
-    if (!profileId) {
-      setProfileName("");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase.from("profiles").select("blob").eq("id", profileId).maybeSingle();
-        if (!cancelled && data && data.blob) setProfileName(data.blob.name || "");
-      } catch (e) {}
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId]);
-
-  async function handleLinkProfile() {
-    const name = linkName.trim();
-    if (!name) return;
-    setLinkStatus("searching");
-    try {
-      let query = supabase.from("profiles").select("id, blob").eq("blob->>name", name);
-      if (linkBirthdate) query = query.eq("blob->>birthdate", linkBirthdate);
-      const { data, error } = await query;
-      if (error || !data || data.length === 0) {
-        setLinkStatus("notfound");
-        return;
-      }
-      setProfileId(data[0].id);
-      setProfileName((data[0].blob && data[0].blob.name) || "");
-      setLinkName("");
-      setLinkBirthdate("");
-      setLinkStatus("idle");
-    } catch (e) {
-      setLinkStatus("notfound");
-    }
-  }
-
-  function handleUnlinkProfile() {
-    setProfileId("");
-    setProfileName("");
-  }
-
-  function addSubject() {
-    setSubjects((prev) => [
-      ...prev,
-      { ...DEFAULT_SUBJECT(), color: palette[prev.length % palette.length].hex },
-    ]);
-  }
-
-  function updateSubject(id, next) {
-    setSubjects((prev) => prev.map((s) => (s.id === id ? next : s)));
-  }
-
-  function removeSubject(id) {
-    setSubjects((prev) => (prev.length > 1 ? prev.filter((s) => s.id !== id) : prev));
-  }
-
-  const [pendingLowCardSave, setPendingLowCardSave] = useState(null); // payload awaiting confirmation, or null
-
-  function handleSave() {
-    const t = title.trim() || "がんばりスケジュール";
-    const cleanSubjects = subjects.filter((s) => s.name.trim().length > 0).map((s) => ({ ...s, name: s.name.trim() }));
-    if (cleanSubjects.length === 0) return;
-    let sd = startDate,
-      ed = endDate;
-    if (parseDate(ed) < parseDate(sd)) ed = sd;
-    const payload = {
-      ...(initial.mascotVariant ? { mascotVariant: initial.mascotVariant } : {}),
-      ...(initial.awardedCard ? { awardedCard: initial.awardedCard } : {}),
-      title: t,
-      theme,
-      startDate: sd,
-      endDate: ed,
-      subjects: cleanSubjects,
-      pin: pin.trim(),
-      reward: reward.trim(),
-      ...(profileId ? { profileId } : {}),
-    };
-
-    if (!hasExisting) {
-      // Only warn on brand-new schedules — someone editing an existing one
-      // has already made this choice once.
-      const days = Math.round((parseDate(ed).getTime() - parseDate(sd).getTime()) / 86400000) + 1;
-      const totalStamps = computeOverallStats({ subjects: cleanSubjects, startDate: sd, endDate: ed }, {}).need;
-      if (days < 30 || totalStamps <= 50) {
-        setPendingLowCardSave(payload);
-        return;
-      }
-    }
-    onSave(payload);
-  }
-
-  return (
-    <div style={{ ...styles.setupWrap, background: themeObj.bg, position: "relative", overflow: "hidden" }}>
-      {themeObj.isMapTheme && <MapDoodles />}
-      <div style={{ ...styles.setupCard, position: "relative", zIndex: 1 }}>
-        {onCancel && (
-          <button onClick={onCancel} style={styles.backBtn}>
-            <ArrowLeft size={20} /> もどる
-          </button>
-        )}
-        <h1
-          style={{
-            ...styles.setupHeading,
-            fontFamily: themeObj.headingFont,
-            color: themeObj.headingColor,
-            textShadow: themeObj.headingShadow,
-          }}
-        >
-          {hasExisting ? "スケジュールを編集する" : "スケジュールを作ろう"}
-        </h1>
-        <p style={styles.setupSub}>誰の、何を頑張るスケジュールか、名前をつけてね</p>
-
-        {profileId ? (
-          <div style={styles.profileLinkedBanner}>
-            <span>🌟 {profileName || "スタンプ帳"} のスタンプ帳と連携しています</span>
-            <button onClick={handleUnlinkProfile} style={styles.profileUnlinkBtn}>
-              連携を外す
-            </button>
-          </div>
-        ) : (
-          <div style={styles.profileLinkBox}>
-            <div style={styles.profileLinkLabel}>🌟 スタンプ帳と連携する（任意）</div>
-            <div style={styles.profileLinkRow}>
-              <input
-                value={linkName}
-                onChange={(e) => {
-                  setLinkName(e.target.value);
-                  setLinkStatus("idle");
-                }}
-                placeholder="なまえ"
-                style={styles.profileLinkInput}
-              />
-              <BirthdateSelects
-                value={linkBirthdate}
-                onChange={(v) => {
-                  setLinkBirthdate(v);
-                  setLinkStatus("idle");
-                }}
-              />
-              <button
-                onClick={handleLinkProfile}
-                disabled={!linkName.trim() || linkStatus === "searching"}
-                style={{ ...styles.profileLinkBtn, opacity: linkName.trim() ? 1 : 0.5 }}
-              >
-                {linkStatus === "searching" ? "…" : "連携する"}
-              </button>
-            </div>
-            {linkStatus === "notfound" && <p style={styles.profileLinkError}>見つかりませんでした。</p>}
-          </div>
-        )}
-
-        <label style={styles.label}>タイトル</label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="例）祐太郎9月のチャレンジ"
-          style={styles.input}
-        />
-
-        <label style={{ ...styles.label, marginTop: 20 }}>期間（いつから、いつまで）</label>
-        <div style={styles.dateRow}>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => {
-              const newStart = e.target.value;
-              setStartDate(newStart);
-              // Only for a brand-new schedule — editing an existing one
-              // shouldn't silently overwrite an end date someone already
-              // chose on purpose.
-              if (!hasExisting) setEndDate(defaultEndDateFor(newStart));
-            }}
-            style={styles.dateInput}
-          />
-          <span style={{ color: "#4a6c85", fontWeight: 700 }}>〜</span>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.dateInput} />
-        </div>
-        {!hasExisting && (
-          <div style={{ fontSize: 12, color: "#7c98aa", marginTop: -12, marginBottom: 4 }}>
-            ※終了日は開始日の1か月後の前日を自動で入れています。変えたい場合は直接選んでください。
-          </div>
-        )}
-
-        <label style={{ ...styles.label, marginTop: 20 }}>🎁 全部達成したときのご褒美（任意）</label>
-        <input
-          value={reward}
-          onChange={(e) => setReward(e.target.value)}
-          placeholder="例）焼肉を食べに行く！／お小遣いをもらう！"
-          style={styles.input}
-        />
-        <p style={styles.tinyNote}>期間の最後まで、すべてのやることを達成したときにお祝いのメッセージとして表示されます。</p>
-
-        <label style={{ ...styles.label, marginTop: 20 }}>やること（教科・習い事）</label>
-        <div style={styles.subjList}>
-          {subjects.map((s) => (
-            <SubjectCard
-              key={s.id}
-              subject={s}
-              onChange={(next) => updateSubject(s.id, next)}
-              onRemove={() => removeSubject(s.id)}
-              canRemove={subjects.length > 1}
-              palette={palette}
-              isMapTheme={themeObj.isMapTheme}
-              isFocused={s.id === focusSubjectId}
-            />
-          ))}
-        </div>
-        <button style={styles.addBtn} onClick={addSubject}>
-          <Plus size={20} /> やることを追加
-        </button>
-
-        <button style={styles.saveBtn} onClick={handleSave}>
-          このスケジュールで始める
-        </button>
-
-        {onRequestDelete && (
-          <button style={styles.deleteScheduleBtn} onClick={onRequestDelete}>
-            🗑 このスケジュールを削除する
-          </button>
-        )}
-      </div>
-      {pendingLowCardSave && (
-        <ConfirmModal
-          title="ファミリアカードがもらえないかも"
-          message="スケジュールが30日未満、若しくは獲得スタンプ数が50個以下だと完了した時ファミリアカードが貰えないよ。それでもスケジュール帳作る？"
-          confirmLabel="作る"
-          cancelLabel="編集にもどる"
-          onConfirm={() => {
-            onSave(pendingLowCardSave);
-            setPendingLowCardSave(null);
-          }}
-          onCancel={() => setPendingLowCardSave(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------------- Main Screen ---------------- */
-
-function MainScreen({
-  config,
-  completions,
-  startDate,
-  endDate,
-  todayKey,
-  locked,
-  onLockToggle,
-  onTapStamp,
-  onClearStamp,
-  onToggleFunStamp,
-  onTogglePastStamp,
-  onClearPastStamp,
-  daySubjectsFor,
-  isStamped,
-  countFor,
-  funStampFor,
-  missedBacklog,
-  onOpenSettings,
-  onEditSubject,
-  onRequestDelete,
-  stats,
-  todayStats,
-  streak,
-  notes,
-  achievements,
-  onOpenNote,
-  onOpenRecords,
-  linkedProfile,
-}) {
-  const pct = stats.need > 0 ? Math.min(100, Math.round((stats.done / stats.need) * 100)) : 0;
-  const pearlCount = 10;
-  const filledPearls = stats.need > 0 ? Math.min(pearlCount, Math.round((stats.done / stats.need) * pearlCount)) : 0;
-
-  const todayPct = todayStats.need > 0 ? Math.round((todayStats.done / todayStats.need) * 100) : 0;
-  const mascotMsg =
-    todayStats.need === 0
-      ? "今日はお休みの日だよ〜"
-      : todayStats.done === 0
-      ? "今日も一緒に頑張ろう！"
-      : todayStats.done < todayStats.need
-      ? "いい調子！あと少し！"
-      : "今日もパーフェクト！すごいね！";
-
-  // Build a Monday-to-Sunday grid covering the whole schedule period, like a
-  // desk calendar: padded at both ends so every row is a full week.
-  const gridStart = getMonday(startDate);
-  const trailing = (6 - dayIndexMon0(endDate) + 7) % 7;
-  const gridEnd = addDays(endDate, trailing);
-  const allCells = [];
-  for (let d = new Date(gridStart); d.getTime() <= gridEnd.getTime(); d = addDays(d, 1)) allCells.push(d);
-
-  const subjects = config.subjects;
-  const theme = getTheme(config.theme);
-
-  const todayCellRef = useRef(null);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (todayCellRef.current) {
-        todayCellRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-    }, 250);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <div
-      style={{
-        ...styles.mainWrap,
-        background: theme.bg,
-        ...(theme.isMapTheme
-          ? {
-              border: "10px solid #3E2A16",
-              boxShadow: "inset 0 0 0 4px #C89B3C, inset 0 0 0 6px #3E2A16",
-              borderRadius: 18,
-            }
-          : {}),
-      }}
-    >
-      {theme.isMapTheme && <MapDoodles />}
-      <CornerDecor theme={theme.key} />
-      <header style={styles.header}>
-        <div style={styles.headerTop}>
-          <div style={styles.titleBanner}>
-            <span
-              style={{
-                ...styles.titleText,
-                fontFamily: theme.headingFont,
-                color: theme.headingColor,
-                textShadow: theme.headingShadow,
-              }}
-            >
-              {config.title}
-            </span>
-          </div>
-          <div style={styles.headerBtns}>
-            <button style={styles.iconBtn} onClick={onLockToggle} title={locked ? "保護者用に開ける" : "ロックする"}>
-              {locked ? <Lock size={22} /> : <Unlock size={22} />}
-            </button>
-            <button style={styles.iconBtn} onClick={onOpenSettings} title="設定">
-              <Settings size={22} />
-            </button>
-          </div>
-        </div>
-        <div style={styles.editDeleteRow}>
-          <button
-            style={{
-              ...styles.editBtnSmall,
-              background: theme.overlayBg,
-              borderColor: theme.headerTextColor,
-              color: theme.headerTextColor,
-            }}
-            onClick={onOpenRecords}
-          >
-            📋 記録を見る
-          </button>
-          <button
-            style={{
-              ...styles.editBtnSmall,
-              background: theme.overlayBg,
-              borderColor: theme.headerTextColor,
-              color: theme.headerTextColor,
-            }}
-            onClick={onOpenSettings}
-          >
-            ✏️ 修正する
-          </button>
-          <button
-            style={{
-              ...styles.deleteBtnSmall,
-              background: theme.overlayBg,
-              borderColor: theme.isMapTheme ? "#B4432F" : "#FBAEBE",
-              color: theme.isMapTheme ? "#B4432F" : theme.headerTextColor,
-            }}
-            onClick={onRequestDelete}
-          >
-            🗑 削除する
-          </button>
-          {linkedProfile && (
-            <a
-              href={`${window.location.pathname}?profile=${config.profileId}`}
-              style={{
-                ...styles.editBtnSmall,
-                background: theme.overlayBg,
-                borderColor: "#F4C95D",
-                color: theme.headerTextColor,
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              🌟 {linkedProfile.name || "スタンプ帳"}へ
-            </a>
-          )}
-        </div>
-        <div style={{ ...styles.lockNote, color: theme.headerTextColor }}>
-          {locked
-            ? "🔒 本スタンプは保護者の方がロックを開けてから押せます"
-            : "🔓 本スタンプが押せます。過去の押し忘れもタップで記録できます（3分後に自動ロック）"}
-        </div>
-
-        <div style={styles.mascotRow}>
-          <div
-            style={{
-              ...styles.mascotFace,
-              background: theme.isMapTheme ? "linear-gradient(160deg,#3E2A16,#1E1409)" : "#fff",
-              boxShadow: theme.isMapTheme ? "0 0 0 3px #C89B3C, 0 6px 14px rgba(0,0,0,0.5)" : styles.mascotFace.boxShadow,
-              overflow: "hidden",
-            }}
-          >
-            {theme.isMapTheme ? (
-              <img src="/dragon-icon.png" alt="ドラゴン" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <StampIcon index={theme.mascotIconIndex} color={theme.mascotBg} size={40} shapes={theme.shapes} withFace={theme.withFace} />
-            )}
-          </div>
-          <div style={styles.mascotBubbleWrap}>
-            <div style={styles.mascotBubble}>{mascotMsg}</div>
-            <div style={styles.todayProgressLine}>
-              <span style={{ ...styles.todayProgressNum, color: theme.headerTextColor, textShadow: theme.isMapTheme ? "none" : styles.todayProgressNum.textShadow }}>
-                今日 {todayStats.done}／{todayStats.need}
-              </span>
-              {streak > 0 && <span style={styles.streakBadge}>🔥 連続{streak}日</span>}
-            </div>
-            {todayStats.need > 0 && (
-              <div style={styles.todayBarTrack}>
-                <div style={{ ...styles.todayBarFill, width: `${todayPct}%`, background: theme.accentGradient }} />
-              </div>
-            )}
-          </div>
-          <GrowthMascotArt theme={theme.key} pct={pct} variantKey={config.mascotVariant} mascotName={config.mascotName} />
-        </div>
-
-        <div style={{ ...styles.necklaceRow, background: theme.overlayBg }}>
-          {Array.from({ length: pearlCount }).map((_, i) =>
-            theme.isMapTheme ? (
-              <TreasureChestMini key={i} filled={i < filledPearls} />
-            ) : (
-              <span
-                key={i}
-                style={{
-                  ...styles.pearl,
-                  background: i < filledPearls ? "radial-gradient(circle at 35% 30%, #fff, #F4C95D 70%)" : "#ffffff55",
-                  boxShadow: i < filledPearls ? "0 0 8px #F4C95Daa" : "none",
-                }}
-              />
-            )
-          )}
-          <span style={{ ...styles.pearlPct, color: theme.headerTextColor }}>{pct}%（期間全体）</span>
-        </div>
-
-        {config.reward && (
-          <div
-            style={{
-              ...styles.rewardPreview,
-              background: theme.overlayBg,
-              color: theme.headerTextColor,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <span>
-              🎁 全部達成すると… <strong>{config.reward}</strong>
-            </span>
-            <span style={{ fontSize: 12.5, fontWeight: 800, whiteSpace: "nowrap", opacity: 0.9 }}>
-              {stats.done}／{stats.need}個
-            </span>
-          </div>
-        )}
-      </header>
-
-      <div style={styles.subjectSummaryRow}>
-        {subjects.map((s, idx) => {
-          const backlog = missedBacklog(s);
-          return (
-            <button
-              key={s.id}
-              onClick={() => onEditSubject(s.id)}
-              style={{
-                ...styles.subjectSpotlight,
-                background: `linear-gradient(135deg, ${s.color}, #ffffff)`,
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                textAlign: "left",
-              }}
-            >
-              <div style={{ ...styles.subjectSpotlightIcon, background: s.color }}>
-                <StampIcon
-                  index={taskIconIndex(idx, theme.isMapTheme, theme.shapes.length)}
-                  color="#ffffff"
-                  size="60%"
-                  shapes={theme.shapes}
-                  withFace={theme.withFace}
-                />
-              </div>
-              <div style={styles.subjectSpotlightTextWrap}>
-                <div style={styles.subjectSpotlightName}>{s.name}</div>
-                <div style={styles.subjectSpotlightDuration}>
-                  {describeTargets(s).join(" ") || "目標未設定"}
+              <div key={f.key}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="time" style={{ ...S.input, flex: 1, minWidth: 0 }} value={start}
+                    onChange={(e) => setForm({ ...form, [f.key]: combine(e.target.value, end) })} />
+                  <span style={{ fontWeight: 800, color: C.textMuted, flexShrink: 0 }}>〜</span>
+                  <input type="time" style={{ ...S.input, flex: 1, minWidth: 0 }} value={end}
+                    onChange={(e) => setForm({ ...form, [f.key]: combine(start, e.target.value) })} />
                 </div>
-                <div style={styles.subjectSpotlightFreq}>📅 {describeFrequency(s)}</div>
               </div>
-              {backlog > 0 && <span style={styles.backlogBadgeBig}>🔁 残り{backlog}</span>}
-            </button>
+            );
+          }
+          return (
+            <div key={f.key}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>{f.label}</label>
+              <input style={S.input} type={f.type || "text"} value={form[f.key] ?? ""} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+            </div>
           );
         })}
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btn("primary"), flex: 2 }} onClick={() => onSave(form)}>保存する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── IMPORTANT & RULES ──
+function ImportantPage({ onClose }) {
+  return (
+    <DocViewer title="Hapons 重要事項" onClose={onClose}>
+      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>2026年1月28日　Manila Hapons 幹事会／第三版　2026年2月24日</div>
+      <DocSection num="１" title="MJSグラウンド利用開始の経緯">
+        <p style={{ margin: "0 0 10px", fontSize: 13, lineHeight: 1.8 }}>MJSグラウンドは従来、MJSの放課後倶楽部に限られていましたが、2023〜2024年に当時の幹事・赤星さん、小野さんが度重なる陳情と交渉を行い、日本人同好会としての利用が認められました。</p>
+        <Item><Bold>利用開始日：</Bold>2024年4月7日（日）15:00〜17:00</Item>
+        <Item><Bold>部員資格：</Bold>日本人会会員であることが求められます</Item>
+      </DocSection>
+      <DocSection num="２" title="利用可能施設">
+        <Item>MJS グラウンド</Item><Item>第二体育館</Item><Item>第二体育館隣接お手洗い</Item>
+        <div style={{ marginTop: 8, padding: "6px 10px", background: "#FFF3F3", borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 700 }}>⚠ 対象施設以外への立ち入りは禁止</div>
+      </DocSection>
+      <DocSection num="３" title="MJSグラウンド利用ルール">
+        <Item>MJSグラウンドを利用できるのは<Bold>Manila Hapons且つ日本人会会員</Bold>に限ります</Item>
+        <Item>優先順位：学校行事 → 放課後倶楽部 → 郊外部活動</Item>
+        <Item>第二体育館ではラグビー以外の行為は原則禁止</Item>
+        <Item><Bold>MJS SCHOOL ID の取得必須</Bold></Item>
+        <Item>駐車する場合は<Bold>CAR STICKER の取得必須</Bold></Item>
+        <Item>雨天時は第二体育館が空いている場合に限り使用可（スパイク不可）</Item>
+        <Item>敷地内での飲食・喫煙禁止（水分補給を除く）</Item>
+      </DocSection>
+      <DocSection num="４" title="施設使用料">
+        <Item><Bold>グラウンド：</Bold>P1,000／時間</Item>
+        <Item><Bold>第二体育館：</Bold>P500／時間＋照明P200／時間</Item>
+      </DocSection>
+      <DocSection num="５" title="部費・練習参加費">
+        <Item><Bold>大人：</Bold>P1,000／月（毎月25日〜月末払）</Item>
+        <div style={{ margin: "4px 0 8px 12px", padding: "8px 12px", background: C.sakuraLight, borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>振込先：BDO Unibank<br />Manila Hapons <Bold>0000 4121 9449</Bold><br />または会計担当に手渡し・GCash</div>
+        <Item><Bold>子供：</Bold>P100／回（兄弟参加の場合は1人分でOK）</Item>
+        <Item><Bold>特別練習：</Bold>P100／回・人（兄弟参加の場合は人数×P100）</Item>
+      </DocSection>
+      <DocSection num="６" title="活動停止・退部勧告">
+        <Item>MJS施設利用に関する規則の重大な違反</Item>
+        <Item>特段の理由・連絡なく活動に参加しない</Item>
+        <Item>他の部員や関係者への迷惑行為</Item>
+        <Item>部費の支払いや必要書類の提出を継続的に怠った場合</Item>
+        <Item>LINEグループから自主退出した者、または連絡なく2か月以上不参加かつ部費滞納者は自動的に部員名簿から削除</Item>
+      </DocSection>
+      <DocSection num="７" title="提出書類">
+        <div style={{ fontWeight: 800, color: C.primary, marginBottom: 6 }}>① 部員 → Manila Hapons幹事会</div>
+        <Item>入部届兼誓約書</Item><Item>参加同意書（WAIVER）（Jrのみ）</Item>
+        <div style={{ fontWeight: 800, color: C.primary, margin: "10px 0 6px" }}>② 部員 → MJS</div>
+        <Item>MJSパス＆スティッカー申請書 → a.lecias@mjs.ph へメール<br /><span style={{ fontSize: 12, color: C.textMuted }}>Club Name：Manila Hapons　Rep：赤星敦（Akahoshi Atsushi）</span></Item>
+        <Item>ID SCHOOL PASS申請書（毎年4月〜翌年3月更新）</Item>
+        <Item>Car Sticker（毎年4月〜翌年3月更新）</Item>
+      </DocSection>
+      <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16 }}>ご不明な点は赤星・栗生までお問い合わせください</div>
+    </DocViewer>
+  );
+}
+
+function RulesPage({ onClose }) {
+  return (
+    <DocViewer title="Rules & Guidelines" onClose={onClose}>
+      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>Manila Hapons Rules and Guidelines／施行日：2026年4月1日　初版</div>
+      <DocSection num="１" title="目的（Purpose）">本ルールは、Manila HaponsにおいてJr・大人・保護者を含むすべての関係者が、安全で互いを尊重し、ラグビーを楽しめる環境を維持することを目的とする。</DocSection>
+      <DocSection num="２" title="適用範囲">
+        <Item>「本チーム」とはManila Haponsをいう</Item>
+        <Item>選手（Jr・大人）、指導者、運営スタッフ、保護者・見学者を含むすべての関係者に適用</Item>
+      </DocSection>
+      <DocSection num="３" title="基本方針（Team Principles）">
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10, lineHeight: 1.8 }}>
+          本チームは「ラグビーを楽しむこと」はもちろん、子どもと大人の交流、ラグビーの普及・継承を基本方針としています。
+        </div>
+        <Bold>3.1 チームの方向性</Bold>
+        <Item>本チームは特にJrチームは「ラグビーを楽しむこと」を基本方針とする</Item>
+        <Item>運動そのものを楽しむこと、ならびにラグビーに親しむことを最優先とし、競技力や勝敗の追求はこれを妨げない範囲で行うものとする</Item>
+        <Item>より高いレベルでの技術・競技力の向上を目指すメンバーについては、その意欲を尊重しつつ、必要に応じてローカルのラグビーチーム等の活用を推奨する</Item>
+        <Item>本チームは、Jr世代へラグビーの楽しさを広げ、次世代へのラグビー文化の継承及び育成に取り組むことを大切にする。チームに関わるすべての者が自らラグビーを楽しむとともに、次世代へラグビーを繋いでいく活動を尊重する</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.2 成長意欲への配慮</Bold></div>
+        <Item>本チームは、「楽しみたい」という想いと「強くなりたい」という想いの双方が存在することを理解し、これを尊重する</Item>
+        <Item>競技力向上を志向する姿勢を否定することなく、まずはラグビーに触れ、ラグビーを好きになる機会を提供することを重視する</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.3 チームとしての目標</Bold></div>
+        <Item>本チームは、個人及びチームとして達成感を共有できる組織となることを目指す</Item>
+        <div style={{ marginTop: 8 }}><Bold>3.4 行動原則</Bold></div>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6, lineHeight: 1.6 }}>チームに関わる全ての者は、以下の行動原則を共有し、実践するものとする。</div>
+        {["関係者すべてに対し、感謝と敬意をもって接すること", "地域及び他チームとの交流を大切にし、積極的に関係を築くこと", "挨拶を大きな声で行うこと", "仲間を大切にし、互いを尊重すること", "良いプレーや前向きな行動に対して、積極的に声をかけること", "何よりも、ラグビーを楽しむこと"].map((item, i) => <Item key={i}>{i + 1}. {item}</Item>)}
+      </DocSection>
+      <DocSection num="４" title="運営体制・役割">
+        {[{ role: "部長", desc: "クラブ方針・日本人学校対応・毎月の施設使用願い等" }, { role: "キャプテン", desc: "練習開催・中止連絡、コーチ・練習リード（大人）" }, { role: "副キャプテン", desc: "キャプテンサポート・試合リード（大人）" }, { role: "ジュニアコーチ", desc: "開催・中止連絡、コーチ、Jr対外試合調整" }, { role: "主務", desc: "幹事会招集・イベント設定・メンバー名簿管理" }, { role: "会計", desc: "部費徴収・グラウンド代支払・入出金管理" }, { role: "広報", desc: "日本人会・SNS・Facebook・新入部員獲得活動" }, { role: "渉外・対外", desc: "日本人会対応・対外試合・AJRC調整" }, { role: "備品", desc: "倉庫管理・備品確認・ユニフォーム管理" }, { role: "保護者窓口", desc: "議事共有・名簿管理・新入部員受け入れ対応" }].map((r) => (
+          <div key={r.role} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+            <span style={{ ...S.badge(C.primary), flexShrink: 0, marginTop: 2 }}>{r.role}</span>
+            <span style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>{r.desc}</span>
+          </div>
+        ))}
+      </DocSection>
+      <DocSection num="５〜１１" title="会計・運営ルール・禁止事項">
+        <Item><Bold>大人部費：</Bold>月額1,000ペソ</Item>
+        <Item><Bold>Jr参加費：</Bold>100ペソ／回</Item>
+        <Item><Bold>部員資格：</Bold>国籍を問わず、日本人会に入会している者</Item>
+        <Item>暴力・ハラスメント・差別的言動は禁止</Item>
+        <Item>政治活動・宗教活動・営利目的の活動禁止</Item>
+        <Item><Bold>施行日：</Bold>2026年4月1日</Item>
+      </DocSection>
+
+      <a href="https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block", marginTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 16px", background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, borderRadius: 12, cursor: "pointer" }}>
+          <span style={{ fontSize: 18 }}>📄</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>全文はこちら（PDF）</span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>↗</span>
+        </div>
+      </a>
+    </DocViewer>
+  );
+}
+
+// ── LOGIN ──
+function LoginScreen({ onLogin }) {
+  const [id, setId] = useState(""); const [pass, setPass] = useState(""); const [error, setError] = useState("");
+  const handleLogin = () => {
+    if (id === ADMIN_ID && pass === ADMIN_PASS) onLogin("admin");
+    else if (id === MEMBER_ID && pass === MEMBER_PASS) onLogin("member");
+    else { setError("IDまたはパスワードが正しくありません"); setPass(""); }
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 60%, #5A0000 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Noto Sans JP', sans-serif" }}>
+      <div style={{ textAlign: "center", marginBottom: 32 }}><img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 180, height: "auto", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} /></div>
+      <div style={{ background: C.card, borderRadius: 24, padding: "32px 28px", width: "100%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+        <h2 style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: "0 0 20px", textAlign: "center" }}>ログイン</h2>
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>ID</label>
+        <input style={S.input} placeholder="IDを入力" value={id} onChange={(e) => setId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
+        <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 12px", fontWeight: 600 }}>⚠ {error}</p>}
+        <button style={{ ...S.btn("primary"), width: "100%", padding: "12px", fontSize: 15, marginTop: 12, borderRadius: 12 }} onClick={handleLogin}>ログイン</button>
+        <p style={{ fontSize: 11, color: C.textMuted, textAlign: "center", marginTop: 16, marginBottom: 0, lineHeight: 1.6 }}>IDとパスワードはコーチにお問い合わせください</p>
+      </div>
+      <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 32 }}>© 2026 Manila Hapons Rugby</p>
+    </div>
+  );
+}
+
+function AdminLoginModal({ onLogin, onClose }) {
+  const [id, setId] = useState(""); const [pass, setPass] = useState(""); const [error, setError] = useState("");
+  const handleLogin = () => { if (id === ADMIN_ID && pass === ADMIN_PASS) onLogin(); else { setError("IDまたはパスワードが正しくありません"); setPass(""); } };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}><div style={{ fontSize: 32, marginBottom: 6 }}>🔐</div><h2 style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: 0 }}>管理者ログイン</h2></div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>管理者ID</label>
+        <input style={S.input} placeholder="IDを入力" value={id} onChange={(e) => setId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>パスワード</label>
+        <input style={{ ...S.input, marginBottom: 4 }} type="password" placeholder="パスワードを入力" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
+        {error && <p style={{ fontSize: 12, color: C.danger, margin: "4px 0 10px", fontWeight: 600 }}>⚠ {error}</p>}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={onClose}>キャンセル</button>
+          <button style={{ ...S.btn("primary"), flex: 2 }} onClick={handleLogin}>ログイン</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 入部書類ページ ──
+function EntryFormsPage({ onClose }) {
+  return (
+    <DocViewer title="入部書類" onClose={onClose}>
+      <div style={{ background: C.jrLight, border: `1px solid ${C.jr}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.jr, marginBottom: 10 }}>📌 提出方法</div>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.9 }}>
+          下記より書類をダウンロードし、必要事項を記入・署名の上、以下の方法で提出してください。
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, lineHeight: 2 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 6 }}>
+            <span style={{ ...S.badge(C.jr), flexShrink: 0, marginTop: 2 }}>①</span>
+            <span>記入後の書類を<strong>写真または画像</strong>で撮影し、<br /><a href="mailto:manilahapons10@gmail.com" style={{ color: C.jr, fontWeight: 800 }}>manilahapons10@gmail.com</a> へメールで送付</span>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ ...S.badge(C.jr), flexShrink: 0, marginTop: 2 }}>②</span>
+            <span><strong>原本</strong>は主務または保護者担当に直接提出</span>
+          </div>
+        </div>
       </div>
 
-      <div style={styles.calendarLegendRow}>
-        <span style={styles.calendarLegendItem}>
-          <span style={{ ...styles.legendDot, background: "#14588C" }} /> 本スタンプ（今日だけ）
-        </span>
-        <span style={styles.calendarLegendItem}>
-          <span style={{ ...styles.legendDot, background: "#BFE3F0" }} /> 仮スタンプ（練習用）
-        </span>
+      {/* 入部届兼誓約書 */}
+      <div style={{ ...S.card, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>入部届兼誓約書</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>大人・Jr共通</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+          入部にあたり、クラブの規則・ルールに同意する旨を記入・署名して提出してください。大人・Jr問わず全員が対象です。
+        </div>
+        <a href="https://drive.google.com/file/d/1imsUFwo4HHP_mjItKJ76kfCNqpi2Hcqy/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
       </div>
 
-      <div style={styles.calendarPanel}>
-        <p style={styles.tableHint}>💡 今日のマスは「本スタンプ」。他の日は自由に「仮スタンプ」で練習できるよ！</p>
-        <div style={styles.calendarGrid}>
-          {DAY_LABELS.map((label, i) =>
-            theme.isMapTheme ? (
-              <WeekdayShield key={`dow-${i}`} label={label} color={BOY_PALETTE[i % BOY_PALETTE.length].hex} iconIndex={(i % 7) + 1} shapes={theme.shapes} />
-            ) : (
-              <div key={`dow-${i}`} style={styles.weekdayHeadCell}>
-                {label}
+      {/* 参加同意書 */}
+      <div style={S.card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>参加同意書（WAIVER）</div>
+            <div style={{ ...S.badge(C.jr), fontSize: 11 }}>Jr のみ</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+          Jrメンバーの入部には、保護者による参加同意書（WAIVER）の提出が必要です。怪我・SNS等に関する同意書となります。保護者が記入・署名してください。
+        </div>
+        <a href="https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
+      </div>
+    </DocViewer>
+  );
+}
+
+// ── MJSパス＆スティッカーページ ──
+function MJSPassPage({ onClose }) {
+  return (
+    <DocViewer title="MJSパス＆スティッカー申請" onClose={onClose}>
+      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.primary, marginBottom: 8 }}>📌 申請について</div>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.9 }}>
+          MJS（マニラ日本人学校）のグラウンドを利用するには、<strong>SCHOOL ID</strong>および<strong>CAR STICKER</strong>の取得が必要です。毎年3月中旬を目途に更新申請を行ってください。
+        </div>
+      </div>
+
+      {/* 申請手順 */}
+      <div style={{ ...S.card, marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 12 }}>申請手順</div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>1</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            下記より<strong>申請書をダウンロード</strong>し、必要事項を記入する
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>2</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            記入した申請書を<strong>部長（赤星敦）に提出</strong>し、承認サインをもらう
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>3</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+            部長承認済みの申請書を添付の上、以下の内容でMJSへメール送信：<br />
+            <div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", marginTop: 8, border: `1px solid ${C.border}` }}>
+              <div style={{ marginBottom: 4 }}>📧 送付先：<a href="mailto:a.lecias@mjs.ph" style={{ color: C.primary, fontWeight: 800 }}>a.lecias@mjs.ph</a></div>
+              <div style={{ marginBottom: 4 }}>📝 メール本文に以下を記載：</div>
+              <div style={{ paddingLeft: 12, color: C.textMuted }}>
+                Club Name：<strong style={{ color: C.text }}>Manila Hapons</strong><br />
+                Club Representative：<strong style={{ color: C.text }}>赤星敦（Akahoshi Atsushi）</strong>
               </div>
-            )
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 注意事項 */}
+      <div style={{ background: "#FFF3F3", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.danger, lineHeight: 1.8 }}>
+        ⚠ <strong>SCHOOL IDを取得していないメンバー及び帯同者（未就学児除く）は入校不可</strong>となります。また、校内・正面玄関前路側帯に駐車する場合はCAR STICKERの取得が必須です。
+      </div>
+
+      {/* ダウンロード */}
+      <div style={S.card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>MJSパス＆スティッカー申請書</div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>有効期限：4月〜翌年3月（毎年更新）</div>
+          </div>
+        </div>
+        <a href="https://drive.google.com/file/d/1FK-pkBr5RimIT-eFjjBtu1ryNk9-8W3A/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.primary, borderRadius: 10, cursor: "pointer" }}>
+            <span style={{ fontSize: 16 }}>📥</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
+          </div>
+        </a>
+      </div>
+    </DocViewer>
+  );
+}
+
+// ── 部歌ページ ──
+function ClubSongPage({ onClose }) {
+  return (
+    <DocViewer title="Manila Hapons 部歌" onClose={onClose}>
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", textAlign: "center", padding: "20px 16px", marginBottom: 20 }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "0.06em" }}>Manila Hapons 部歌</div>
+      </div>
+
+      <div style={{ ...S.card, padding: "24px 20px" }}>
+        <div style={{ fontSize: 15, color: C.text, lineHeight: 2.4 }}>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ ...S.badge(C.primary), fontSize: 11, marginBottom: 8, display: "inline-block" }}>主将リード</span><br />
+            フィリピンの地にのぼる　朝日をあびながら
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ ...S.badge(C.success), fontSize: 11, marginBottom: 8, display: "inline-block" }}>みんなで</span><br />
+            熱い魂と　みなぎる闘志が<br />
+            青い海を越え　戦いに挑んでゆく<br />
+            愛する　ラグビーで　何かをつかむため<br />
+            フィリピノ　フィリピノ　マニラ　ハポン（ズ）<br />
+            フィリピノ　フィリピノ　マニラ　ハポン（ズ）<br />
+            走り抜けろ　オー！<br />
+            飛び込んでみろ　オー！<br />
+            勝利のために　前へ！　HAPONS！
+          </div>
+        </div>
+      </div>
+    </DocViewer>
+  );
+}
+
+// ── 幹事会議事録ページ ──
+function MinutesPage({ onClose, isAdmin }) {
+  const [minutes, setMinutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null); // 編集中のレコード
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      const { data } = await supabase.from("minutes").select("*").order("created_at", { ascending: false });
+      if (data) setMinutes(data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  const addMinutes = async () => {
+    if (!newTitle.trim() || !newUrl.trim()) { alert("タイトルとURLを入力してください"); return; }
+    setSaving(true);
+    const { data, error } = await supabase.from("minutes").insert([{ title: newTitle.trim(), url: newUrl.trim() }]).select();
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) setMinutes([data[0], ...minutes]);
+    setNewTitle(""); setNewUrl(""); setShowAdd(false); setSaving(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editTitle.trim() || !editUrl.trim()) { alert("タイトルとURLを入力してください"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("minutes").update({ title: editTitle.trim(), url: editUrl.trim() }).eq("id", editing.id);
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setMinutes(minutes.map((m) => m.id === editing.id ? { ...m, title: editTitle.trim(), url: editUrl.trim() } : m));
+    setEditing(null); setSaving(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    await supabase.from("minutes").delete().eq("id", id);
+    setMinutes(minutes.filter((m) => m.id !== id));
+  };
+
+  return (
+    <DocViewer title="幹事会議事録" onClose={onClose}>
+      {isAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          {showAdd ? (
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 10 }}>📝 議事録を追加</div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+              <input style={S.input} placeholder="例：2026年度4月度議事録" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+              <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+              <input style={S.input} placeholder="https://drive.google.com/..." value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAdd(false); setNewTitle(""); setNewUrl(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMinutes} disabled={saving}>{saving ? "保存中..." : "追加する"}</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowAdd(true)} style={{ ...S.btn("accent", "sm"), width: "100%" }}>＋ 議事録を追加</button>
           )}
-          {allCells.map((d, i) => {
-            const dKey = dateKey(d);
-            const inRange = isBetween(d, startDate, endDate);
-            const isToday = todayKey === dKey;
-            const dayReq = inRange ? daySubjectsFor(d) : [];
-            const doneCount = dayReq.filter((s) => isStamped(dKey, s.id)).length;
-            const dayComplete = dayReq.length > 0 && doneCount === dayReq.length;
+        </div>
+      )}
 
-            return (
-              <div
-                key={i}
-                ref={isToday ? todayCellRef : null}
-                style={{
-                  ...styles.dayCell,
-                  ...(!inRange ? styles.dayCellDim : {}),
-                  ...(isToday ? styles.dayCellToday : {}),
-                  ...(dayComplete ? styles.dayCellComplete : {}),
-                }}
-              >
-                <div style={styles.dayCellTopRow}>
-                  <span style={styles.dayNum}>{`${d.getMonth() + 1}/${d.getDate()}`}</span>
-                  {isToday && <span style={styles.dayHeadTodayTag}>今日</span>}
-                  {dayComplete && <span style={styles.dayHeadTrophy}>🏆</span>}
-                </div>
-                {inRange && (
-                  <button
-                    onClick={() => onOpenNote(d)}
-                    style={{
-                      ...styles.memoBtn,
-                      ...(theme.isMapTheme
-                        ? {
-                            background: notes[dKey] || achievements[dKey] ? "#F4C95D" : "rgba(139,94,52,0.12)",
-                            border: notes[dKey] || achievements[dKey] ? "1px solid #8B5E34" : "1px dashed #C4A876",
-                            color: notes[dKey] || achievements[dKey] ? "#5C3A21" : "#8B6B47",
-                          }
-                        : notes[dKey]
-                        ? styles.memoBtnFilled
-                        : {}),
-                    }}
-                    aria-label={`${d.getMonth() + 1}月${d.getDate()}日 の メモ`}
-                  >
-                    📝 メモ
+      {loading && <Loading />}
+      {!loading && minutes.length === 0 && (
+        <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13, padding: 24 }}>
+          議事録が登録されていません
+        </div>
+      )}
+      {minutes.map((m) => (
+        <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${C.primary}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <a href={m.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.primary }}>{m.title}</div>
+              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>📄 PDFを開く ↗</div>
+            </a>
+            {isAdmin && (
+              <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+                <button onClick={() => { setEditing(m); setEditTitle(m.title); setEditUrl(m.url); }}
+                  style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>編集</button>
+                <button onClick={() => del(m.id)}
+                  style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>削除</button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* 編集モーダル */}
+      {editing && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>📝 議事録を編集</h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+            <input style={S.input} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditing(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveEdit} disabled={saving}>{saving ? "保存中..." : "保存する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DocViewer>
+  );
+}
+
+// ── DOCS TAB ──
+function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
+  return (
+    <div style={S.content}>
+      <h2 style={S.sectionTitle}>📋 クラブ資料</h2>
+      <div onClick={onOpenImportant} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📌</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Hapons重要事項</div><div style={{ fontSize: 12, color: C.textMuted }}>チームの重要なお知らせ・決まり事</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📋</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>幹事会議事録</div><div style={{ fontSize: 12, color: C.textMuted }}>幹事会の議事録一覧</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenEntryForms} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📝</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>入部書類</div><div style={{ fontSize: 12, color: C.textMuted }}>入部届・参加同意書のダウンロード</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenMJSPass} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏫</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>MJSパス＆スティッカー申請</div><div style={{ fontSize: 12, color: C.textMuted }}>MJS ID・CAR STICKERの申請方法</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenClubSong} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.accent}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.accent + "25", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎵</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>部歌</div><div style={{ fontSize: 12, color: C.textMuted }}>Manila Hapons 部歌の歌詞</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+    </div>
+  );
+}
+
+function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
+  const latest = announcements.slice(0, 3);
+  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+  const [photos, setPhotos] = useState([]);
+  const [currentPhoto, setCurrentPhoto] = useState(null);
+  const [showPhotoManager, setShowPhotoManager] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, []);
+
+  const fetchPhotos = async () => {
+    const { data } = await supabase.storage.from("hapons-photos").list("", { sortBy: { column: "created_at", order: "desc" } });
+    if (data && data.length > 0) {
+      setPhotos(data);
+      const random = data[Math.floor(Math.random() * data.length)];
+      const { data: urlData } = supabase.storage.from("hapons-photos").getPublicUrl(random.name);
+      setCurrentPhoto(urlData.publicUrl);
+    }
+  };
+
+  const uploadPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const fileName = `photo_${Date.now()}_${file.name}`;
+    await supabase.storage.from("hapons-photos").upload(fileName, file);
+    await fetchPhotos();
+    setUploading(false);
+  };
+
+  const deletePhoto = async (name) => {
+    if (!window.confirm("この写真を削除しますか？")) return;
+    await supabase.storage.from("hapons-photos").remove([name]);
+    await fetchPhotos();
+    if (photos.length <= 1) setCurrentPhoto(null);
+  };
+
+  const getPhotoUrl = (name) => {
+    const { data } = supabase.storage.from("hapons-photos").getPublicUrl(name);
+    return data.publicUrl;
+  };
+
+  return (
+    <div style={S.content}>
+      {/* ヘッダーカード（写真 or ロゴ） */}
+      <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16, textAlign: "center", padding: "0", overflow: "hidden", position: "relative" }}>
+        {currentPhoto ? (
+          <img src={currentPhoto} alt="Manila Hapons" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ padding: "20px 16px" }}>
+            <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ width: 130, height: "auto", marginBottom: 10 }} />
+          </div>
+        )}
+        <div style={{ padding: "10px 16px", background: "rgba(0,0,0,0.3)" }}>
+          <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: "0.06em" }}>{today}</div>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setShowPhotoManager(true)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            📷 写真管理
+          </button>
+        )}
+      </div>
+
+      {/* 写真管理モーダル */}
+      {showPhotoManager && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>📷 ホーム写真管理</h3>
+              <button onClick={() => setShowPhotoManager(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
+              アップロードした写真がホーム画面にランダムで表示されます。
+            </p>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploadPhoto} />
+            <button style={{ ...S.btn("primary"), width: "100%", marginBottom: 16 }} onClick={() => fileInputRef.current.click()} disabled={uploading}>
+              {uploading ? "アップロード中..." : "📤 写真をアップロード"}
+            </button>
+            {photos.length === 0 && <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13, padding: 20 }}>写真がありません</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {photos.map((p) => (
+                <div key={p.name} style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
+                  <img src={getPhotoUrl(p.name)} alt={p.name} style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+                  <button onClick={() => deletePhoto(p.name)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(155,0,0,0.85)", border: "none", borderRadius: 6, padding: "3px 8px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    削除
                   </button>
-                )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-                {!inRange ? (
-                  <span style={styles.dashMark}>ー</span>
-                ) : dayReq.length === 0 ? (
-                  <span style={styles.dashMark}>ー</span>
-                ) : (
-                  <div style={styles.dayStampsRow}>
-                    {(theme.isMapTheme ? [...dayReq].reverse() : dayReq).map((s) => {
-                      const stableIdx = subjects.findIndex((x) => x.id === s.id);
-                      const count = countFor(dKey, s.id);
-                      const achv = achievements[dKey] && achievements[dKey][s.id];
-                      const achvLabel = achv ? formatAchvShort(achv) : "";
-                      if (isToday) {
-                        return (
-                          <div key={s.id} style={styles.stampSlot}>
-                            <StampCell
-                              count={count}
-                              color={s.color}
-                              iconIndex={stableIdx}
-                              label={s.name}
-                              shapes={theme.shapes}
-                              withFace={theme.withFace}
-                              useDragonStamp={theme.isMapTheme}
-                              onTap={() => onTapStamp(d, s.id)}
-                              onClear={() => onClearStamp(d, s.id)}
-                            />
-                            {achvLabel && <div style={styles.achvMiniLabel}>{achvLabel}</div>}
-                          </div>
-                        );
-                      }
-                      const isPastMiss = dKey < todayKey && count === 0;
-                      const isFuture = dKey > todayKey;
-                      return (
-                        <div key={s.id} style={styles.stampSlot}>
-                          <HistoryCell
-                            count={count}
-                            color={s.color}
-                            iconIndex={stableIdx}
-                            label={s.name}
-                            missed={isPastMiss}
-                            fun={funStampFor(dKey, s.id)}
-                            shapes={theme.shapes}
-                            withFace={theme.withFace}
-                            useDragonStamp={theme.isMapTheme}
-                            onToggleFun={() => onToggleFunStamp(d, s.id)}
-                            locked={locked}
-                            isFuture={isFuture}
-                            onRequestUnlock={onLockToggle}
-                            onTogglePast={() => onTogglePastStamp(d, s.id)}
-                            onClearPast={() => onClearPastStamp(d, s.id)}
-                          />
-                          {achvLabel && <div style={styles.achvMiniLabel}>{achvLabel}</div>}
+      <h2 style={S.sectionTitle}>最新のお知らせ</h2>
+      {loading && <Loading />}
+      {!loading && latest.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
+      {latest.map((a) => (
+        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+            {a.important && <span style={S.badge(C.primary)}>重要</span>}
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
+          </div>
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
+          <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
+        </div>
+      ))}
+
+      <h2 style={{ ...S.sectionTitle, marginTop: 8 }}>Haponsの基本方針</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>🏉</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーを楽しむ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>勝敗より楽しむことを最優先に。大人もJrも、ラグビーの楽しさを共有します。</div>
+          </div>
+        </div>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.jr}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>⭐</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>子どもと大人が一緒に楽しむ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>Jr・大人・保護者が交流し、世代を超えてラグビーを楽しめる場所を目指します。</div>
+          </div>
+        </div>
+        <div style={{ ...S.card, borderLeft: `4px solid ${C.success}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 28, flexShrink: 0 }}>🌏</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーを広める・繋ぐ</div>
+            <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>次世代へラグビーの楽しさを伝え、フィリピンでのラグビー文化の継承に取り組みます。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// URLを自動リンク化（不可視文字を除去し、既存リンクにもスタイルを補う）
+const autoLink = (html) => {
+  if (!html) return "";
+  // コピペ等で紛れ込む不可視文字（ゼロ幅スペース・BOM・語結合子など）を除去
+  const cleaned = html.replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+  return cleaned
+    .split(/(<a\b[^>]*>.*?<\/a>)/gis)
+    .map((part) => {
+      if (/^<a\b/i.test(part)) {
+        // 既存リンク：色と target を補って必ずリンクらしく見せる
+        let a = part;
+        if (!/\btarget\s*=/i.test(a)) a = a.replace(/^<a\b/i, '<a target="_blank" rel="noopener noreferrer"');
+        if (!/\bstyle\s*=/i.test(a)) a = a.replace(/^<a\b/i, '<a style="color:#1E88E5;word-break:break-all;"');
+        return a;
+      }
+      return part.replace(
+        /(https?:\/\/[^\s<>"]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#1E88E5;word-break:break-all;">$1</a>'
+      );
+    })
+    .join("");
+};
+
+// ── ANNOUNCEMENTS TAB ──
+function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading }) {
+  const [editing, setEditing] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formState, setFormState] = useState({ title: "", date: "", important: false });
+  const [bodyValue, setBodyValue] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [expandedIds, setExpandedIds] = useState({});
+
+  const openAdd = () => { setFormState({ title: "", date: "", important: false }); setBodyValue(""); setShowAdd(true); };
+  const openEdit = (a) => { setFormState({ title: a.title, date: a.date, important: a.important }); setBodyValue(a.body || ""); setEditing(a); };
+
+  const save = async () => {
+    setSaving(true);
+    const payload = { title: formState.title, body: bodyValue, date: formState.date || new Date().toISOString().slice(0, 10), important: !!formState.important };
+    if (showAdd) {
+      const { data } = await supabase.from("announcements").insert([payload]).select();
+      if (data) setAnnouncements([data[0], ...announcements]);
+    } else {
+      await supabase.from("announcements").update(payload).eq("id", editing.id);
+      setAnnouncements(announcements.map((i) => i.id === editing.id ? { ...i, ...payload } : i));
+    }
+    setSaving(false); setEditing(null); setShowAdd(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    await supabase.from("announcements").delete().eq("id", id);
+    setAnnouncements(announcements.filter((i) => i.id !== id));
+  };
+
+  const displayAnnouncements = showAll ? announcements : announcements.slice(0, 10);
+
+  return (
+    <div style={S.content}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>お知らせ</h2>
+        {isAdmin && <button style={S.btn("accent", "sm")} onClick={openAdd}>＋ 投稿</button>}
+      </div>
+      {loading && <Loading />}
+      {!loading && announcements.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>お知らせはありません</div>}
+      {displayAnnouncements.map((a) => (
+        <div key={a.id} style={{ ...S.card, borderLeft: a.important ? `4px solid ${C.accent}` : `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flex: 1, marginRight: 8 }}>{a.title}</span>
+            {a.important && <span style={S.badge(C.primary)}>重要</span>}
+          </div>
+          <div style={{
+            fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.7,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: expandedIds[a.id] ? "unset" : 4,
+            WebkitBoxOrient: "vertical",
+          }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
+          {a.body && a.body.length > 200 && (
+            <button onClick={() => setExpandedIds((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
+              style={{ background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "0 0 6px" }}>
+              {expandedIds[a.id] ? "▲ 閉じる" : "▼ もっと見る"}
+            </button>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
+            {isAdmin && <div style={{ display: "flex", gap: 6 }}>
+              <button style={S.btn("ghost", "sm")} onClick={() => openEdit(a)}>編集</button>
+              <button style={S.btn("danger", "sm")} onClick={() => del(a.id)}>削除</button>
+            </div>}
+          </div>
+        </div>
+      ))}
+      {!loading && announcements.length > 10 && (
+        <button onClick={() => setShowAll(!showAll)}
+          style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
+          {showAll ? "▲ 閉じる" : `▼ 全て表示（残り${announcements.length - 10}件）`}
+        </button>
+      )}
+      {(showAdd || editing) && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>お知らせを{editing ? "編集" : "投稿"}</h3>
+              <button onClick={() => { setShowAdd(false); setEditing(null); }} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={formState.title} onChange={(e) => setFormState({ ...formState, title: e.target.value })} placeholder="タイトルを入力" />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>内容</label>
+            <RichTextEditor value={bodyValue} onChange={setBodyValue} />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.text, marginBottom: 16, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!formState.important} onChange={(e) => setFormState({ ...formState, important: e.target.checked })} />重要なお知らせとしてマーク
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAdd(false); setEditing(null); }}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={save}>保存する</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {saving && <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ background: C.card, borderRadius: 12, padding: "16px 24px", fontSize: 14, fontWeight: 700 }}>保存中...</div></div>}
+    </div>
+  );
+}
+
+// ── MEMBERS TAB ──
+function MembersTab({ isAdmin }) {
+  const [activeTab, setActiveTab] = useState("adult");
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
+  const [supporters, setSupporters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [search, setSearch] = useState("");
+  const [clickY, setClickY] = useState(null);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [m, j, s] = await Promise.all([
+        supabase.from("members").select("*").order("created_at"),
+        supabase.from("jr_members").select("*").order("created_at"),
+        supabase.from("supporters").select("*").order("join_date", { ascending: false }),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      if (s.data) setSupporters(s.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  const posColors = { PR: "#CC1F1F", HO: "#CC1F1F", LO: "#1E88E5", FL: "#2E7D32", NO8: "#2E7D32", SH: "#D4A800", SO: "#8E24AA", CTR: "#00ACC1", WTB: "#F4511E", FB: "#6D4C41" };
+  const isAdult = activeTab === "adult";
+  const isSupporter = activeTab === "supporter";
+  const table = isAdult ? "members" : isSupporter ? "supporters" : "jr_members";
+  const list = isAdult ? members : isSupporter ? supporters : jrMembers;
+  const setList = isAdult ? setMembers : isSupporter ? setSupporters : setJrMembers;
+
+  // 生年月日から年齢を自動計算
+  const calcAge = (birthDate) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
+  const adultFields = [
+    { key: "position", label: "Position" },
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
+    { key: "birth_date", label: "生年月日", type: "date" },
+    { key: "phone", label: "電話番号" },
+    { key: "mjs_id_submitted", label: "MJS ID 提出済み", type: "checkbox" },
+  ];
+
+  const jrFields = [
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
+    { key: "grade", label: "学年" },
+    { key: "is_mjs_student", label: "MJSの生徒", type: "checkbox" },
+    { key: "parent_name", label: "保護者氏名" },
+    { key: "phone", label: "電話番号" },
+    { key: "waiver_submitted", label: "Waiver提出済み", type: "checkbox" },
+  ];
+
+  const supporterFields = [
+    { key: "name_jp", label: "名前" },
+    { key: "name_en", label: "Name" },
+    { key: "phone", label: "電話番号" },
+    { key: "join_date", label: "加入日", type: "date" },
+    { key: "in_philippines", label: "在比", type: "checkbox" },
+  ];
+
+  const fields = isAdult ? adultFields : isSupporter ? supporterFields : jrFields;
+  const TOP_POSITIONS = ["Club President", "Captain", "Senior Vice Captain", "Vice Captain", "Assistant Vice Captain"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const posRank = (pos) => {
+    const t = TOP_POSITIONS.indexOf(pos);
+    if (t >= 0) return t;                 // 上位役職：定義順
+    const b = BOTTOM_POSITIONS.indexOf(pos);
+    if (b >= 0) return 1000 + b;          // 下位役職：定義順で末尾へ
+    return 500;                            // その他（Player・一般メンバー）：中間、登録順
+  };
+  const sortedList = isAdult ? [...list].sort((a, b) => posRank(a.position) - posRank(b.position)) : list;
+  const filtered = sortedList.filter((m) => (m.name_jp || "").includes(search) || (m.name_en || "").toLowerCase().includes(search.toLowerCase()) || (isAdult ? (m.position || "").includes(search) : (m.grade || "").includes(search)));
+
+  const save = async (form) => {
+    const { id: _id, created_at: _ca, ...rest } = form;
+    const payload = { ...rest };
+    // 生年月日から年齢を自動計算（大人のみ）
+    if (isAdult) {
+      if (form.birth_date) {
+        payload.age = calcAge(form.birth_date);
+        payload.birth_date = form.birth_date;
+      } else {
+        payload.age = null;
+        payload.birth_date = null;
+      }
+    }
+
+    if (showAdd) {
+      const { data, error } = await supabase.from(table).insert([payload]).select();
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
+      if (data) setList([...list, data[0]]);
+    } else {
+      const { error } = await supabase.from(table).update(payload).eq("id", editing.id);
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
+      setList(list.map((m) => m.id === editing.id ? { ...m, ...payload } : m));
+    }
+    setEditing(null); setShowAdd(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("このメンバーを削除しますか？")) return;
+    await supabase.from(table).delete().eq("id", id);
+    setList(list.filter((m) => m.id !== id));
+  };
+
+  const defaultAdult = { position: "", name_jp: "", name_en: "", birth_date: "", phone: "", mjs_id_submitted: false };
+  const defaultJr = { name_jp: "", name_en: "", grade: "", is_mjs_student: false, parent_name: "", phone: "", waiver_submitted: false };
+  const defaultSupporter = { name_jp: "", name_en: "", phone: "", join_date: "", in_philippines: false };
+
+  return (
+    <div style={S.content}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>メンバー名簿</h2>
+        {isAdmin && <button style={S.btn(isAdult ? "accent" : isSupporter ? "ghost" : "jr", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <button onClick={() => { setActiveTab("adult"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          🏉 Hapons<br />{members.length}名
+        </button>
+        <button onClick={() => { setActiveTab("jr"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          ⭐ Jr<br />{jrMembers.length}名
+        </button>
+        <button onClick={() => { setActiveTab("supporter"); setSearch(""); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+          💛 サポーター<br />{supporters.length}名
+        </button>
+      </div>
+
+      {loading && <Loading />}
+      {!loading && (
+        <>
+          <input style={{ ...S.input, marginBottom: 10 }} placeholder="🔍 名前・ポジション・学年で検索" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>{filtered.length}名 / 全{list.length}名</div>
+
+          {filtered.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>}
+          {filtered.map((m) => (
+            <div key={m.id} style={{ ...S.card, borderLeft: `4px solid ${isAdult ? C.primary : C.jr}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
+                    {m.name_en && <span style={{ fontSize: 12, color: C.textMuted }}>{m.name_en}</span>}
+                    {isAdult && m.position && <span style={S.badge(posColors[m.position] || C.textMuted)}>{m.position}</span>}
+                    {!isAdult && m.grade && <span style={S.badge(C.jr)}>{m.grade}</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.8 }}>
+                    {isAdult && (m.age || m.birth_date) && <span>年齢：{m.birth_date ? calcAge(m.birth_date) : m.age}歳　</span>}
+                    {isAdmin && m.phone && <><a href={`tel:${m.phone}`} style={{ color: C.primary, fontWeight: 700, textDecoration: "none" }}>📞 {m.phone}</a><br /></>}
+                    {isAdult
+                      ? <span style={{ color: m.mjs_id_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.mjs_id_submitted ? "✓ MJS ID提出済" : "⚠ MJS ID未提出"}</span>
+                      : isSupporter ? <>{m.join_date && <span>加入日：{m.join_date}　</span>}{m.in_philippines && <span style={{ color: C.success, fontWeight: 700 }}>🇵🇭 在比</span>}</>
+                      : <>👤 {m.parent_name}　<span style={{ color: m.is_mjs_student ? C.success : C.textMuted, fontWeight: 700 }}>{m.is_mjs_student ? "🏫 MJS生徒" : "MJS以外"}</span>　<span style={{ color: m.waiver_submitted ? C.success : C.danger, fontWeight: 700 }}>{m.waiver_submitted ? "✓ Waiver提出済" : "⚠ Waiver未提出"}</span></>
+                    }
+                    {/* 兄弟表示（保護者名が同じJrをグループ表示） */}
+                    {!isAdult && m.parent_name && (() => {
+                      const siblings = jrMembers.filter((j) => j.parent_name === m.parent_name && j.id !== m.id);
+                      return siblings.length > 0 ? (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ ...S.badge(C.jr) }}>👨‍👩‍👧‍👦 {siblings.map((s) => s.name_jp).join("・")}と同グループ</span>
                         </div>
-                      );
-                    })}
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                    <button style={S.btn("ghost", "sm")} onClick={(e) => { setEditing(m); setClickY(e.clientY); }}>編集</button>
+                    <button style={S.btn("danger", "sm")} onClick={() => del(m.id)}>削除</button>
                   </div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          ))}
+        </>
+      )}
+
+      {editing && <EditModal title={`${isAdult ? "メンバー" : isSupporter ? "サポーター" : "Jrメンバー"}を編集`} fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} clickY={clickY} />}
+      {showAdd && <EditModal title={`新規${isAdult ? "メンバー" : isSupporter ? "サポーター" : "Jrメンバー"}追加`} fields={fields} data={isAdult ? defaultAdult : isSupporter ? defaultSupporter : defaultJr} onSave={save} onClose={() => setShowAdd(false)} />}
+    </div>
+  );
+}
+
+// ── ATTENDANCE PANEL ──
+function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
+  const [supporters, setSupporters] = useState([]);
+  const [attendances, setAttendances] = useState([]);
+  const [absences, setAbsences] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("adult");
+  const [showRemaining, setShowRemaining] = useState(false);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  // 片づけ当番チェック（大人メンバー・全員完了で自動リセット／管理者のみ操作可）
+  // 次の役職は当番対象外
+  const CLEANUP_EXEMPT = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const cleanupEligible = members.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
+  const cleanupRemaining = cleanupEligible.filter((m) => !m.cleanup_done).length;
+
+  const toggleCleanup = async (member) => {
+    if (!isAdmin || !member || CLEANUP_EXEMPT.includes(member.position)) return;
+    const newVal = !member.cleanup_done;
+    const afterToggle = members.map((m) => m.id === member.id ? { ...m, cleanup_done: newVal } : m);
+    const eligibleAfter = afterToggle.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
+    const allDone = eligibleAfter.length > 0 && eligibleAfter.every((m) => m.cleanup_done);
+    if (newVal && allDone) {
+      // 全員完了 → 全員リセット（次の周へ）
+      setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
+      const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
+      if (error) alert("更新に失敗しました：" + error.message);
+    } else {
+      setMembers(afterToggle);
+      const { error } = await supabase.from("members").update({ cleanup_done: newVal }).eq("id", member.id);
+      if (error) alert("更新に失敗しました：" + error.message);
+    }
+  };
+
+  // 管理者による手動リセット
+  const resetCleanup = async () => {
+    if (!isAdmin) return;
+    if (!window.confirm("片づけ当番のチェックを全員分リセットしますか？")) return;
+    setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
+    const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
+    if (error) alert("リセットに失敗しました：" + error.message);
+  };
+
+  // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
+  const TAB_ORDER = ["adult", "jr", "supporter"];
+  const handleTouchStart = (e) => {
+    e.stopPropagation();
+    touchStartX.current = e.changedTouches[0].clientX;
+    touchStartY.current = e.changedTouches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    e.stopPropagation();
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    // 横移動が縦移動より大きく、かつ一定距離を超えたときだけ反応（縦スクロールと誤認しない）
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = TAB_ORDER.indexOf(activeTab);
+    if (dx > 0) {
+      // 右スワイプ → 次のタブ（大人→Jr→サポーター→大人）
+      setActiveTab(TAB_ORDER[(idx + 1) % TAB_ORDER.length]);
+    } else {
+      // 左スワイプ → 前のタブ（大人→サポーター→Jr→大人）
+      setActiveTab(TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length]);
+    }
+  };
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [m, j, s, a, ab] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position, cleanup_done").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
+        supabase.from("supporters").select("id, name_jp").order("join_date", { ascending: true }),
+        supabase.from("attendances").select("*").eq("event_id", event.id),
+        supabase.from("absences").select("*").eq("event_id", event.id),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      if (s.data) setSupporters(s.data);
+      if (a.data) setAttendances(a.data);
+      if (ab.data) setAbsences(ab.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, [event.id]);
+
+  const getCommittedStatus = (name, type) => {
+    if (attendances.some((a) => a.member_name === name && a.member_type === type)) return "attend";
+    const ab = absences.find((a) => a.member_name === name && a.member_type === type);
+    if (ab) return ab.status === "undecided" ? "undecided" : "absent";
+    return "none";
+  };
+
+  const getStatus = (name, type) => getCommittedStatus(name, type);
+
+  // Jr補助フラグ（大人の参加者のみ）: attendances.jr_helper に保存
+  const isJrHelper = (name) => {
+    const att = attendances.find((a) => a.member_name === name && a.member_type === "adult");
+    return !!(att && att.jr_helper);
+  };
+
+  const toggleJrHelper = async (name) => {
+    const att = attendances.find((a) => a.member_name === name && a.member_type === "adult");
+    if (!att) return; // 参加登録済みの大人のみ対象
+    const newVal = !att.jr_helper;
+    // stateを即座に更新
+    setAttendances((prev) => prev.map((a) =>
+      (a.member_name === name && a.member_type === "adult") ? { ...a, jr_helper: newVal } : a
+    ));
+    // IDではなく「イベント＋名前」で更新（参加登録直後の temp_ 状態でも実レコードに届く）
+    const persist = async () => await supabase
+      .from("attendances")
+      .update({ jr_helper: newVal })
+      .eq("event_id", event.id).eq("member_name", name).eq("member_type", "adult")
+      .select();
+    let { data, error } = await persist();
+    // 参加登録がまだDBに反映されていない場合は、少し待って一度だけ再試行
+    if (!error && (!data || data.length === 0)) {
+      await new Promise((r) => setTimeout(r, 600));
+      ({ data, error } = await persist());
+    }
+    if (error) {
+      alert("Jr補助の保存に失敗しました：" + error.message + "\n（attendancesテーブルに jr_helper 列があるかご確認ください）");
+    }
+  };
+
+  const cycleStatus = async (name, type, forceStatus = null) => {
+    const current = getCommittedStatus(name, type);
+    const next = forceStatus || (current === "none" ? "attend" : current === "attend" ? "undecided" : current === "undecided" ? "absent" : "none");
+
+    // stateを即座に更新
+    if (next === "attend") {
+      setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, id: `temp_${Date.now()}` }]);
+      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    } else if (next === "absent" || next === "undecided") {
+      setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), { event_id: event.id, member_name: name, member_type: type, status: next, id: `temp_${Date.now()}` }]);
+      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    } else {
+      setAttendances((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+      setAbsences((prev) => prev.filter((a) => !(a.member_name === name && a.member_type === type)));
+    }
+
+    // Supabaseに保存
+    const att = attendances.find((a) => a.member_name === name && a.member_type === type);
+    const ab = absences.find((a) => a.member_name === name && a.member_type === type);
+    if (att && !String(att.id).startsWith("temp_")) await supabase.from("attendances").delete().eq("id", att.id);
+    if (ab && !String(ab.id).startsWith("temp_")) await supabase.from("absences").delete().eq("id", ab.id);
+
+    if (next === "attend") {
+      const { data } = await supabase.from("attendances").insert([{ event_id: event.id, member_name: name, member_type: type }]).select();
+      if (data) setAttendances((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
+    } else if (next === "absent" || next === "undecided") {
+      const { data } = await supabase.from("absences").insert([{ event_id: event.id, member_name: name, member_type: type, status: next }]).select();
+      if (data) setAbsences((prev) => [...prev.filter((a) => !(a.member_name === name && a.member_type === type)), data[0]]);
+    }
+  };
+
+  const TOP_POSITIONS = ["Club President", "Captain", "Senior Vice Captain", "Vice Captain", "Assistant Vice Captain"];
+  const BOTTOM_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const posRank = (pos) => {
+    const t = TOP_POSITIONS.indexOf(pos);
+    if (t >= 0) return t;                 // 上位役職：定義順
+    const b = BOTTOM_POSITIONS.indexOf(pos);
+    if (b >= 0) return 1000 + b;          // 下位役職：定義順で末尾へ
+    return 500;                            // その他（Player・一般メンバー）：中間、登録順
+  };
+  const sortedMembers = [...members].sort((a, b) => posRank(a.position) - posRank(b.position));
+
+  const jrUnits = jrMembers.map((m) => ({
+    key: `ind_${m.id}`, label: m.name_jp,
+    subLabel: m.parent_name ? `👨‍👩‍👧‍👦 ${m.parent_name}` : (m.grade || ""),
+  }));
+
+  // バナーはリアルタイム計算
+  const adultAttending = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "attend").map((m) => m.name_jp);
+  const jrAttending = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "attend").map((m) => m.name_jp);
+  const supporterAttending = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "attend").map((m) => m.name_jp);
+  const totalAttending = adultAttending.length + jrAttending.length + supporterAttending.length;
+  const adultAbsent = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "absent").length;
+  const jrAbsent = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "absent").length;
+  const supporterAbsent = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "absent").length;
+  const adultUndecided = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "undecided").length;
+  const jrUndecided = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "undecided").length;
+  const supporterUndecided = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "undecided").length;
+  const adultUnresponded = sortedMembers.filter((m) => getStatus(m.name_jp, "adult") === "none").length;
+  const jrUnresponded = jrMembers.filter((m) => getStatus(m.name_jp, "jr") === "none").length;
+  const supporterUnresponded = supporters.filter((m) => getStatus(m.name_jp, "supporter") === "none").length;
+
+  const statusBtnStyle = (status, isPend) => ({
+    padding: "5px 12px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0,
+    background: status === "attend" ? (isPend ? C.success : "#2E7D3220") : status === "absent" ? (isPend ? C.danger : "#CC1F1F15") : status === "undecided" ? (isPend ? "#E65100" : "#E6510015") : C.border,
+    color: status === "attend" ? (isPend ? "#fff" : C.success) : status === "absent" ? (isPend ? "#fff" : C.danger) : status === "undecided" ? (isPend ? "#fff" : "#E65100") : C.textMuted,
+  });
+
+  const cardStyle = (status) => ({
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "12px 14px", borderRadius: 10, marginBottom: 6,
+    background: status === "attend" ? "#2E7D3210" : status === "absent" ? "#CC1F1F08" : status === "undecided" ? "#E6510008" : C.card,
+    border: status === "attend" ? `2px solid ${C.success}` : status === "absent" ? `2px solid ${C.danger}` : status === "undecided" ? `2px solid #E65100` : `1.5px solid ${C.border}`,
+  });
+
+  const statusText = (status) => status === "attend" ? "✓ 参加" : status === "absent" ? "✗ 欠席" : status === "undecided" ? "？ 未定" : "未登録";
+
+  const jrHelperBtnStyle = (on) => ({
+    padding: "5px 10px", borderRadius: 20, border: `1.5px solid ${on ? C.jr : C.border}`,
+    fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0, minWidth: 40,
+    background: on ? C.jrLight : C.card, color: on ? C.jr : C.textMuted, fontFamily: "inherit",
+  });
+
+  const cleanupBoxStyle = (done, clickable) => ({
+    width: 40, height: 28, borderRadius: 8, boxSizing: "border-box", flexShrink: 0, padding: 0,
+    border: `2px solid ${done ? C.success : C.border}`,
+    background: done ? C.success : "#fff", color: "#fff", fontSize: 14, fontWeight: 900,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: clickable ? "pointer" : "default", fontFamily: "inherit",
+  });
+
+  const renderMember = (name, subLabel, type, key) => {
+    const status = getStatus(name, type);
+    const isPend = false;
+    return (
+      <div key={key} style={cardStyle(status)}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{name}</div>
+          <div style={{ fontSize: 11, color: status === "attend" ? C.success : status === "absent" ? C.danger : C.textMuted, fontWeight: status !== "none" ? 700 : 400 }}>
+            {subLabel}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <button onClick={() => cycleStatus(name, type)} style={{ ...statusBtnStyle(status, isPend), width: 76, boxSizing: "border-box", textAlign: "center" }}>
+            {statusText(status)}
+          </button>
+          {type === "adult" && (
+            status === "attend" ? (
+              <button onClick={() => toggleJrHelper(name)} style={{ ...jrHelperBtnStyle(isJrHelper(name)), width: 60, boxSizing: "border-box", textAlign: "center" }} title="Jrの練習を見てもよい方はタップ">
+                {isJrHelper(name) ? "Jr補助" : "-"}
+              </button>
+            ) : (
+              <div style={{ width: 60, flexShrink: 0 }} />
+            )
+          )}
+          {type === "adult" && (
+            !CLEANUP_EXEMPT.includes(subLabel) ? (() => {
+              const mem = members.find((mm) => mm.id === key);
+              const done = !!mem?.cleanup_done;
+              return (
+                <button onClick={() => toggleCleanup(mem)} disabled={!isAdmin} style={cleanupBoxStyle(done, isAdmin)} title="片づけ当番（管理者のみ）">
+                  {done ? "✓" : ""}
+                </button>
+              );
+            })() : (
+              <div style={{ width: 40, flexShrink: 0 }} />
+            )
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: C.bg, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "14px 20px", borderRadius: "20px 20px 0 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ flex: 1, marginRight: 10 }}>
+            <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 2 }}>{event.title}</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>{event.date}　{event.time}　参加{totalAttending}名</div>
+            <div style={{ marginBottom: 3 }}>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>🏉 大人　出席{adultAttending.length} 欠席{adultAbsent} 未定{adultUndecided} 未回答{adultUnresponded}{adultAttending.some((n) => isJrHelper(n)) ? "　※網掛け＝Jr補助OK" : ""}</div>
+              {adultAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{adultAttending.map((n) => {
+                const helper = isJrHelper(n);
+                return (
+                  <span key={n} title={helper ? "Jr補助OK" : undefined} style={{
+                    background: "rgba(255,255,255,0.2)",
+                    backgroundImage: helper ? "repeating-linear-gradient(45deg, rgba(0,0,0,0.22) 0px, rgba(0,0,0,0.22) 1.5px, transparent 1.5px, transparent 5px)" : "none",
+                    border: helper ? "1px solid rgba(255,255,255,0.85)" : "1px solid transparent",
+                    borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff", fontWeight: helper ? 800 : 400,
+                  }}>{n}</span>
+                );
+              })}</div>}
+            </div>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>⭐ Jr　出席{jrAttending.length} 欠席{jrAbsent} 未定{jrUndecided} 未回答{jrUnresponded}</div>
+              {jrAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{jrAttending.map((n) => <span key={n} style={{ background: "rgba(245,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
+            </div>
+            {(supporterAttending.length > 0 || supporterAbsent > 0 || supporterUnresponded > 0) && (
+            <div style={{ marginTop: 3 }}>
+              <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>💛 SP　出席{supporterAttending.length} 欠席{supporterAbsent} 未定{supporterUndecided} 未回答{supporterUnresponded}</div>
+              {supporterAttending.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{supporterAttending.map((n) => <span key={n} style={{ background: "rgba(255,200,0,0.25)", borderRadius: 20, padding: "1px 7px", fontSize: 10, color: "#fff" }}>{n}</span>)}</div>}
+            </div>
+            )}
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>✕</button>
+        </div>
+
+        <div style={{ padding: "16px 16px 32px" }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          {loading && <Loading />}
+          {!loading && (
+            <>
+              {/* まとめて参加登録 */}
+              {myGroup.length > 0 && (() => {
+                const STATUS_META = {
+                  attend: { label: "参加", color: C.success, bg: "#E8F5E9" },
+                  undecided: { label: "未定", color: "#E65100", bg: "#FFF3E0" },
+                  absent: { label: "欠席", color: C.danger, bg: "#FFEBEE" },
+                  none: { label: "未登録", color: C.textMuted, bg: C.bg },
+                };
+                const memberStatuses = myGroup.map((name) => {
+                  const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                  return { name, type, status: getCommittedStatus(name, type) };
+                });
+                const groupStatuses = memberStatuses.map((m) => m.status);
+                const allSame = groupStatuses.every((s) => s === groupStatuses[0]);
+                const currentStatus = allSame ? groupStatuses[0] : "none";
+                const nextStatus = currentStatus === "none" ? "attend" : currentStatus === "attend" ? "undecided" : currentStatus === "undecided" ? "absent" : "none";
+                const btnConfig = {
+                  attend: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員参加登録`, bg: C.success },
+                  undecided: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員未定登録`, bg: "#E65100" },
+                  absent: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員欠席登録`, bg: C.danger },
+                  none: { label: `👨‍👩‍👧‍👦 ${myGroup.join("・")} を全員未登録に戻す`, bg: C.textMuted },
+                };
+                const cfg = btnConfig[nextStatus];
+                return (
+                  <>
+                    {/* グループの現在の登録状況（各メンバーを個別にタップで変更可） */}
+                    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, marginBottom: 8 }}>
+                        👨‍👩‍👧‍👦 グループの登録状況（各ボタンをタップで個別に変更）
+                      </div>
+                      {allSame && currentStatus !== "none" && (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: STATUS_META[currentStatus].color, marginBottom: 8 }}>
+                          ✓ 全員 {STATUS_META[currentStatus].label}で登録済み
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {memberStatuses.map((m) => (
+                          <div key={m.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{m.name}</span>
+                            <button onClick={() => cycleStatus(m.name, m.type)} style={statusBtnStyle(m.status, false)}>
+                              {statusText(m.status)}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={async () => {
+                      for (const name of myGroup) {
+                        const type = members.find((m) => m.name_jp === name) ? "adult" : "jr";
+                        await cycleStatus(name, type, nextStatus);
+                      }
+                    }}
+                      style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 900, fontSize: 14, color: "#fff", background: cfg.bg, marginBottom: 14 }}>
+                      {cfg.label}
+                    </button>
+                  </>
+                );
+              })()}
+              <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
+
+              {/* 片づけ当番（各メンバー行の「片づけ済」列でチェック。全員完了で自動リセット） */}
+              {cleanupEligible.length > 0 && (
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.bg }}>
+                  <div onClick={() => setShowRemaining((v) => !v)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 12px", cursor: "pointer" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ当番　残り{cleanupRemaining}人　{showRemaining ? "▲" : "▼"}</span>
+                    {isAdmin && (
+                      <button onClick={(e) => { e.stopPropagation(); resetCleanup(); }}
+                        style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${C.danger}`, background: "#fff", color: C.danger, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                        リセット
+                      </button>
+                    )}
+                  </div>
+                  {showRemaining && (
+                    <div style={{ padding: "0 12px 10px" }}>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>まだ片づけをしていない人</div>
+                      {cleanupRemaining === 0 ? (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.success }}>全員が片づけ済みです 🎉</div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {cleanupEligible.filter((m) => !m.cleanup_done).map((m) => (
+                            <span key={m.id} style={{ fontSize: 12, fontWeight: 700, color: C.text, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px" }}>{m.name_jp}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "adult" ? C.primary : C.border}`, background: activeTab === "adult" ? C.sakuraLight : C.card, color: activeTab === "adult" ? C.primary : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  🏉 大人
+                </button>
+                <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "jr" ? C.jr : C.border}`, background: activeTab === "jr" ? C.jrLight : C.card, color: activeTab === "jr" ? C.jr : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  ⭐ Jr
+                </button>
+                <button onClick={() => setActiveTab("supporter")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `2px solid ${activeTab === "supporter" ? "#F57C00" : C.border}`, background: activeTab === "supporter" ? "#FFF3E0" : C.card, color: activeTab === "supporter" ? "#F57C00" : C.textMuted, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                  💛 サポーター
+                </button>
+              </div>
+              {activeTab === "adult" && members.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                  <span style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.jr }}>Jr補助</span>
+                  <span style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.success }}>片づけ済</span>
+                </div>
+              )}
+              {activeTab === "adult" && (members.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
+                : sortedMembers.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
+              )}
+              {activeTab === "jr" && jrUnits.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                </div>
+              )}
+              {activeTab === "jr" && (jrUnits.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
+                : jrUnits.map((u) => renderMember(u.label, u.subLabel, "jr", u.key))
+              )}
+              {activeTab === "supporter" && supporters.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "0 14px 6px" }}>
+                  <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
+                </div>
+              )}
+              {activeTab === "supporter" && (supporters.length === 0
+                ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>サポーターが登録されていません</div>
+                : supporters.map((m) => renderMember(m.name_jp, "Supporter", "supporter", m.id))
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function HistoryCell({ count, color, iconIndex, label, missed, fun, onToggleFun, onTogglePast, onClearPast, locked, isFuture, onRequestUnlock, shapes, withFace, useDragonStamp }) {
-  // Parent has unlocked this past day: reuse the exact same tap-cycle UI as
-  // today's stamp (StampCell) — tap to mark done, tap again to recover a
-  // missed earlier day of this subject (shows the "×2" badge), and an
-  // explicit "×" to undo a mark. Covers both the "already recorded" and
-  // "not recorded yet" cases, since StampCell already branches on count.
-  if (!locked) {
+// ── SCHEDULE TAB ──
+function ScheduleTab({ isAdmin, myGroup = [] }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showRepeat, setShowRepeat] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // 繰り返し登録フォーム
+  const [repeatForm, setRepeatForm] = useState({
+    title: "通常練習", type: "practice", time: "15:00〜17:00",
+    location: "MJS", startDate: "", endDate: "",
+    weekdays: [0], // 0=日, 1=月, ..., 6=土
+  });
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      const { data } = await supabase.from("events").select("*").order("date");
+      if (data) setEvents(data.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || "").localeCompare(b.time || "");
+      }));
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  const typeConfig = { practice: { label: "練習", color: "#1E88E5" }, game: { label: "試合", color: C.primary }, event: { label: "イベント", color: "#2E7D32" }, committee: { label: "幹事会", color: "#8E24AA" } };
+  const fields = [
+    { key: "title", label: "タイトル" },
+    { key: "date", label: "日付", type: "date" },
+    { key: "time", label: "時間（開始〜終了）", type: "timerange" },
+    { key: "location", label: "場所" },
+    { key: "type", label: "種別", type: "select", options: Object.entries(typeConfig).map(([v, c]) => ({ value: v, label: c.label })) },
+  ];
+
+  const save = async (form) => {
+    const { id: _id, created_at: _ca, ...payload } = form;
+    if (showAdd) {
+      const { data, error } = await supabase.from("events").insert([payload]).select();
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
+      if (data) setEvents([...events, data[0]].sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
+    } else {
+      const { error } = await supabase.from("events").update(payload).eq("id", editing.id);
+      if (error) { alert("保存に失敗しました：" + error.message); return; }
+      setEvents(events.map((e) => e.id === editing.id ? { ...e, ...payload } : e).sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
+    }
+    setEditing(null); setShowAdd(false);
+  };
+
+  // 繰り返し一括登録
+  const saveRepeat = async () => {
+    if (!repeatForm.startDate || !repeatForm.endDate) { alert("開始日と終了日を入力してください"); return; }
+    setSaving(true);
+    const start = new Date(repeatForm.startDate);
+    const end = new Date(repeatForm.endDate);
+    const records = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (repeatForm.weekdays.includes(d.getDay())) {
+        records.push({
+          title: repeatForm.title, type: repeatForm.type,
+          time: repeatForm.time, location: repeatForm.location,
+          date: d.toISOString().slice(0, 10),
+        });
+      }
+    }
+    if (records.length === 0) { alert("指定した期間に該当する曜日がありません"); setSaving(false); return; }
+    if (!window.confirm(`${records.length}件のイベントを登録します。よろしいですか？`)) { setSaving(false); return; }
+    const { data, error } = await supabase.from("events").insert(records).select();
+    if (error) { alert("登録に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) setEvents([...events, ...data].sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.time || '').localeCompare(b.time || '')));
+    setShowRepeat(false);
+    setSaving(false);
+  };
+
+  const toggleWeekday = (day) => {
+    setRepeatForm((prev) => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(day) ? prev.weekdays.filter((d) => d !== day) : [...prev.weekdays, day],
+    }));
+  };
+
+  const del = async (id) => {
+    const pw = window.prompt("スケジュールを削除するにはパスワードを入力してください\n（保護者パスワード または マスターパスワード）");
+    if (pw === null) return; // キャンセル
+    if (pw.trim() !== MEMBER_PASS && pw.trim() !== "5963") {
+      alert("パスワードが正しくありません。削除できません。");
+      return;
+    }
+    if (!window.confirm("このスケジュールを削除しますか？")) return;
+    await supabase.from("events").delete().eq("id", id);
+    setEvents(events.filter((e) => e.id !== id));
+  };
+
+  const [showAll, setShowAll] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter((e) => String(e.date).slice(0, 10) >= today);
+
+  // 月別グループ化
+  const groupByMonth = (evs) => {
+    const groups = {};
+    evs.forEach((e) => {
+      const key = e.date.slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  // 日付別グループ化
+  const groupByDate = (evs) => {
+    const groups = {};
+    evs.forEach((e) => {
+      const dateKey = String(e.date).slice(0, 10);
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(e);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const upcomingGrouped = groupByDate(upcoming);
+  const displayGroups = showAll ? upcomingGrouped : upcomingGrouped.slice(0, 5);
+
+  const wdays = ["日", "月", "火", "水", "木", "金", "土"];
+  const wdayColors = [C.primary, C.text, C.text, C.text, C.text, C.text, "#1565C0"];
+
+  const typeColors = {
+    practice: { bg: "#EBF5FF", dateBg: "#DBEAFE", dateColor: "#1E88E5", border: "#1E88E5" },
+    game:     { bg: "#FFF0F0", dateBg: C.sakuraLight, dateColor: C.primary, border: C.primary },
+    event:    { bg: "#F0FFF4", dateBg: "#DCFCE7", dateColor: "#2E7D32", border: "#2E7D32" },
+    committee:{ bg: "#FAF0FF", dateBg: "#F3E8FF", dateColor: "#8E24AA", border: "#8E24AA" },
+  };
+
+  const renderEventGroup = (date, evs) => {
+    const d = new Date(date);
+    const firstTc = typeColors[evs[0].type] || typeColors.practice;
     return (
-      <StampCell
-        count={count}
-        color={color}
-        iconIndex={iconIndex}
-        label={label}
-        shapes={shapes}
-        withFace={withFace}
-        useDragonStamp={useDragonStamp}
-        onTap={onTogglePast}
-        onClear={onClearPast}
-      />
+      <div key={date} style={{ background: C.card, borderRadius: 14, marginBottom: 10, boxShadow: "0 1px 6px rgba(204,31,31,0.07)", border: `1px solid ${C.border}`, display: "flex", overflow: "hidden" }}>
+        {/* 日付部分 */}
+        <div style={{ minWidth: 54, textAlign: "center", background: firstTc.dateBg, padding: "14px 4px", display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: firstTc.dateColor }}>{d.getMonth() + 1}月</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: firstTc.dateColor, lineHeight: 1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 11, color: firstTc.dateColor }}>({wdays[d.getDay()]})</div>
+        </div>
+        {/* イベント一覧：複数あれば横並び */}
+        <div style={{ flex: 1, display: "flex", flexDirection: evs.length > 1 ? "row" : "column" }}>
+          {evs.map((e, idx) => {
+            const cfg = typeConfig[e.type] || typeConfig.practice;
+            const tc = typeColors[e.type] || typeColors.practice;
+            return (
+              <div key={e.id} style={{
+                flex: 1, padding: "12px 12px 12px 14px",
+                borderLeft: "none",
+                background: tc.bg,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ ...S.badge(cfg.color) }}>{cfg.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{e.title}</span>
+                  </div>
+                  {e.time && <div style={{ fontSize: 11, color: C.textMuted }}>🕐 {e.time}</div>}
+                  {e.location && <div style={{ fontSize: 11, color: C.textMuted }}>📍 {e.location}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
+                  <button style={{ ...S.btn("primary", "sm"), background: C.success, fontSize: 11, padding: "4px 8px" }} onClick={() => setSelectedEvent(e)}>
+                    ✋ 出席登録
+                  </button>
+                  {isAdmin && <>
+                    <button style={{ ...S.btn("ghost", "sm"), fontSize: 11, padding: "4px 8px" }} onClick={() => setEditing(e)}>編集</button>
+                    <button style={{ ...S.btn("danger", "sm"), fontSize: 11, padding: "4px 8px" }} onClick={() => del(e.id)}>削除</button>
+                  </>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={S.content}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>スケジュール</h2>
+        <div style={{ display: "flex", gap: 6 }}>
+          <a href="https://chosei-app.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <button style={S.btn("ghost", "sm")}>📅 調整くん</button>
+          </a>
+          {isAdmin && <>
+            <button style={S.btn("ghost", "sm")} onClick={() => setShowRepeat(true)}>🔁 繰り返し</button>
+            <button style={S.btn("accent", "sm")} onClick={() => setShowAdd(true)}>＋ 追加</button>
+          </>}
+        </div>
+      </div>
+      {loading && <Loading />}
+      {!loading && upcoming.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>予定はありません</div>}
+
+      {!loading && !showAll && (
+        <>
+          {displayGroups.map(([date, evs]) => renderEventGroup(date, evs))}
+          {upcomingGrouped.length > 5 && (
+            <button onClick={() => setShowAll(true)}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>
+              すべて表示（残り{upcomingGrouped.length - 5}日分）→
+            </button>
+          )}
+        </>
+      )}
+
+      {!loading && showAll && (
+        <>
+          <button onClick={() => setShowAll(false)}
+            style={{ width: "100%", padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.card, color: C.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>
+            ← 直近5日分のみ表示
+          </button>
+          {groupByMonth(upcoming).map(([month, evs]) => (
+            <div key={month}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: "12px 0 8px", padding: "6px 12px", background: C.sakuraLight, borderRadius: 8 }}>
+                📅 {parseInt(month.slice(5))}月
+              </div>
+              {groupByDate(evs).map(([date, devs]) => renderEventGroup(date, devs))}
+            </div>
+          ))}
+        </>
+      )}
+
+      {editing && <EditModal title="イベントを編集" fields={fields} data={editing} onSave={save} onClose={() => setEditing(null)} />}
+      {showAdd && <EditModal title="イベントを追加" fields={fields} data={{ title: "", date: "", time: "", location: "", type: "practice" }} onSave={save} onClose={() => setShowAdd(false)} />}
+      {selectedEvent && <AttendancePanel event={selectedEvent} onClose={() => setSelectedEvent(null)} myGroup={myGroup} isAdmin={isAdmin} />}
+
+      {/* 繰り返し登録モーダル */}
+      {showRepeat && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>🔁 繰り返し登録</h3>
+              <button onClick={() => setShowRepeat(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>タイトル</label>
+            <input style={S.input} value={repeatForm.title} onChange={(e) => setRepeatForm({ ...repeatForm, title: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>種別</label>
+            <select style={S.input} value={repeatForm.type} onChange={(e) => setRepeatForm({ ...repeatForm, type: e.target.value })}>
+              {Object.entries(typeConfig).map(([v, c]) => <option key={v} value={v}>{c.label}</option>)}
+            </select>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>時間</label>
+            <input style={S.input} value={repeatForm.time} onChange={(e) => setRepeatForm({ ...repeatForm, time: e.target.value })} placeholder="例：15:00〜17:00" />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>場所</label>
+            <input style={S.input} value={repeatForm.location} onChange={(e) => setRepeatForm({ ...repeatForm, location: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 8 }}>繰り返す曜日</label>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {wdays.map((w, i) => (
+                <button key={i} onClick={() => toggleWeekday(i)}
+                  style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `2px solid ${repeatForm.weekdays.includes(i) ? wdayColors[i] : C.border}`, background: repeatForm.weekdays.includes(i) ? (i === 0 ? C.sakuraLight : i === 6 ? C.jrLight : C.bg) : C.card, color: repeatForm.weekdays.includes(i) ? wdayColors[i] : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {w}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>開始日</label>
+            <input style={S.input} type="date" value={repeatForm.startDate} onChange={(e) => setRepeatForm({ ...repeatForm, startDate: e.target.value })} />
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>終了日</label>
+            <input style={S.input} type="date" value={repeatForm.endDate} onChange={(e) => setRepeatForm({ ...repeatForm, endDate: e.target.value })} />
+
+            {repeatForm.startDate && repeatForm.endDate && repeatForm.weekdays.length > 0 && (() => {
+              const start = new Date(repeatForm.startDate);
+              const end = new Date(repeatForm.endDate);
+              let count = 0;
+              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                if (repeatForm.weekdays.includes(d.getDay())) count++;
+              }
+              return <div style={{ fontSize: 13, color: C.primary, fontWeight: 700, marginBottom: 12 }}>→ {count}件のイベントが登録されます</div>;
+            })()}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setShowRepeat(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveRepeat} disabled={saving}>
+                {saving ? "登録中..." : "一括登録する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FEES TAB ──
+function FeesTab({ isAdmin }) {
+  const [members, setMembers] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedFy, setSelectedFy] = useState(null); // 選択中の会計年度（nullなら現年度）
+  const [newMonth, setNewMonth] = useState("");
+  const [newAmount, setNewAmount] = useState(1000);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addTarget, setAddTarget] = useState("");
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [m, f] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("fees").select("*").order("created_at"),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (f.data) setFees(f.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  const today = new Date();
+  // 部費を徴収しない役職（最初から対象外）
+  const FEE_EXEMPT_POSITIONS = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
+  const feeMembers = members.filter((m) => !FEE_EXEMPT_POSITIONS.includes(m.position));
+  // 月文字列を数値キーに（"2026年10月" が "2026年9月" より新しく並ぶよう数値比較）
+  const monthKey = (monthStr) => {
+    const m = monthStr.match(/(\d+)年(\d+)月/);
+    return m ? parseInt(m[1]) * 100 + parseInt(m[2]) : 0;
+  };
+  const allMonths = [...new Set(fees.map((f) => f.month))].sort((a, b) => monthKey(b) - monthKey(a)); // 新しい順
+
+  // 会計年度（9月決算：10月〜翌9月）。月がどの年度に属するかを返す
+  const fiscalYearOf = (monthStr) => {
+    const m = monthStr.match(/(\d+)年(\d+)月/);
+    if (!m) return null;
+    const y = parseInt(m[1]), mo = parseInt(m[2]);
+    return mo >= 10 ? y : y - 1;
+  };
+  const fyLabel = (fy) => `${fy}年10月〜${fy + 1}年9月`;
+  const fyName = (fy) => `${fy + 1}年度`; // 9月決算：終了年で「◯◯年度」と呼ぶ
+  const currentFiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
+
+  // 表示する年度：データにある年度＋現年度のうち、新しい順に直近3年度だけ。それより古い年度は表示しない
+  const visibleFiscalYears = [...new Set([currentFiscalYear, ...allMonths.map(fiscalYearOf).filter((v) => v != null)])]
+    .sort((a, b) => b - a)
+    .slice(0, 3);
+
+  // 直近3年度分の月だけを表示対象にする（それ以前の年度は消える）
+  const months = allMonths.filter((mo) => visibleFiscalYears.includes(fiscalYearOf(mo)));
+
+  // 選択中の年度（初期値＝現年度）と、その年度に属する月
+  const activeFy = selectedFy != null && visibleFiscalYears.includes(selectedFy) ? selectedFy : currentFiscalYear;
+  const fyMonths = months.filter((mo) => fiscalYearOf(mo) === activeFy);
+
+  // 年度ごとの納入済み合計
+  const fyTotal = (fy) => fees.filter((f) => f.paid && fiscalYearOf(f.month) === fy).reduce((sum, f) => sum + (f.amount || 0), 0);
+  // 現年度（既存表示との互換用）
+  const fiscalLabel = fyLabel(currentFiscalYear);
+  const yearTotal = fyTotal(currentFiscalYear);
+
+  const getMonthFees = (month) => fees.filter((f) => f.month === month);
+  const getMonthSummary = (month) => {
+    const mf = getMonthFees(month);
+    const paid = mf.filter((f) => f.paid).length;
+    const total = mf.length;
+    const amount = mf.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+    const unitAmount = mf.length > 0 ? mf[0].amount : 0;
+    return { paid, total, amount, unitAmount, pct: total > 0 ? Math.round((paid / total) * 100) : 0 };
+  };
+
+  const monthFees = selectedMonth ? getMonthFees(selectedMonth) : [];
+  const monthAmount = monthFees.length > 0 ? monthFees[0].amount : 0;
+  const getRecord = (name) => monthFees.find((f) => f.member_name === name);
+  const notInMonth = feeMembers.filter((m) => !monthFees.some((f) => f.member_name === m.name_jp));
+
+  const toggleSelectMember = (name) => setSelectedMembers((prev) =>
+    prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+  );
+  const selectAll = () => setSelectedMembers(feeMembers.map((m) => m.name_jp));
+  const clearAll = () => setSelectedMembers([]);
+
+  const createMonth = async () => {
+    if (!newMonth.trim() || selectedMembers.length === 0) { alert("月と対象メンバーを選択してください"); return; }
+    setSaving(true);
+    const records = selectedMembers.map((name) => ({
+      month: newMonth.trim(), amount: Number(newAmount), member_name: name, member_type: "adult", paid: false, paid_date: null,
+    }));
+    const { data, error } = await supabase.from("fees").insert(records).select();
+    if (error) { alert("作成に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) { setFees([...fees, ...data]); setSelectedMonth(newMonth.trim()); }
+    setShowMonthModal(false); setNewMonth(""); setSelectedMembers([]); setSaving(false);
+  };
+
+  const addMemberToMonth = async () => {
+    if (!addTarget) return;
+    setSaving(true);
+    const { data, error } = await supabase.from("fees").insert([{
+      month: selectedMonth, amount: monthAmount, member_name: addTarget, member_type: "adult", paid: false, paid_date: null,
+    }]).select();
+    if (error) { alert("追加に失敗しました：" + error.message); setSaving(false); return; }
+    if (data) setFees([...fees, data[0]]);
+    setShowAddMember(false); setAddTarget(""); setSaving(false);
+  };
+
+  const removeMemberFromMonth = async (name) => {
+    if (!window.confirm(`${name} をこの月の部費対象から除外しますか？`)) return;
+    const record = getRecord(name);
+    if (!record) return;
+    await supabase.from("fees").delete().eq("id", record.id);
+    setFees(fees.filter((f) => f.id !== record.id));
+  };
+
+  const [showPayModal, setShowPayModal] = useState(null); // member_name or null
+
+  const PAYMENT_METHODS = ["現金", "口座振込", "GCash"];
+  const METHOD_ICONS = { "現金": "💴", "口座振込": "🏦", "GCash": "📱" };
+
+  const registerPaid = async (name, method) => {
+    const record = getRecord(name);
+    if (!record) return;
+    const newDate = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("fees").update({ paid: true, paid_date: newDate, payment_method: method }).eq("id", record.id);
+    if (error) { alert("更新に失敗しました：" + error.message); return; }
+    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: true, paid_date: newDate, payment_method: method } : f));
+    setShowPayModal(null);
+  };
+
+  const cancelPaid = async (name) => {
+    if (!window.confirm("納入済みを取り消しますか？")) return;
+    const record = getRecord(name);
+    if (!record) return;
+    const { error } = await supabase.from("fees").update({ paid: false, paid_date: null, payment_method: null }).eq("id", record.id);
+    if (error) { alert("更新に失敗しました：" + error.message); return; }
+    setFees(fees.map((f) => f.id === record.id ? { ...f, paid: false, paid_date: null, payment_method: null } : f));
+  };
+
+  const deleteMonth = async (month) => {
+    if (!window.confirm(`「${month}」の部費ページを削除しますか？\n\nこの月の全メンバーの納入記録がすべて削除されます。\nこの操作は元に戻せません。`)) return;
+    const { error } = await supabase.from("fees").delete().eq("month", month);
+    if (error) { alert("削除に失敗しました：" + error.message); return; }
+    setFees(fees.filter((f) => f.month !== month));
+    if (selectedMonth === month) setSelectedMonth(null);
+  };
+
+  const MonthCard = ({ month, onClick }) => {
+    const s = getMonthSummary(month);
+    return (
+      <div onClick={onClick} style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${s.pct === 100 ? C.success : C.primary}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{month}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.primary }}>P{s.amount.toLocaleString()}</div>
+            {isAdmin && (
+              <button onClick={(e) => { e.stopPropagation(); deleteMonth(month); }}
+                style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "#CC1F1F15", color: C.danger, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>削除</button>
+            )}
+          </div>
+        </div>
+        <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+          <div style={{ height: "100%", width: `${s.pct}%`, background: s.pct === 100 ? C.success : C.primary, borderRadius: 99 }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+          <span>{s.paid}/{s.total}名 納入済　月額P{s.unitAmount.toLocaleString()}</span>
+          <span style={{ color: s.pct === 100 ? C.success : C.textMuted, fontWeight: 700 }}>{s.pct}%</span>
+        </div>
+      </div>
+    );
+  };
+
+  // 月詳細ページ
+  if (selectedMonth) {
+    const mf = getMonthFees(selectedMonth);
+    const paid = mf.filter((f) => f.paid).length;
+    const pct = mf.length > 0 ? Math.round((paid / mf.length) * 100) : 0;
+    const totalAmt = mf.filter((f) => f.paid).reduce((sum, f) => sum + (f.amount || 0), 0);
+
+    // 前月・翌月ナビゲーション
+    const currentIdx = months.indexOf(selectedMonth);
+    const prevMonth = currentIdx < months.length - 1 ? months[currentIdx + 1] : null; // monthsは降順なので+1が前月
+    const nextMonth = currentIdx > 0 ? months[currentIdx - 1] : null; // -1が翌月
+
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setSelectedMonth(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0, flex: 1 }}>{selectedMonth}</h2>
+          {isAdmin && notInMonth.length > 0 && (
+            <button style={{ ...S.btn("ghost", "sm") }} onClick={() => setShowAddMember(true)}>＋ 追加</button>
+          )}
+          {isAdmin && (
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deleteMonth(selectedMonth)}>削除</button>
+          )}
+        </div>
+
+        {/* 前月・翌月ナビ */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button
+            onClick={() => setSelectedMonth(nextMonth)}
+            disabled={!nextMonth}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${nextMonth ? C.border : C.border}`, background: nextMonth ? C.card : C.bg, color: nextMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextMonth ? "pointer" : "default" }}>
+            ← {nextMonth || ""}
+          </button>
+          <button
+            onClick={() => setSelectedMonth(prevMonth)}
+            disabled={!prevMonth}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${prevMonth ? C.border : C.border}`, background: prevMonth ? C.card : C.bg, color: prevMonth ? C.primary : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevMonth ? "pointer" : "default" }}>
+            {prevMonth || ""} →
+          </button>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 2 }}>納入済み合計</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>P{totalAmt.toLocaleString()}</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>月額 P{monthAmount.toLocaleString()}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{pct}%</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>{paid}/{mf.length}名</div>
+            </div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: C.accent, borderRadius: 99 }} />
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>未納：{mf.length - paid}名</div>
+        </div>
+        {mf.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>対象メンバーがいません</div>}
+        {mf.map((f) => (
+          <div key={f.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${f.paid ? C.success : C.border}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{f.member_name}</div>
+              {f.paid
+                ? <div style={{ fontSize: 11, color: C.success }}>
+                    支払日：{f.paid_date}　{f.payment_method ? `${METHOD_ICONS[f.payment_method] || ""}${f.payment_method}` : ""}
+                  </div>
+                : <div style={{ fontSize: 11, color: C.textMuted }}>未納入</div>
+              }
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {isAdmin ? (
+                f.paid ? (
+                  <button onClick={() => cancelPaid(f.member_name)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "#2E7D3220", color: C.success }}>
+                    ✓ 納入済
+                  </button>
+                ) : (
+                  <button onClick={() => setShowPayModal(f.member_name)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: "#CC1F1F20", color: C.danger }}>
+                    未納入
+                  </button>
+                )
+              ) : (
+                <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: f.paid ? "#2E7D3220" : "#CC1F1F20", color: f.paid ? C.success : C.danger }}>
+                  {f.paid ? "✓ 納入済" : "未納入"}
+                </span>
+              )}
+              {isAdmin && <button onClick={() => removeMemberFromMonth(f.member_name)} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>除外</button>}
+            </div>
+          </div>
+        ))}
+
+        {/* 支払方法選択モーダル */}
+        {showPayModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 900, color: C.text }}>支払方法を選択</h3>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>{showPayModal}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                {PAYMENT_METHODS.map((method) => (
+                  <button key={method} onClick={() => registerPaid(showPayModal, method)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.bg, cursor: "pointer", fontFamily: "inherit", fontSize: 15, fontWeight: 700, color: C.text }}>
+                    <span style={{ fontSize: 22 }}>{METHOD_ICONS[method]}</span>
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <button style={{ ...S.btn("ghost"), width: "100%" }} onClick={() => setShowPayModal(null)}>キャンセル</button>
+            </div>
+          </div>
+        )}
+        {showAddMember && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>メンバーを追加</h3>
+                <button onClick={() => { setShowAddMember(false); setAddTarget(""); }} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+              </div>
+
+              {/* 名前を直接入力 */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>名前を直接入力（退部済みメンバー等）</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input style={{ ...S.input, marginBottom: 0, flex: 1 }} placeholder="例：橋本 太郎"
+                    value={addTarget && !members.some((m) => m.name_jp === addTarget) ? addTarget : ""}
+                    onChange={(e) => setAddTarget(e.target.value)} />
+                </div>
+              </div>
+
+              {/* 区切り */}
+              {notInMonth.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                  <span style={{ fontSize: 11, color: C.textMuted, whiteSpace: "nowrap" }}>または名簿から選択</span>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                </div>
+              )}
+
+              {/* 名簿から選択 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                {notInMonth.map((m) => (
+                  <button key={m.id} onClick={() => setAddTarget(m.name_jp)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${addTarget === m.name_jp ? C.primary : C.border}`, background: addTarget === m.name_jp ? C.sakuraLight : C.card, cursor: "pointer", fontFamily: "inherit" }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
+                    {addTarget === m.name_jp && <span style={{ color: C.primary, fontWeight: 900 }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowAddMember(false); setAddTarget(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addMemberToMonth} disabled={!addTarget.trim() || saving}>追加する</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
-  const real = count >= 1;
-  const icon = useDragonStamp ? (
-    <img src="/dragon-stamp.png" alt="" style={styles.dragonStampImg} />
-  ) : (
-    <StampIcon index={iconIndex} color={color} size="76%" shapes={shapes} withFace={withFace} />
-  );
-  const hintIdx = taskIconIndex(iconIndex, useDragonStamp, shapes ? shapes.length : 1);
-  const hintIcon = (
-    <span style={styles.stampHintIcon}>
-      <StampIcon index={hintIdx} color={color} size="72%" shapes={shapes} withFace={false} />
-    </span>
-  );
+  // 全履歴ページ
+  if (showHistory) {
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.primary, padding: 0 }}>←</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0 }}>支払い履歴（{fyName(activeFy)}）</h2>
+        </div>
+        {visibleFiscalYears.length >= 2 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {visibleFiscalYears.map((fy) => (
+              <button key={fy} onClick={() => setSelectedFy(fy)}
+                style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{fyTotal(activeFy).toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>{fyMonths.length}か月分</div>
+        </div>
+        {fyMonths.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度のデータがありません</div>}
+        {fyMonths.map((month) => (
+          <MonthCard key={month} month={month} onClick={() => { setShowHistory(false); setSelectedMonth(month); }} />
+        ))}
+      </div>
+    );
+  }
 
-  if (real) {
-    if (isFuture) {
-      // Future day — a genuine future record shouldn't exist, but just in
-      // case, keep this fully non-interactive (can't unlock from a future day).
+  // メインページ
+  return (
+    <div style={S.content}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <h2 style={{ ...S.sectionTitle, margin: 0 }}>部費管理</h2>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <a href="https://kanjiro.vercel.app/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <button style={S.btn("ghost", "sm")}>🎉 幹事郎</button>
+          </a>
+          {isAdmin && <button style={S.btn("accent", "sm")} onClick={() => { setSelectedMembers(feeMembers.map((m) => m.name_jp)); setShowMonthModal(true); }}>＋ 月を追加</button>}
+        </div>
+      </div>
+      {loading && <Loading />}
+      {!loading && (
+        <>
+          {/* 年度切替ボタン（翌年度以降の月ページが作られると自動で増える） */}
+          {visibleFiscalYears.length >= 2 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {visibleFiscalYears.map((fy) => (
+                <button key={fy} onClick={() => setSelectedFy(fy)}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計納入額　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{fyTotal(activeFy).toLocaleString()}</div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>{fyMonths.length}か月分の記録</div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>月別一覧（{fyName(activeFy)}）</div>
+          </div>
+
+          {fyMonths.length === 0 ? (
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13, padding: 24 }}>
+              {isAdmin ? "「＋ 月を追加」から月を作成してください" : "この年度の部費データがありません"}
+            </div>
+          ) : (
+            fyMonths.map((month) => (
+              <MonthCard key={month} month={month} onClick={() => setSelectedMonth(month)} />
+            ))
+          )}
+        </>
+      )}
+
+      {showMonthModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: C.text }}>月を追加</h3>
+              <button onClick={() => setShowMonthModal(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.textMuted }}>✕</button>
+            </div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>月（例：2026年5月）</label>
+            <input style={S.input} placeholder="2026年5月" value={newMonth} onChange={(e) => setNewMonth(e.target.value)} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>月額（ペソ）</label>
+            <input style={S.input} type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>対象メンバー（{selectedMembers.length}名）</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={selectAll} style={{ fontSize: 11, color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>全選択</button>
+                <button onClick={clearAll} style={{ fontSize: 11, color: C.textMuted, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>クリア</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+              {feeMembers.map((m) => (
+                <button key={m.id} onClick={() => toggleSelectMember(m.name_jp)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${selectedMembers.includes(m.name_jp) ? C.primary : C.border}`, background: selectedMembers.includes(m.name_jp) ? C.sakuraLight : C.card, cursor: "pointer", fontFamily: "inherit" }}>
+                  <div>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</span>
+                    {m.position && <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>{m.position}</span>}
+                  </div>
+                  <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selectedMembers.includes(m.name_jp) ? C.primary : C.border}`, background: selectedMembers.includes(m.name_jp) ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {selectedMembers.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setShowMonthModal(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={createMonth} disabled={saving}>
+                {saving ? "作成中..." : `${selectedMembers.length}名で作成する`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FEES WRAPPER ──
+function FeesWrapper({ isAdmin }) {
+  const [activeTab, setActiveTab] = useState("adult");
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 0, margin: "12px 16px 0", borderRadius: 12, overflow: "hidden", border: `1.5px solid ${C.border}` }}>
+        <button onClick={() => setActiveTab("adult")} style={{ flex: 1, padding: "10px", border: "none", background: activeTab === "adult" ? C.primary : C.card, color: activeTab === "adult" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+          💴 部費
+        </button>
+        <button onClick={() => setActiveTab("jr")} style={{ flex: 1, padding: "10px", border: "none", borderLeft: `1.5px solid ${C.border}`, background: activeTab === "jr" ? C.jr : C.card, color: activeTab === "jr" ? "#fff" : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+          ⭐ Jr参加費
+        </button>
+      </div>
+      {activeTab === "adult" && <FeesTab isAdmin={isAdmin} />}
+      {activeTab === "jr" && <JrFeesTab isAdmin={isAdmin} />}
+    </div>
+  );
+}
+
+// ── JR FEES TAB ──
+function JrFeesTab({ isAdmin }) {
+  const [jrMembers, setJrMembers] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [jrFees, setJrFees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [unitFee, setUnitFee] = useState(100); // デフォルトP100
+  const [editingFee, setEditingFee] = useState(false);
+  const [tempFee, setTempFee] = useState(100);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      const [j, e, jf] = await Promise.all([
+        supabase.from("jr_members").select("*").order("created_at"),
+        supabase.from("events").select("*").eq("type", "practice").order("date", { ascending: false }),
+        supabase.from("jr_fees").select("*"),
+      ]);
+      if (j.data) setJrMembers(j.data);
+      if (e.data) setEvents(e.data.filter((ev) => !ev.jr_fee_hidden)); // 参加費一覧から除外された練習は表示しない
+      if (jf.data) setJrFees(jf.data);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState(null);
+  const [selectedFy, setSelectedFy] = useState(null); // 選択中の会計年度（nullなら現年度）
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 会計年度（9月決算：10月〜翌9月）。年度は終了年で「◯◯年度」と呼ぶ
+  const fyOfDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.getMonth() >= 9 ? d.getFullYear() : d.getFullYear() - 1;
+  };
+  const fyLabel = (fy) => `${fy}年10月〜${fy + 1}年9月`;
+  const fyName = (fy) => `${fy + 1}年度`;
+  const currentFiscalYear = (() => { const t = new Date(); return t.getMonth() >= 9 ? t.getFullYear() : t.getFullYear() - 1; })();
+  const visibleFiscalYears = [...new Set([currentFiscalYear, ...events.map((e) => fyOfDate(e.date))])].sort((a, b) => b - a).slice(0, 3);
+  const activeFy = selectedFy != null && visibleFiscalYears.includes(selectedFy) ? selectedFy : currentFiscalYear;
+  const fyEvents = events.filter((e) => fyOfDate(e.date) === activeFy);
+
+  // 選択年度の練習（今年度＝今日以降4回／他年度＝直近4回）
+  const topEvents = activeFy === currentFiscalYear
+    ? fyEvents.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4)
+    : [...fyEvents].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+
+  // 保護者名が同じ → 家族グループ、それ以外は個人
+  const getFeeUnits = () => {
+    const units = [];
+    const processed = new Set();
+    jrMembers.forEach((m) => {
+      if (processed.has(m.id)) return;
+      const siblings = jrMembers.filter((j) => j.parent_name && j.parent_name === m.parent_name && j.id !== m.id);
+      if (siblings.length > 0 && m.parent_name) {
+        const group = [m, ...siblings];
+        group.forEach((g) => processed.add(g.id));
+        units.push({ key: `grp_${m.parent_name}`, label: m.parent_name, members: group });
+      } else {
+        processed.add(m.id);
+        units.push({ key: `ind_${m.id}`, label: m.name_jp, members: [m] });
+      }
+    });
+    return units;
+  };
+
+  const feeUnits = getFeeUnits();
+
+  // jr_feesはlabelをキーとして保存
+  const isPaid = (eventId, label) =>
+    jrFees.some((f) => f.event_id === eventId && f.family_id === label);
+
+  const togglePaid = async (eventId, label) => {
+    if (!isAdmin) return;
+    const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === label);
+    if (existing) {
+      await supabase.from("jr_fees").delete().eq("id", existing.id);
+      setJrFees(jrFees.filter((f) => f.id !== existing.id));
+    } else {
+      const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: label, paid: true }]).select();
+      if (data) setJrFees([...jrFees, data[0]]);
+    }
+  };
+
+  const getEventPaidCount = (eventId) => jrFees.filter((f) => f.event_id === eventId).length;
+  const getEventTotal = (eventId) => getEventPaidCount(eventId) * unitFee;
+  const wdays = ["日", "月", "火", "水", "木", "金", "土"];
+
+  const [trialName, setTrialName] = useState("");
+  const [showTrialInput, setShowTrialInput] = useState(false);
+
+  const removeTrial = async (feeId) => {
+    await supabase.from("jr_fees").delete().eq("id", feeId);
+    setJrFees(jrFees.filter((f) => f.id !== feeId));
+  };
+
+  // この練習を参加費一覧から削除（参加費記録は消すが、日程・出欠には残す）
+  const deletePractice = async (eventId) => {
+    if (!window.confirm(`この練習を参加費一覧から削除しますか？\n\n・この練習の参加費記録が削除されます\n・参加費一覧から見えなくなります\n（「日程」タブと出欠登録には残ります）\n\nこの操作は元に戻せません。`)) return;
+    await supabase.from("jr_fees").delete().eq("event_id", eventId);
+    const { error } = await supabase.from("events").update({ jr_fee_hidden: true }).eq("id", eventId);
+    if (error) { alert("削除に失敗しました：" + error.message); return; }
+    setJrFees(jrFees.filter((f) => f.event_id !== eventId));
+    setEvents(events.filter((e) => e.id !== eventId));
+    setSelectedEvent(null);
+  };
+
+  // その他（体験:も含む両方の形式に対応）
+  const getTrialUnits = (eventId) =>
+    jrFees.filter((f) => f.event_id === eventId && (String(f.family_id).startsWith("その他:") || String(f.family_id).startsWith("体験:")))
+      .map((f) => ({ label: String(f.family_id).replace(/^(その他:|体験:)/, ""), key: f.id }));
+
+  const addTrial = async () => {
+    if (!trialName.trim()) return;
+    const label = `その他:${trialName.trim()}`;
+    const { data } = await supabase.from("jr_fees").insert([{ event_id: selectedEvent, family_id: label, paid: true }]).select();
+    if (data) setJrFees([...jrFees, data[0]]);
+    setTrialName(""); setShowTrialInput(false);
+  };
+
+  // 練習詳細ページ
+  if (selectedEvent) {
+    const ev = events.find((e) => e.id === selectedEvent);
+    const trialUnits = getTrialUnits(selectedEvent);
+    const paidCount = getEventPaidCount(selectedEvent);
+
+    // 前回・翌回ナビゲーション（eventsは降順なのでindexが大きい方が古い）
+    const currentIdx = events.findIndex((e) => e.id === selectedEvent);
+    const prevEvent = currentIdx < events.length - 1 ? events[currentIdx + 1] : null; // 古い
+    const nextEvent = currentIdx > 0 ? events[currentIdx - 1] : null; // 新しい
+
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => { setSelectedEvent(null); setShowTrialInput(false); }} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
+          <h2 style={{ ...S.sectionTitle, margin: 0, color: C.jr, flex: 1 }}>{ev?.title}</h2>
+          {isAdmin && (
+            <button style={{ ...S.btn("accent", "sm") }} onClick={() => setShowTrialInput(true)}>＋ 追加</button>
+          )}
+          {isAdmin && (
+            <button style={{ ...S.btn("danger", "sm") }} onClick={() => deletePractice(selectedEvent)}>一覧から削除</button>
+          )}
+        </div>
+
+        {/* 前回・翌回ナビ */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button onClick={() => { setSelectedEvent(nextEvent?.id); setShowTrialInput(false); }} disabled={!nextEvent}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextEvent ? C.card : C.bg, color: nextEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: nextEvent ? "pointer" : "default" }}>
+            ← {nextEvent ? nextEvent.date.slice(5) : ""}
+          </button>
+          <button onClick={() => { setSelectedEvent(prevEvent?.id); setShowTrialInput(false); }} disabled={!prevEvent}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevEvent ? C.card : C.bg, color: prevEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: prevEvent ? "pointer" : "default" }}>
+            {prevEvent ? prevEvent.date.slice(5) : ""} →
+          </button>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
+          <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length + trialUnits.length}グループ参加　P{unitFee}×{paidCount}グループ</div>
+        </div>
+
+        {/* 登録メンバー */}
+        {feeUnits.length === 0 && trialUnits.length === 0 && (
+          <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
+        )}
+        {feeUnits.map((unit) => {
+          const paid = isPaid(selectedEvent, unit.label);
+          const feeRecord = jrFees.find((f) => f.event_id === selectedEvent && f.family_id === unit.label);
+          return (
+            <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+                  {unit.members.length > 1 ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {unit.members.map((m) => m.name_jp).join("・")}　P{unitFee}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {isAdmin ? (
+                  <button onClick={() => togglePaid(selectedEvent, unit.label)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </button>
+                ) : (
+                  <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </span>
+                )}
+                {isAdmin && paid && feeRecord && (
+                  <button onClick={async () => {
+                    if (!window.confirm(`${unit.label}の参加記録を削除しますか？`)) return;
+                    await supabase.from("jr_fees").delete().eq("id", feeRecord.id);
+                    setJrFees(jrFees.filter((f) => f.id !== feeRecord.id));
+                  }}
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                    削除
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* その他 */}
+        {trialUnits.length > 0 && (
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 仮入部/その他</div>
+        )}
+        {trialUnits.map((t) => (
+          <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>仮入部/その他　P{unitFee}</div>
+            </div>
+            {isAdmin && (
+              <button onClick={() => removeTrial(t.key)}
+                style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                削除
+              </button>
+            )}
+          </div>
+        ))}
+
+        {isAdmin && showTrialInput && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 仮入部/その他を追加</h3>
+              <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addTrial} disabled={!trialName.trim()}>追加する</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 年間合計（選択年度）
+  const getYearTotal = (fy) => {
+    const ids = events.filter((e) => fyOfDate(e.date) === fy).map((e) => e.id);
+    return jrFees.filter((f) => ids.includes(f.event_id)).length * unitFee;
+  };
+
+  // 全履歴ページ
+  if (showHistory) {
+    // 月別グループ化（古い順・選択年度のみ）
+    const sortedEvents = [...fyEvents].sort((a, b) => a.date.localeCompare(b.date));
+    const monthGroups = {};
+    sortedEvents.forEach((e) => {
+      const month = e.date.slice(0, 7);
+      if (!monthGroups[month]) monthGroups[month] = [];
+      monthGroups[month].push(e);
+    });
+    const monthEntries = Object.entries(monthGroups).sort(([a], [b]) => a.localeCompare(b));
+
+    // 選択中の月
+    const selectedHistoryMonth = expandedMonth;
+    const historyMonths = monthEntries.map(([m]) => m);
+    const currentHistoryIdx = historyMonths.indexOf(selectedHistoryMonth);
+    const prevHistoryMonth = currentHistoryIdx > 0 ? historyMonths[currentHistoryIdx - 1] : null;
+    const nextHistoryMonth = currentHistoryIdx < historyMonths.length - 1 ? historyMonths[currentHistoryIdx + 1] : null;
+
+    // 月詳細ページ
+    if (selectedHistoryMonth && monthGroups[selectedHistoryMonth]) {
+      const monthEvs = monthGroups[selectedHistoryMonth];
+      const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+      const [y, m] = selectedHistoryMonth.split("-");
       return (
-        <div
-          style={{
-            ...styles.stampCircle,
-            cursor: "default",
-            borderColor: color,
-            borderStyle: "solid",
-            background: color + "22",
-          }}
-        >
-          {icon}
-          {count === 2 && <span style={styles.x2Badge}>×2</span>}
+        <div style={S.content}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <button onClick={() => setExpandedMonth(null)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 全履歴に戻る</button>
+          </div>
+          {/* 前月・翌月ナビ */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setExpandedMonth(nextHistoryMonth)} disabled={!nextHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextHistoryMonth ? C.card : C.bg, color: nextHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextHistoryMonth ? "pointer" : "default" }}>
+              ← {nextHistoryMonth ? nextHistoryMonth.replace("-", "年") + "月" : ""}
+            </button>
+            <button onClick={() => setExpandedMonth(prevHistoryMonth)} disabled={!prevHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevHistoryMonth ? C.card : C.bg, color: prevHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevHistoryMonth ? "pointer" : "default" }}>
+              {prevHistoryMonth ? prevHistoryMonth.replace("-", "年") + "月" : ""} →
+            </button>
+          </div>
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{parseInt(y)}年{parseInt(m)}月</div>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>P{monthTotal.toLocaleString()}</div>
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{monthEvs.length}回の練習</div>
+            </div>
+          </div>
+          {monthEvs.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）{e.title}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted }}>{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 4 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
     }
-    // Past day, locked — tappable to bring up the parent PIN/confirm prompt,
-    // same as tapping today's stamp does. Lets a parent unlock from any past
-    // day's cell, not only from today's (today may have nothing scheduled).
-    return (
-      <button
-        onClick={onRequestUnlock}
-        style={{
-          ...styles.stampCircle,
-          borderColor: color,
-          borderStyle: "solid",
-          background: color + "22",
-          cursor: "pointer",
-        }}
-        aria-label={`${label} の記録をあとから直す（保護者用）`}
-      >
-        {icon}
-        {count === 2 && <span style={styles.x2Badge}>×2</span>}
-      </button>
-    );
-  }
 
-  if (isFuture) {
-    // No real record, future day — a free, playful "practice" stamp the
-    // child can pop on and off. Always tappable, always pale, never affects
-    // real progress. Shows a faint hint icon even before tapping, so it's
-    // clear which task this blank stamp belongs to.
+    // 月一覧ページ
     return (
-      <button
-        onClick={onToggleFun}
-        style={{
-          ...styles.stampCircle,
-          borderColor: fun ? color : missed ? "#F4C95D" : "#dbe8ee",
-          background: fun ? color + "18" : "#fff",
-        }}
-        aria-label={`${label} れんしゅうスタンプ`}
-      >
-        {fun ? (
-          useDragonStamp ? (
-            <img src="/dragon-stamp.png" alt="" style={{ ...styles.dragonStampImg, opacity: 0.55 }} />
-          ) : (
-            <StampIcon index={iconIndex} color={color} size="72%" shapes={shapes} withFace={false} />
-          )
-        ) : (
-          hintIcon
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowHistory(false)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
+        </div>
+        {visibleFiscalYears.length >= 2 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {visibleFiscalYears.map((fy) => (
+              <button key={fy} onClick={() => { setSelectedFy(fy); setExpandedMonth(null); }}
+                style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+              </button>
+            ))}
+          </div>
         )}
-      </button>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{fyEvents.length}回分の記録</div>
+        </div>
+        {fyEvents.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>}
+        {monthEntries.map(([month, monthEvs]) => {
+          const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+          const [y, m] = month.split("-");
+          return (
+            <div key={month} onClick={() => setExpandedMonth(month)}
+              style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{parseInt(y)}年{parseInt(m)}月</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>{monthEvs.length}回の練習</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: C.jr }}>P{monthTotal.toLocaleString()}</div>
+                  <span style={{ fontSize: 14, color: C.textMuted }}>›</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   }
 
-  // No real record here, past day, locked — tappable to bring up the parent
-  // PIN/confirm prompt (same as above), so any past day works as an unlock
-  // entry point even when it has no stamp on it yet.
+  // メインページ
   return (
-    <button
-      onClick={onRequestUnlock}
-      style={{
-        ...styles.stampCircle,
-        borderColor: missed ? "#F4C95D" : "#dbe8ee",
-        background: "#fff",
-        cursor: "pointer",
-      }}
-      aria-label={`${label} のスタンプを押す（保護者用）`}
-    >
-      {hintIcon}
-    </button>
-  );
-}
-
-function TreasureChestMini({ filled }) {
-  const wood = filled ? "#8B5A2B" : "rgba(62,42,22,0.25)";
-  const woodDark = filled ? "#5C3A1A" : "rgba(62,42,22,0.22)";
-  const metal = filled ? "#E5C878" : "rgba(62,42,22,0.3)";
-  const metalDark = filled ? "#B8934A" : "rgba(62,42,22,0.28)";
-  return (
-    <svg width="22" height="20" viewBox="0 0 22 20" style={{ flexShrink: 0 }}>
-      {/* domed lid */}
-      <path d="M2 9c0-4.4 4-7.5 9-7.5s9 3.1 9 7.5z" fill={wood} />
-      <path d="M6.8 3.3c-1.4 1.5-2.2 3.4-2.4 5.7M15.2 3.3c1.4 1.5 2.2 3.4 2.4 5.7" stroke={woodDark} strokeWidth="0.5" fill="none" opacity="0.6" />
-      <path d="M11 2v7" stroke={woodDark} strokeWidth="0.5" opacity="0.4" />
-      <rect x="2" y="7.3" width="18" height="1.8" fill={metal} />
-      {/* body */}
-      <rect x="1.3" y="9" width="19.4" height="9.7" rx="1.8" fill={wood} />
-      <path d="M6.2 9.3v9.2M11 9.3v9.2M15.8 9.3v9.2" stroke={woodDark} strokeWidth="0.5" opacity="0.45" />
-      <rect x="1.3" y="9" width="19.4" height="1.7" fill={metal} />
-      <rect x="1.3" y="16.2" width="19.4" height="1.7" fill={metal} />
-      {/* rivets */}
-      <circle cx="2.8" cy="9.85" r="0.55" fill={metalDark} />
-      <circle cx="19.2" cy="9.85" r="0.55" fill={metalDark} />
-      <circle cx="2.8" cy="17.05" r="0.55" fill={metalDark} />
-      <circle cx="19.2" cy="17.05" r="0.55" fill={metalDark} />
-      {/* lock plate */}
-      <rect x="9" y="7.8" width="4" height="5.2" rx="1" fill={metal} stroke={metalDark} strokeWidth="0.4" />
-      <circle cx="11" cy="10.2" r="0.85" fill={metalDark} />
-      {filled && (
+    <div style={S.content}>
+      <h2 style={{ ...S.sectionTitle, color: C.jr }}>⭐ Jr 参加費管理</h2>
+      {loading && <Loading />}
+      {!loading && (
         <>
-          <circle cx="11" cy="3.5" r="1.1" fill="#FFF3C4" opacity="0.95" />
-          <path d="M3.5 20l1-2.2M18.5 20l-1-2.2" stroke="#F4C95D" strokeWidth="1" strokeLinecap="round" opacity="0.65" />
+          {/* 年度切替ボタン（翌年度以降の練習が登録されると自動で増える） */}
+          {visibleFiscalYears.length >= 2 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {visibleFiscalYears.map((fy) => (
+                <button key={fy} onClick={() => setSelectedFy(fy)}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* 年間合計 */}
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {editingFee ? (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P</span>
+                  <input type="number" value={tempFee} onChange={(e) => setTempFee(Number(e.target.value))}
+                    style={{ width: 70, padding: "2px 6px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 700, color: C.text }} />
+                  <button onClick={() => { setUnitFee(tempFee); setEditingFee(false); }}
+                    style={{ padding: "3px 10px", borderRadius: 6, border: "none", background: "#fff", color: C.jr, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>確定</button>
+                  <button onClick={() => setEditingFee(false)}
+                    style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P{unitFee}/グループ・回</span>
+                  {isAdmin && (
+                    <button onClick={() => { setTempFee(unitFee); setEditingFee(true); }}
+                      style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 11, cursor: "pointer" }}>変更</button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{activeFy === currentFiscalYear ? "直近4回の練習" : `${fyName(activeFy)}の直近4回`}</div>
+          </div>
+          {topEvents.length === 0 && (
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>
+          )}
+          {topEvents.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+
+          {fyEvents.length > 0 && (
+            <button onClick={() => setShowHistory(true)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.jr}`, background: C.jrLight, color: C.jr, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
+              📋 {fyName(activeFy)}の全履歴を見る（{fyEvents.length}回分）
+            </button>
+          )}
         </>
       )}
-    </svg>
-  );
-}
-
-function WeekdayShield({ label, color, iconIndex, shapes }) {
-  return (
-    <div style={styles.weekdayShieldWrap}>
-      <div style={styles.weekdayShieldFrame}>
-        <svg width="100%" height="100%" viewBox="0 0 40 46" preserveAspectRatio="xMidYMid meet">
-          <path d="M20 2l17 6v9c0 12-7 19.5-17 24C10 37.5 3 30 3 17V8z" fill={color} stroke="#2A1A0D" strokeWidth="1.5" />
-        </svg>
-      </div>
-      <div style={styles.weekdayShieldContent}>
-        <span style={styles.weekdayShieldLabel}>{label}</span>
-        <StampIcon index={iconIndex} color="#fff" size={22} shapes={shapes} withFace={false} />
-      </div>
     </div>
   );
 }
 
-function StampCell({ count, color, iconIndex, label, onTap, onClear, shapes, withFace, useDragonStamp }) {
-  const [popKey, setPopKey] = useState(0);
-  const [comment, setComment] = useState(null);
-  const prevCount = useRef(count);
-  const timerRef = useRef(null);
+// ── MAIN APP ──
+// ── マイグループ設定 ──
+function MyGroupSetup({ onSave, onClose, currentGroup }) {
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
+  const [selected, setSelected] = useState(currentGroup || []);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (count > prevCount.current) {
-      setPopKey((k) => k + 1);
-      setComment(count === 2 ? "2日分 取り戻した！" : CHEERS[Math.floor(Math.random() * CHEERS.length)]);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setComment(null), 1300);
-    }
-    prevCount.current = count;
-  }, [count]);
+    const fetch = async () => {
+      const [m, j] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, parent_name").order("created_at"),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const toggle = (name) => {
+    setSelected((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
+  };
 
   return (
-    <div style={styles.stampCellWrap}>
-      <button
-        onClick={onTap}
-        style={{
-          ...styles.stampCircle,
-          borderColor: color,
-          background: count >= 1 ? color + "22" : "#ffffff",
-        }}
-        aria-label={`${label} スタンプ`}
-      >
-        {count >= 1 ? (
-          <span key={popKey} style={styles.stampPopWrap}>
-            {useDragonStamp ? (
-              <img src="/dragon-stamp.png" alt="" style={styles.dragonStampImg} />
-            ) : (
-              <StampIcon index={iconIndex} color={color} size="78%" shapes={shapes} withFace={withFace} />
-            )}
-          </span>
-        ) : (
-          <span style={styles.stampHintIcon}>
-            <StampIcon
-              index={taskIconIndex(iconIndex, useDragonStamp, shapes ? shapes.length : 1)}
-              color={color}
-              size="72%"
-              shapes={shapes}
-              withFace={false}
-            />
-          </span>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 マイグループ設定</h3>
+        <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+          出欠登録をまとめて行うメンバーを選択してください。お一人の場合もご自身を選択してください。練習前に未登録の場合は通知されます。
+        </p>
+        {loading && <Loading />}
+        {!loading && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.primary, marginBottom: 8 }}>🏉 大人</div>
+            {members.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.sakuraLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}`, background: selected.includes(m.name_jp) ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.position}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.jr, margin: "12px 0 8px" }}>⭐ Jr</div>
+            {jrMembers.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.jrLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}`, background: selected.includes(m.name_jp) ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.parent_name && `👨‍👩‍👧‍👦 ${m.parent_name}`}</div>
+                </div>
+              </div>
+            ))}
+          </>
         )}
-        {count === 2 && <span style={styles.x2Badge}>×2</span>}
-        {comment && <span style={styles.commentBubble}>{comment}</span>}
-      </button>
-      {count >= 1 && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          style={styles.undoBadge}
-          aria-label={`${label} スタンプを取り消す`}
-          title="取り消す"
-        >
-          ×
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- Overlays ---------------- */
-
-function ConfirmModal({ title, message, confirmLabel, cancelLabel, onConfirm, onCancel, danger }) {
-  return (
-    <div style={styles.modalOverlay}>
-      <div style={styles.modalCard}>
-        <h3 style={styles.modalTitle}>{title}</h3>
-        <p style={styles.modalMsg}>{message}</p>
-        <div style={styles.modalBtns}>
-          <button style={styles.modalCancel} onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button style={danger ? styles.modalDanger : styles.modalConfirm} onClick={onConfirm}>
-            {confirmLabel}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={() => { localStorage.setItem("hapons_group_skipped", "1"); onClose(); }} style={{ ...S.btn("ghost"), flex: 1 }}>後で設定</button>
+          <button onClick={() => onSave(selected)} style={{ ...S.btn("primary"), flex: 2 }}>
+            {selected.length}名を登録する
           </button>
         </div>
       </div>
@@ -2414,1199 +2853,354 @@ function ConfirmModal({ title, message, confirmLabel, cancelLabel, onConfirm, on
   );
 }
 
-function PinModal({ correctPin, onSuccess, onFail, onCancel }) {
-  const [val, setVal] = useState("");
-  const [failCount, setFailCount] = useState(0);
-  const [showHint, setShowHint] = useState(false);
+export default function HaponsApp() {
+  const [role, setRole] = useState(() => localStorage.getItem("hapons_role") || null);
+  const [tab, setTab] = useState("home");
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showImportant, setShowImportant] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showEntryForms, setShowEntryForms] = useState(false);
+  const [showMJSPass, setShowMJSPass] = useState(false);
+  const [showClubSong, setShowClubSong] = useState(false);
+  const [showMinutes, setShowMinutes] = useState(false);
+  const [showTranslateGuide, setShowTranslateGuide] = useState(false);
+  const [slideDir, setSlideDir] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
-  function submit() {
-    if (val === correctPin || val === MASTER_PIN) {
-      onSuccess();
-    } else {
-      onFail();
-      setVal("");
-      setFailCount((n) => {
-        const next = n + 1;
-        if (next >= 3) setShowHint(true);
-        return next;
+  // マイグループ機能
+  const [myGroup, setMyGroup] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hapons_my_group") || "[]"); } catch { return []; }
+  });
+  const [showGroupSetup, setShowGroupSetup] = useState(false);
+  const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
+  const [unregisteredEvent, setUnregisteredEvent] = useState(null);
+  const [unregisteredMembers, setUnregisteredMembers] = useState([]);
+  const [alertIsUrgent, setAlertIsUrgent] = useState(false); // 1日前はスキップ不可
+
+  const saveMyGroup = (group) => {
+    localStorage.setItem("hapons_my_group", JSON.stringify(group));
+    localStorage.removeItem("hapons_group_skipped");
+    setMyGroup(group);
+    setShowGroupSetup(false);
+  };
+
+  // グループ未設定なら初回表示（スキップ済みでなければ）
+  useEffect(() => {
+    if (role && myGroup.length === 0 && !localStorage.getItem("hapons_group_skipped")) {
+      setShowGroupSetup(true);
+    }
+  }, [role]);
+
+  // アプリ起動時に未登録チェック（7日前・3日前・1日前）
+  useEffect(() => {
+    if (myGroup.length === 0 || !role) return;
+    const checkUnregistered = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data: events } = await supabase.from("events")
+        .select("*").gte("date", today).lte("date", nextWeek).eq("type", "practice").order("date");
+      if (!events || events.length === 0) return;
+
+      // 直近の練習日を特定し、その日の全イベントを対象にする
+      const nextDate = String(events[0].date).slice(0, 10);
+      const sameDayEvents = events.filter((e) => String(e.date).slice(0, 10) === nextDate);
+      const nextEvent = sameDayEvents[0];
+      const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+
+      // スキップ状態を確認（同一日のイベント群をまとめて1つのキーで管理）
+      const alertKey = `hapons_alert_${nextDate}`;
+      const dismissedPhase = localStorage.getItem(alertKey);
+
+      // 表示条件：7日前（未スキップ）、3日前（7日前スキップ済みでも再表示）、1日前（常に表示）
+      let shouldShow = false;
+      if (daysUntil <= 1) {
+        shouldShow = true; // 1日前は常に表示
+      } else if (daysUntil <= 3 && dismissedPhase !== "3") {
+        shouldShow = true;
+      } else if (daysUntil <= 7 && !dismissedPhase) {
+        shouldShow = true;
+      }
+
+      if (!shouldShow) return;
+
+      // 同一日の全イベントについて出欠登録状況を取得
+      const eventIds = sameDayEvents.map((e) => e.id);
+      const { data: attendances } = await supabase.from("attendances").select("*").in("event_id", eventIds);
+      const { data: absences } = await supabase.from("absences").select("*").in("event_id", eventIds);
+
+      // 「全イベントで登録済み」のメンバーのみ登録完了とみなす
+      // = どれか1つでも未登録のイベントがあれば、そのメンバーは未登録扱い
+      const unregistered = myGroup.filter((name) => {
+        return sameDayEvents.some((ev) => {
+          const registeredForThisEvent = [
+            ...(attendances || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+            ...(absences || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+          ];
+          return !registeredForThisEvent.includes(name);
+        });
       });
+
+      if (unregistered.length > 0) {
+        setUnregisteredEvent(nextEvent);
+        setUnregisteredMembers(unregistered);
+        setAlertIsUrgent(daysUntil <= 1);
+        setShowUnregisteredAlert(true);
+      }
+    };
+    checkUnregistered();
+  }, [myGroup, role]);
+
+  const isAdmin = role === "admin";
+
+  const handleLogin = (newRole) => {
+    localStorage.setItem("hapons_role", newRole);
+    setRole(newRole);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("ログアウトしますか？")) {
+      localStorage.removeItem("hapons_role");
+      setRole(null);
+      setTab("home");
     }
-  }
-  return (
-    <div style={styles.modalOverlay}>
-      <div style={styles.modalCard}>
-        <h3 style={styles.modalTitle}>保護者の方へ</h3>
-        <p style={styles.modalMsg}>暗証番号を入力してください</p>
-        <input
-          autoFocus
-          type="password"
-          inputMode="numeric"
-          value={val}
-          onChange={(e) => setVal(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          style={{ ...styles.input, textAlign: "center", letterSpacing: 6, fontSize: 20, marginBottom: 16 }}
-          placeholder="••••"
-        />
-        <div style={styles.modalBtns}>
-          <button style={styles.modalCancel} onClick={onCancel}>
-            やめる
-          </button>
-          <button style={styles.modalConfirm} onClick={submit}>
-            開ける
-          </button>
-        </div>
-      </div>
-      {showHint && (
-        <div style={styles.modalOverlay} onClick={() => setShowHint(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>💡 ヒント</h3>
-            <p style={styles.modalMsg}>部長が部下が一仕事した時にかける言葉を思い出して……</p>
-            <button style={styles.modalConfirm} onClick={() => setShowHint(false)}>
-              とじる
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+  };
 
-function NoteModal({ date, initialText, initialAchievements, comments, subjects, isMapTheme, onSave, onClose }) {
-  const [text, setText] = useState(initialText || "");
-  const [achv, setAchv] = useState(initialAchievements || {});
-  const dLabel = `${date.getMonth() + 1}月${date.getDate()}日`;
+  const handleAdminExit = () => {
+    if (window.confirm("管理者モードを終了しますか？")) {
+      localStorage.setItem("hapons_role", "member");
+      setRole("member");
+    }
+  };
 
-  function setField(subjId, field, value) {
-    setAchv((prev) => ({ ...prev, [subjId]: { ...(prev[subjId] || {}), [field]: value } }));
-  }
+  const handleAdminLogin = () => {
+    localStorage.setItem("hapons_role", "admin");
+    setRole("admin");
+    setShowAdminLogin(false);
+  };
 
-  const measurableSubjects = (subjects || []).filter(subjectIsMeasurable);
+  const fetchAnnouncements = async () => {
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+    if (data) setAnnouncements(data);
+  };
 
-  return (
-    <div style={styles.modalOverlay}>
-      <div style={styles.noteModalCard}>
-      <div style={styles.noteModalScrollBody}>
-        <h3 style={styles.modalTitle}>📝 {dLabel} の記録</h3>
-
-        {measurableSubjects.length > 0 && (
-          <div style={styles.achievementSection}>
-            <p style={styles.achievementSectionLabel}>実際にどれだけできた？</p>
-            {measurableSubjects.map((s) => (
-              <div key={s.id} style={styles.achievementSubjectRow}>
-                <div style={{ ...styles.achievementSubjectName, color: s.color }}>{s.name}</div>
-                <div style={styles.achievementFieldsRow}>
-                  {s.measureTime && (
-                    <label style={styles.achievementField}>
-                      ⏱
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder={String(s.targetMinutes || 30)}
-                        value={achv[s.id]?.minutes ?? ""}
-                        onChange={(e) => setField(s.id, "minutes", e.target.value)}
-                        style={styles.achievementInput}
-                      />
-                      分
-                    </label>
-                  )}
-                  {s.measurePages && (
-                    <label style={styles.achievementField}>
-                      📖
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder={String(s.targetPages || 5)}
-                        value={achv[s.id]?.pages ?? ""}
-                        onChange={(e) => setField(s.id, "pages", e.target.value)}
-                        style={styles.achievementInput}
-                      />
-                      ページ
-                    </label>
-                  )}
-                  {s.measureProblems && (
-                    <label style={styles.achievementField}>
-                      ✏️
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder={String(s.targetProblems || 10)}
-                        value={achv[s.id]?.problems ?? ""}
-                        onChange={(e) => setField(s.id, "problems", e.target.value)}
-                        style={styles.achievementInput}
-                      />
-                      問
-                    </label>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p style={styles.modalMsg}>やったこと・感想を書いておこう</p>
-        <textarea
-          autoFocus={measurableSubjects.length === 0}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="例）今日はスラスラ弾けた！楽しかった。"
-          style={styles.noteTextarea}
-          rows={4}
-        />
-
-        {comments && comments.length > 0 && (
-          <div style={{ marginBottom: 4 }}>
-            <p style={styles.modalMsg}>💬 みんなからのコメント</p>
-            {comments.map((c) => (
-              <div key={c.id} style={styles.parentCommentReadOnly}>
-                <div style={styles.parentCommentLabel}>{c.name}</div>
-                <div style={styles.parentCommentText}>{c.text}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-        <div style={styles.noteModalFooter}>
-          <button style={styles.modalCancel} onClick={onClose}>
-            とじる
-          </button>
-          <button style={styles.modalConfirm} onClick={() => onSave(text, achv)}>
-            保存する
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RecordsListModal({ entries, subjects, profileId, profileName, onAddComment, onEditComment, onDeleteComment, onClose }) {
-  // Remembered across entries for this viewing session only, so someone
-  // replying to several days in a row doesn't have to retype their name
-  // each time. Not persisted — next time they open this, it starts blank.
-  const [commenterName, setCommenterName] = useState("");
-
-  return (
-    <div style={styles.modalOverlay}>
-      <div style={styles.recordsListCard}>
-        <h3 style={styles.modalTitle}>📋 きろく一覧</h3>
-        {entries.length === 0 ? (
-          <p style={styles.modalMsg}>まだ記録がありません。日付の「📝メモ」から書いてみよう！</p>
-        ) : (
-          <div style={styles.recordsListScroll}>
-            {entries.map((e) => (
-              <RecordEntryCard
-                key={e.dKey}
-                entry={e}
-                subjects={subjects}
-                commenterName={commenterName}
-                onCommenterNameChange={setCommenterName}
-                onAddComment={onAddComment}
-                onEditComment={onEditComment}
-                onDeleteComment={onDeleteComment}
-              />
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ ...styles.modalConfirm, flex: 1 }} onClick={onClose}>
-            閉じる
-          </button>
-          {profileId && (
-            <a
-              href={`${window.location.pathname}?profile=${profileId}`}
-              style={{
-                ...styles.modalConfirm,
-                flex: 1,
-                background: "#EAF4F9",
-                color: "#14588C",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxSizing: "border-box",
-              }}
-            >
-              🌟 {profileName || "スタンプ帳"}へ戻る
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RecordEntryCard({ entry: e, subjects, commenterName, onCommenterNameChange, onAddComment, onEditComment, onDeleteComment }) {
-  const [replyOpen, setReplyOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [editingId, setEditingId] = useState(null); // comment id currently being edited, or null
-  const [editText, setEditText] = useState("");
-  const [deletingId, setDeletingId] = useState(null); // comment id awaiting delete confirmation, or null
-
-  const achvParts = [];
-  if (e.achv) {
-    Object.entries(e.achv).forEach(([subjId, vals]) => {
-      const s = subjects.find((x) => x.id === subjId);
-      if (!s) return;
-      const parts = [];
-      if (vals.minutes) parts.push(`⏱${vals.minutes}分`);
-      if (vals.pages) parts.push(`📖${vals.pages}ページ`);
-      if (vals.problems) parts.push(`✏️${vals.problems}問`);
-      if (parts.length > 0) achvParts.push({ name: s.name, color: s.color, text: parts.join(" ") });
-    });
-  }
-
-  function submitReply() {
-    if (!replyText.trim()) return;
-    onAddComment(e.dKey, commenterName, replyText);
-    setReplyText("");
-    setReplyOpen(false);
-  }
-
-  function startEdit(c) {
-    setEditingId(c.id);
-    setEditText(c.text);
-    setDeletingId(null);
-  }
-
-  function saveEdit(commentId) {
-    if (!editText.trim()) return;
-    onEditComment(e.dKey, commentId, editText);
-    setEditingId(null);
-    setEditText("");
-  }
-
-  function confirmDelete(commentId) {
-    onDeleteComment(e.dKey, commentId);
-    setDeletingId(null);
-  }
-
-  return (
-    <div style={styles.recordEntryCard}>
-      <div style={styles.recordEntryDate}>
-        {e.date.getMonth() + 1}月{e.date.getDate()}日
-      </div>
-      {achvParts.map((a) => (
-        <div key={a.name} style={{ ...styles.recordEntryAchv, color: a.color }}>
-          {a.name}：{a.text}
-        </div>
-      ))}
-      {e.note && <div style={styles.recordEntryNote}>{e.note}</div>}
-
-      {e.comments && e.comments.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          {e.comments.map((c) => (
-            <div key={c.id} style={styles.recordEntryParentComment}>
-              {editingId === c.id ? (
-                <div>
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>{c.name}</div>
-                  <textarea
-                    value={editText}
-                    onChange={(ev) => setEditText(ev.target.value)}
-                    rows={2}
-                    style={styles.replyTextarea}
-                    autoFocus
-                  />
-                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                    <button style={styles.replyCancelBtn} onClick={() => setEditingId(null)}>
-                      やめる
-                    </button>
-                    <button style={styles.replySubmitBtn} onClick={() => saveEdit(c.id)}>
-                      保存する
-                    </button>
-                  </div>
-                </div>
-              ) : deletingId === c.id ? (
-                <div>
-                  <div style={{ fontWeight: 800 }}>{c.name}</div>
-                  <div style={{ marginBottom: 6 }}>このコメントを削除しますか？</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={styles.replyCancelBtn} onClick={() => setDeletingId(null)}>
-                      やめる
-                    </button>
-                    <button style={{ ...styles.replySubmitBtn, background: "#E0526B" }} onClick={() => confirmDelete(c.id)}>
-                      削除する
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div>
-                    <span style={{ fontWeight: 800 }}>{c.name}</span>：{c.text}
-                  </div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                    <button style={styles.commentEditBtn} onClick={() => startEdit(c)}>
-                      編集
-                    </button>
-                    <button style={styles.commentEditBtn} onClick={() => setDeletingId(c.id)}>
-                      削除
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {replyOpen ? (
-        <div style={styles.replyForm}>
-          <input
-            value={commenterName}
-            onChange={(ev) => onCommenterNameChange(ev.target.value)}
-            placeholder="名前"
-            maxLength={20}
-            style={styles.replyNameInput}
-          />
-          <textarea
-            value={replyText}
-            onChange={(ev) => setReplyText(ev.target.value)}
-            placeholder="コメントを書く"
-            rows={2}
-            style={styles.replyTextarea}
-            autoFocus
-          />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button style={styles.replyCancelBtn} onClick={() => setReplyOpen(false)}>
-              やめる
-            </button>
-            <button style={styles.replySubmitBtn} onClick={submitReply}>
-              送信する
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button style={styles.replyOpenBtn} onClick={() => setReplyOpen(true)}>
-          💬 返信する
-        </button>
-      )}
-    </div>
-  );
-}
-
-
-function DayCelebration({ onClose, theme }) {
   useEffect(() => {
-    const t = setTimeout(onClose, 1800);
-    return () => clearTimeout(t);
-  }, [onClose]);
-  return (
-    <div style={styles.dayCelebrateOverlay} onClick={onClose}>
-      <div style={styles.dayCelebrateBadge}>
-        <span style={{ fontSize: 46 }}>{theme === "boy" ? "⚔️" : "🐚"}</span>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#0B3D62", marginTop: 4 }}>今日は全部できたね！</div>
-      </div>
-    </div>
-  );
-}
+    setLoadingAnnouncements(true);
+    fetchAnnouncements().then(() => setLoadingAnnouncements(false));
 
-function ScheduleCompleteCelebration({ onClose, title, reward, theme, variantKey, awarded, stars }) {
-  const variant = getVariant(theme, variantKey);
-  // A schedule that just reached 100% is Master — Lv.20.
-  const cardStats = awarded ? computeCardStats(variant.species, MASTER_LEVEL) : null;
-  return (
-    <div style={styles.weekCelebrateOverlay}>
-      <Confetti />
-      <div style={styles.weekCelebrateCard}>
-        {theme === "boy" ? (
-          <img src="/dragon-face.png" alt="ドラゴン" style={styles.celebrateDragonImg} />
-        ) : (
-          <div style={styles.chestEmoji}>🎉🏆🎉</div>
-        )}
-        <h2 style={styles.weekCelebrateTitle}>全部達成！！</h2>
-        <p style={styles.weekCelebrateSub}>{title} 最後まで、本当によく頑張ったね！</p>
-        {awarded && (
-          <div style={styles.cardGetBox}>
-            <div style={styles.cardGetLabel}>🎴 ファミリアカードげっと！</div>
-            <div
-              style={{
-                ...styles.cardGetImgWrap,
-                background: variant.cardBg,
-              }}
-            >
-              <img
-                src={finalFormImage(theme, variantKey)}
-                alt={variant.name}
-                style={{
-                  ...styles.cardGetImg,
-                  filter: variant.filter === "none" ? "none" : variant.filter,
-                }}
-              />
-            </div>
-            <div style={styles.cardGetName}>{variant.name}</div>
-            {cardStats && (
-              <div style={styles.cardStatsGrid}>
-                {STAT_KEYS.map((k) => (
-                  <div key={k} style={styles.cardStatChip}>
-                    <span style={styles.cardStatLabel}>{STAT_LABELS[k]}</span>
-                    <span style={styles.cardStatValue}>{cardStats[k]}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {reward ? (
-          <div style={styles.rewardCard}>
-            <div style={styles.rewardLabel}>🎁 ご褒美</div>
-            <div style={styles.rewardText}>{reward}</div>
-          </div>
-        ) : (
-          <div style={styles.bigStamp}>PERFECT!</div>
-        )}
-        <button style={styles.weekCelebrateBtn} onClick={onClose}>
-          とじる
-        </button>
-      </div>
-    </div>
-  );
-}
+    // 5分おきに自動更新
+    const interval = setInterval(() => {
+      fetchAnnouncements();
+    }, 5 * 60 * 1000);
 
-function HatchNamingModal({ theme, variantKey, defaultName, onSave, onSkip }) {
-  const [name, setName] = useState("");
-  const variant = getVariant(theme, variantKey);
-  return (
-    <div style={styles.weekCelebrateOverlay}>
-      <Confetti />
-      <div style={styles.weekCelebrateCard}>
-        <h2 style={styles.weekCelebrateTitle}>たまごが かえったよ！</h2>
-        <p style={{ ...styles.weekCelebrateSub, fontSize: 22, fontWeight: 800, color: "#0B3D62" }}>なまえを つけてあげよう</p>
-        <div style={styles.cardGetBox}>
-          <div
-            style={{
-              ...styles.cardGetImgWrap,
-              background: variant.cardBg,
-            }}
-          >
-            <img
-              src={stageImage(variant.species, 15)}
-              alt={variant.name}
-              style={{
-                ...styles.cardGetImg,
-                filter: variant.filter === "none" ? "none" : variant.filter,
-              }}
-            />
-          </div>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={20}
-            placeholder={defaultName}
-            className="hatchNameInput"
-            style={{
-              marginTop: 12,
-              width: "100%",
-              boxSizing: "border-box",
-              textAlign: "center",
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "2px solid #BFE3F0",
-              fontSize: 17,
-              fontWeight: 800,
-              color: "#0B3D62",
-              fontFamily: "inherit",
-            }}
-          />
-        </div>
-        <button style={styles.weekCelebrateBtn} onClick={() => onSave(name)}>
-          きめる
-        </button>
-        {onSkip && (
-          // The kid should get to choose their own mascot's name — if a
-          // parent happens to be the one who opens the app right after it
-          // hatches, this lets them back out without naming it for them.
-          // Naming later just re-shows this same modal next time.
-          <button style={styles.hatchSkipBtn} onClick={onSkip}>
-            あとで（大人の方はこちら）
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+    // アプリを再度開いた時に更新（スマホ対応）
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAnnouncements();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
 
-// Shown before the evolution animation itself — lets whoever opened the
-// app right now choose whether to watch it immediately ("声をかける") or
-// leave it for later ("放っておく"). Exists so a parent who unlocks the
-// app for something unrelated can't accidentally spoil the reveal before
-// the kid gets to see it: choosing "放っておく" doesn't record anything,
-// so the same prompt comes back next time the app is opened instead.
-function EvolutionNoticeModal({ mascotName, onTalk, onLeave }) {
-  return (
-    <div style={styles.weekCelebrateOverlay}>
-      <div style={styles.weekCelebrateCard}>
-        <h2 style={styles.weekCelebrateTitle}>{mascotName ? `${mascotName}の様子が…` : "なにかの様子が…"}</h2>
-        <p style={styles.weekCelebrateSub}>なんだか いつもと ちがうみたい…</p>
-        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          <button style={{ ...styles.weekCelebrateBtn, flex: 1, margin: 0, padding: "12px 8px", fontSize: 15, background: "#8B98A8" }} onClick={onLeave}>
-            放っておく
-          </button>
-          <button style={{ ...styles.weekCelebrateBtn, flex: 1, margin: 0, padding: "12px 8px", fontSize: 15 }} onClick={onTalk}>
-            声をかける
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Pokémon-style evolution reveal: the current stage's art shakes and
-// flashes white ("charging"), then bursts into the new stage with a
-// spinning ray-of-light burst and a bounce-in pop. Pure CSS animation on
-// the same stage art already used elsewhere — see the .evo* keyframes in
-// GlobalStyle — so it needs no extra art assets.
-function EvolutionCelebration({ fromSrc, toSrc, filter, cardBg, isFinal, stageIdx, mascotName, onClose }) {
-  const [phase, setPhase] = useState("charge"); // charge -> flash -> reveal
-  useEffect(() => {
-    const t1 = setTimeout(() => setPhase("flash"), 1300);
-    const t2 = setTimeout(() => setPhase("reveal"), 1620);
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
-  const imgFilter = filter && filter !== "none" ? filter : "none";
+
+  // Androidの戻るジェスチャー対応
+  useEffect(() => {
+    const handlePopState = () => {
+      // サブページが開いている場合は閉じる
+      if (showImportant) { setShowImportant(false); history.pushState(null, "", window.location.href); return; }
+      if (showRules) { setShowRules(false); history.pushState(null, "", window.location.href); return; }
+      if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
+      if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
+      if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
+      if (showMinutes) { setShowMinutes(false); history.pushState(null, "", window.location.href); return; }
+      if (showAdminLogin) { setShowAdminLogin(false); history.pushState(null, "", window.location.href); return; }
+      // メイン画面ではhomeに戻る（アプリ終了を防ぐ）
+      if (tab !== "home") { setTab("home"); history.pushState(null, "", window.location.href); return; }
+      // ホームでは履歴を維持してアプリ終了を防ぐ
+      history.pushState(null, "", window.location.href);
+    };
+
+    // 初回に履歴スタックを追加
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
+
+  if (!role) return <LoginScreen onLogin={handleLogin} />;
+  if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
+  if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
+  if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
+  if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
+  if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
+  if (showMinutes) return <MinutesPage onClose={() => setShowMinutes(false)} isAdmin={isAdmin} />;
+
+  const tabs = [
+    { id: "home", label: "ホーム", icon: "🏠" },
+    { id: "announcements", label: "お知らせ", icon: "📢" },
+    { id: "schedule", label: "日程", icon: "📅" },
+    { id: "members", label: "メンバー", icon: "🏉" },
+    { id: "fees", label: "部費", icon: "💴" },
+    { id: "docs", label: "資料", icon: "📋" },
+  ];
+
+  const tabIds = tabs.map((t) => t.id);
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null || isAnimating) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+    if (diffY > Math.abs(diffX) || Math.abs(diffX) < 70) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
+    const currentIdx = tabIds.indexOf(tab);
+    if (diffX > 0) {
+      const nextIdx = (currentIdx + 1) % tabIds.length;
+      setSlideDir("left");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    } else {
+      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
+      setSlideDir("right");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   return (
-    <div style={{ ...styles.weekCelebrateOverlay, background: "rgba(11,61,98,0.94)" }}>
-      {phase === "reveal" && <Confetti />}
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "24px 20px",
-          boxSizing: "border-box",
-          animation: "popIn 0.35s ease-out",
-        }}
-      >
-        <h2 style={{ ...styles.weekCelebrateTitle, color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-          {phase === "reveal" ? (isFinal ? "さいだい しんか！" : "しんか した！") : "・・・？"}
-        </h2>
-        {phase !== "reveal" && <p style={{ ...styles.weekCelebrateSub, color: "#EAF7FB" }}>なにかが おきている…</p>}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: phase === "reveal" ? 8 : 20 }}>
-          <div
-            style={{
-              width: "min(78vw, 62vh, 440px)",
-              height: "min(78vw, 62vh, 440px)",
-              borderRadius: 32,
-              background: cardBg,
-              position: "relative",
-              overflow: "hidden",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5), inset 0 0 0 4px rgba(255,255,255,0.6)",
-              padding: 18,
-              boxSizing: "border-box",
-            }}
-          >
-            {phase === "reveal" && <div className="evoRays" />}
-            {/* The color filter (hue-rotate for the mascot's variant) lives
-                on this wrapper, separate from the shake/pulse/pop
-                animation on the <img> itself — animating `filter` on the
-                same element as a *different* inline filter would let the
-                keyframes silently overwrite the color for the animation's
-                duration, which is why every color used to flash back to
-                the base one during this scene. */}
-            <div style={{ width: "100%", height: "100%", filter: imgFilter }}>
-              {phase !== "reveal" ? (
-                <img key="from" src={fromSrc} alt="" className="evoCharge" style={styles.cardGetImg} />
-              ) : (
-                <img key="to" src={toSrc} alt="" className="evoReveal" style={{ ...styles.cardGetImg, position: "relative", zIndex: 1 }} />
-              )}
-            </div>
-            {phase === "flash" && <div className="evoFlash" />}
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ height: 38, width: "auto" }} />
+          <div>
+            <h1 style={{ color: "#fff", fontSize: 15, fontWeight: 900, margin: 0, letterSpacing: "0.04em" }}>Manila Hapons</h1>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
           </div>
-          {phase === "reveal" && mascotName && (
-            <div style={{ ...styles.cardGetName, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.5)", fontSize: 20, marginTop: 14 }}>
-              {mascotName}
-              {stageLabel(stageIdx) && (
-                <span style={{ fontSize: 14, fontWeight: 700, opacity: 0.85, marginLeft: 6 }}>（{stageLabel(stageIdx)}）</span>
-              )}
-            </div>
-          )}
         </div>
-        {phase === "reveal" && (
-          <button style={styles.weekCelebrateBtn} onClick={onClose}>
-            とじる
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={() => setShowGroupSetup(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+            👨‍👩‍👧‍👦 {myGroup.length > 0 ? `${myGroup.length}名` : "設定"}
           </button>
-        )}
+          {isAdmin ? (
+            <button onClick={handleAdminExit} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
+          ) : (
+            <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>管理者</button>
+          )}
+          <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>ログアウト</button>
+        </div>
       </div>
-    </div>
-  );
-}
 
-function Confetti() {
-  const pieces = Array.from({ length: 26 });
-  return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
-      {pieces.map((_, i) => {
-        const left = Math.random() * 100;
-        const delay = Math.random() * 0.6;
-        const dur = 2.2 + Math.random() * 1.4;
-        const color = PASTELS[i % PASTELS.length].hex;
-        return (
-          <span
-            key={i}
-            style={{
-              position: "absolute",
-              top: -20,
-              left: `${left}%`,
-              width: 9,
-              height: 9,
-              borderRadius: i % 2 === 0 ? "50%" : 2,
-              background: color,
-              animation: `confettiFall ${dur}s ease-in ${delay}s forwards`,
-              opacity: 0.95,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-}
+      {isAdmin && (
+        <div style={{ background: C.adminBg, padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ color: C.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>⚙ 管理者モード — 全コンテンツの編集が可能です</span>
+          <span style={{ background: C.accent, color: C.primaryDark, fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 20 }}>ADMIN</span>
+        </div>
+      )}
 
-// Purely decorative background flourishes (waves/shells/sparkles for the
-// girl theme; compass/embers/claw-marks for the boy theme) — kept as
-// absolute, non-interactive background art. The growth-mascot image and
-// its name live in GrowthMascotArt instead, laid out inline in the flex
-// row next to the mascot icon/speech bubble (see styles.mascotRow) rather
-// than pinned to a fixed pixel offset — that fixed offset used to assume
-// how many lines the header buttons above would wrap onto, and on
-// narrower devices where they wrap onto more lines it could end up
-// overlapping them.
-function CornerDecor({ theme }) {
-  if (theme === "boy") {
-    return (
-      <>
-        {/* compass rose, top right */}
-        <svg style={{ position: "absolute", top: 10, right: 8, opacity: 0.55 }} width="70" height="70" viewBox="0 0 70 70">
-          <circle cx="35" cy="35" r="26" fill="none" stroke="#C89B3C" strokeWidth="2" />
-          <path d="M35 12l5 20-5 3-5-3zM35 58l5-20-5-3-5 3z" fill="#C89B3C" />
-          <path d="M12 35l20-5 3 5-3 5zM58 35l-20-5-3 5 3 5z" fill="#C89B3C" opacity="0.8" />
-        </svg>
-        {/* rising embers, bottom right */}
-        <svg style={{ position: "absolute", bottom: 6, right: -4, opacity: 0.7 }} width="110" height="110" viewBox="0 0 110 110">
-          <path d="M55 30c5 10-8 12-8 22a8 8 0 0016 0c0-3-1-5-3-7 6 4 12 12 12 22a17 17 0 01-34 0c0-14 11-20 11-30 0-3 2-5 6-7z" fill="#B4432F" />
-        </svg>
-        {/* claw marks, left */}
-        <svg style={{ position: "absolute", top: "58%", left: -10, opacity: 0.35 }} width="90" height="90" viewBox="0 0 90 90">
-          <path d="M10 8c14 12 14 40 4 56M24 4c14 12 14 44 4 60M38 8c14 12 14 40 4 56" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" />
-        </svg>
-        {/* scattered sparkles */}
-        {[
-          [18, 55], [50, 15], [78, 62], [10, 18], [60, 85], [88, 25],
-        ].map(([x, y], i) => (
-          <span
-            key={i}
-            style={{
-              position: "absolute",
-              top: `${y}%`,
-              left: i % 2 === 0 ? `${x}%` : "auto",
-              right: i % 2 === 1 ? `${100 - x}%` : "auto",
-              width: 5,
-              height: 5,
-              borderRadius: "50%",
-              background: "#F4C95D",
-              opacity: 0.6,
-            }}
-          />
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
+        style={{
+          flex: 1, overflowY: "auto", overflowX: "hidden",
+          opacity: slideDir ? 0 : 1,
+          transition: slideDir ? "opacity 0.2s ease" : "opacity 0.2s ease",
+        }}>
+        {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+        {tab === "members" && <MembersTab isAdmin={isAdmin} />}
+        {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
+        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />}
+        {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
+        {tab === "docs" && <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+      </div>
+
+      <nav style={S.nav}>
+        {tabs.map((t) => (
+          <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
+            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            <span style={{ fontSize: 9, fontWeight: tab === t.id ? 800 : 400 }}>{t.label}</span>
+          </button>
         ))}
-      </>
-    );
-  }
-  return (
-    <>
-      <svg style={{ position: "absolute", top: 6, right: -10, opacity: 0.5 }} width="150" height="90" viewBox="0 0 150 90">
-        <path d="M10 45c20-30 60-38 100-25 15 5 25 13 30 22-8 6-20 10-32 8 3 6 3 12 0 17-10-2-18-8-22-16-20 10-52 8-76-6z" fill="#EAF7FB" />
-        <circle cx="45" cy="42" r="2.4" fill="#0B3D62" />
-      </svg>
-      <svg style={{ position: "absolute", bottom: 10, right: -6, opacity: 0.55 }} width="110" height="90" viewBox="0 0 110 90">
-        <ellipse cx="55" cy="45" rx="40" ry="30" fill="#CFF3DE" />
-        <path d="M20 45c-8 0-14 6-14 6s8 4 16 2M90 45c8 0 14 6 14 6s-8 4-16 2" stroke="#CFF3DE" strokeWidth="6" fill="none" strokeLinecap="round" />
-      </svg>
-      <svg style={{ position: "absolute", bottom: 4, left: -6, opacity: 0.55 }} width="90" height="80" viewBox="0 0 90 80">
-        <path d="M15 65h60l-6-28c-3-14-16-24-30-24S12 23 9 37z" fill="#F4C95D" />
-        <rect x="14" y="60" width="62" height="10" rx="4" fill="#E0A83E" />
-      </svg>
-      <svg style={{ position: "absolute", top: "38%", left: -14, opacity: 0.35 }} width="70" height="140" viewBox="0 0 70 140">
-        <path d="M35 0c15 20 15 40 0 60s-15 40 0 60" stroke="#fff" strokeWidth="3" fill="none" />
-      </svg>
-    </>
-  );
-}
+      </nav>
 
-// The growth-mascot image + its name, sized responsively with clamp() and
-// laid out as a flex item (an "invisible table cell") in styles.mascotRow
-// — always the same row and right edge as the mascot icon/speech bubble,
-// on every device, instead of a fixed-pixel absolute box.
-function GrowthMascotArt({ theme, pct, variantKey, mascotName }) {
-  const isBoy = theme === "boy";
-  const variant = getVariant(isBoy ? "boy" : "girl", variantKey);
-  const src = stageImage(variant.species, pct);
-  const colorFilter = variant.filter;
-  const shadow = isBoy ? "drop-shadow(0 4px 8px rgba(0,0,0,0.35))" : "drop-shadow(0 4px 8px rgba(11,61,98,0.3))";
-  return (
-    <div style={styles.growthMascotWrap}>
-      <div style={styles.growthMascotImgBox}>
-        <img
-          src={src}
-          alt=""
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            objectPosition: "center top",
-            opacity: isBoy ? 0.9 : 1,
-            filter: colorFilter === "none" ? shadow : `${colorFilter} ${shadow}`,
-          }}
-        />
-      </div>
-      {mascotName && (
-        <div
-          style={{
-            ...styles.mascotNameLabel,
-            position: "static",
-            width: "100%",
-            marginTop: 2,
-            color: isBoy ? "#F4E9CE" : "#fff",
-            textShadow: isBoy ? "0 1px 4px rgba(0,0,0,0.75)" : "0 1px 3px rgba(0,0,0,0.45)",
-            fontSize: mascotNameFontSize(mascotName),
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {mascotName}
+      {showAdminLogin && <AdminLoginModal onLogin={handleAdminLogin} onClose={() => setShowAdminLogin(false)} />}
+      {showGroupSetup && <MyGroupSetup onSave={saveMyGroup} onClose={() => setShowGroupSetup(false)} currentGroup={myGroup} />}
+
+      {/* 未登録アラート */}
+      {showUnregisteredAlert && unregisteredEvent && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380 }}>
+            <div style={{ fontSize: 24, textAlign: "center", marginBottom: 8 }}>📢</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text, textAlign: "center" }}>出欠登録をお願いします！</h3>
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{unregisteredEvent.title}</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{unregisteredEvent.date}　{unregisteredEvent.time}</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>
+              以下のメンバーがまだ未登録です：
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {unregisteredMembers.map((name) => (
+                  <span key={name} style={{ background: C.sakuraLight, color: C.primary, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>{name}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {!alertIsUrgent && (
+                <button onClick={() => {
+                  if (unregisteredEvent) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const nextDate = String(unregisteredEvent.date).slice(0, 10);
+                    const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+                    localStorage.setItem(`hapons_alert_${nextDate}`, daysUntil <= 3 ? "3" : "7");
+                  }
+                  setShowUnregisteredAlert(false);
+                }}
+                  style={{ ...S.btn("ghost"), flex: 1 }}>後で</button>
+              )}
+              <button onClick={() => { setShowUnregisteredAlert(false); setTab("schedule"); }}
+                style={{ ...S.btn("primary"), flex: 2 }}>📅 日程を開く</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Translation Guide Modal */}
+      {showTranslateGuide && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900, color: C.text }}>🌐 How to Translate</h3>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+              This app is in Japanese. You can translate it using your browser's built-in translation feature:
+            </p>
+            <div style={{ ...S.card, marginBottom: 10, borderLeft: `4px solid #1E88E5` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 iPhone (Safari)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"AA"</strong> in the address bar → Select <strong>"Translate to English"</strong>
+              </div>
+            </div>
+            <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid #2E7D32` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 Android (Chrome)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"⋮"</strong> (top right) → Select <strong>"Translate"</strong>
+              </div>
+            </div>
+            <button onClick={() => setShowTranslateGuide(false)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: C.primary, color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-// Keeps the mascot's name on one line at any length instead of wrapping —
-// shrinks the font size as the name gets longer rather than letting it
-// break onto a second line (which threw off the row height it shares with
-// the mascot icon/speech bubble).
-function mascotNameFontSize(name) {
-  const len = (name || "").length;
-  if (len <= 5) return 12;
-  if (len <= 7) return 11;
-  if (len <= 9) return 10;
-  if (len <= 12) return 9;
-  if (len <= 16) return 8;
-  return 7;
-}
-
-function MapDoodles() {
-  return (
-    <svg
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.16, pointerEvents: "none" }}
-      viewBox="0 0 400 400"
-      preserveAspectRatio="xMidYMid slice"
-    >
-      {/* dotted trail */}
-      <path
-        d="M20 320c40-20 60-60 100-70s70 20 110 0 90-70 150-60"
-        stroke="#3E2415"
-        strokeWidth="3"
-        strokeDasharray="1 12"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* mountains */}
-      <path d="M60 260l30-40 22 26 26-34 30 48z" fill="#3E2415" />
-      {/* big compass watermark */}
-      <circle cx="300" cy="120" r="60" fill="none" stroke="#3E2415" strokeWidth="2" />
-      <path d="M300 68l7 45-7 7-7-7zM300 172l7-45-7-7-7 7z" fill="#3E2415" />
-      <path d="M248 120l45-7 7 7-7 7zM352 120l-45-7-7 7 7 7z" fill="#3E2415" opacity="0.7" />
-      {/* X marks the spot */}
-      <path d="M110 130l20 20M130 130l-20 20" stroke="#3E2415" strokeWidth="4" strokeLinecap="round" />
-      {/* wavy sea lines */}
-      <path d="M0 60c20 8 40-8 60 0s40 8 60 0 40-8 60 0" stroke="#3E2415" strokeWidth="2" fill="none" />
-    </svg>
-  );
-}
-
-
-
-function GlobalStyle() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Yuji+Syuku&family=Kaisei+Decol:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap');
-      .hatchNameInput::placeholder {
-        color: #d3dee4;
-        font-weight: 400;
-        opacity: 1;
-      }
-      @keyframes confettiFall {
-        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-        100% { transform: translateY(520px) rotate(340deg); opacity: 0; }
-      }
-      @keyframes popIn {
-        0% { transform: scale(0.4); opacity: 0; }
-        70% { transform: scale(1.08); opacity: 1; }
-        100% { transform: scale(1); }
-      }
-      @keyframes bob {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-6px); }
-      }
-      @keyframes evoShake {
-        0%, 100% { transform: translateX(0) rotate(0deg); }
-        15% { transform: translateX(-3px) rotate(-3deg); }
-        30% { transform: translateX(3px) rotate(3deg); }
-        45% { transform: translateX(-3px) rotate(-3deg); }
-        60% { transform: translateX(3px) rotate(3deg); }
-        80% { transform: translateX(-1px) rotate(0deg); }
-      }
-      @keyframes evoPulseWhite {
-        0%, 100% { filter: brightness(1) saturate(1); }
-        50% { filter: brightness(2.4) saturate(0.25); }
-      }
-      .evoCharge {
-        animation: evoShake 0.45s ease-in-out infinite, evoPulseWhite 0.45s ease-in-out infinite;
-      }
-      @keyframes evoFlashPulse {
-        0% { opacity: 0; }
-        45% { opacity: 1; }
-        100% { opacity: 0; }
-      }
-      .evoFlash {
-        position: absolute;
-        inset: 0;
-        background: #fff;
-        animation: evoFlashPulse 0.32s ease-out forwards;
-      }
-      @keyframes evoRevealPop {
-        0% { transform: scale(0.25); opacity: 0; }
-        60% { transform: scale(1.18); opacity: 1; }
-        100% { transform: scale(1); opacity: 1; }
-      }
-      .evoReveal {
-        animation: evoRevealPop 0.5s cubic-bezier(.34,1.56,.64,1) both;
-      }
-      @keyframes evoRaysSpin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      .evoRays {
-        position: absolute;
-        inset: -60%;
-        background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.6) 0deg 8deg, transparent 8deg 24deg);
-        animation: evoRaysSpin 3s linear infinite;
-        opacity: 0.75;
-        mix-blend-mode: screen;
-        pointer-events: none;
-      }
-      @keyframes stampPop {
-        0% { transform: scale(0) rotate(-25deg); opacity: 0; }
-        55% { transform: scale(1.35) rotate(8deg); opacity: 1; }
-        75% { transform: scale(0.9) rotate(-4deg); }
-        100% { transform: scale(1) rotate(0deg); }
-      }
-      @keyframes floatComment {
-        0% { transform: translate(-50%, 4px) scale(0.6); opacity: 0; }
-        15% { transform: translate(-50%, -6px) scale(1.05); opacity: 1; }
-        30% { transform: translate(-50%, -10px) scale(1); opacity: 1; }
-        80% { transform: translate(-50%, -22px) scale(1); opacity: 1; }
-        100% { transform: translate(-50%, -34px) scale(0.9); opacity: 0; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        * { animation: none !important; transition: none !important; }
-      }
-    `}</style>
-  );
-}
-
-/* ---------------- styles ---------------- */
-
-const oceanBg = "linear-gradient(180deg, #0B3D62 0%, #14588C 42%, #2E9BC7 78%, #6FCFEB 100%)";
-
-const styles = {
-  appRoot: {
-    fontFamily: "'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif",
-    minHeight: 560,
-    width: "100%",
-    color: "#0B3D62",
-    background: "#EAF7FB",
-    fontSize: 19,
-  },
-  loadingWrap: { minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center", background: oceanBg },
-  loadingBubble: { width: 40, height: 40, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #fff, #6FCFEB 70%)", animation: "bob 1.2s ease-in-out infinite" },
-
-  setupWrap: { background: oceanBg, minHeight: 560, padding: "28px 16px", display: "flex", justifyContent: "center" },
-  setupCard: { background: "linear-gradient(180deg, #FFFBF3, #FFF7EC)", borderRadius: 24, padding: 24, maxWidth: 680, width: "100%", boxShadow: "0 20px 50px rgba(11,61,98,0.35)", position: "relative" },
-  backBtn: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "#14588C", fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "inherit", fontSize: 18 },
-  setupHeading: { fontFamily: "'Kaisei Decol', serif", fontSize: 34, margin: "4px 0 2px", color: "#0B3D62" },
-  setupSub: { fontSize: 17, color: "#4a6c85", marginBottom: 18 },
-  profileLinkedBanner: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "linear-gradient(135deg,#F4E2B8,#E5C878)", borderRadius: 14, padding: "10px 14px", marginBottom: 18, fontSize: 14, fontWeight: 800, color: "#5C3A21", flexWrap: "wrap" },
-  profileUnlinkBtn: { border: "none", background: "rgba(255,255,255,0.5)", color: "#5C3A21", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  profileLinkBox: { background: "#F4F9FB", border: "2px dashed #BFE3F0", borderRadius: 14, padding: 12, marginBottom: 18 },
-  profileLinkLabel: { fontSize: 13.5, fontWeight: 800, color: "#14588C", marginBottom: 8 },
-  profileLinkRow: { display: "flex", gap: 6, flexWrap: "wrap" },
-  profileLinkInput: { flex: "1 1 100px", padding: "8px 10px", borderRadius: 10, border: "2px solid #BFE3F0", fontSize: 13.5, fontFamily: "inherit", boxSizing: "border-box" },
-  profileLinkBtn: { border: "none", borderRadius: 10, padding: "8px 14px", background: "#14588C", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" },
-  profileLinkError: { color: "#E0526B", fontSize: 12.5, marginTop: 6, marginBottom: 0 },
-  label: { display: "block", fontWeight: 700, fontSize: 18, marginBottom: 8, color: "#14588C" },
-  tinyNote: { fontSize: 15, color: "#7c98aa", marginTop: 6 },
-  input: { width: "100%", padding: "14px 16px", borderRadius: 14, border: "2px solid #BFE3F0", fontSize: 19, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: "#fff" },
-  dateRow: { display: "flex", alignItems: "center", gap: 10 },
-  dateInput: { flex: 1, padding: "11px 12px", borderRadius: 14, border: "2px solid #BFE3F0", fontSize: 18, fontFamily: "inherit", background: "#fff" },
-
-  subjList: { display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 },
-  subjCard: { background: "#fff", border: "2px solid #EAF7FB", borderRadius: 16, padding: 14 },
-  subjCardTop: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 },
-  subjNameInput: { flex: 1, border: "none", borderBottom: "2px solid #EAF7FB", padding: "5px 2px", fontSize: 19, fontWeight: 700, fontFamily: "inherit", outline: "none", color: "#0B3D62" },
-  chipX: { border: "none", background: "rgba(11,61,98,0.12)", borderRadius: "50%", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#0B3D62", flexShrink: 0 },
-  swatchRow: { display: "flex", gap: 9, marginBottom: 10, flexWrap: "wrap" },
-  swatch: { width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer" },
-  freqRow: { display: "flex", gap: 7, marginBottom: 9, flexWrap: "wrap" },
-  freqBtn: { border: "2px solid #14588C", borderRadius: 999, padding: "8px 16px", fontSize: 16.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  intervalRow: { display: "flex", alignItems: "center", gap: 8 },
-  durationRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 },
-  durationSelect: { flex: 1, maxWidth: 180, padding: "12px 12px", borderRadius: 12, border: "2px solid #BFE3F0", fontSize: 19, fontFamily: "inherit", background: "#fff", color: "#0B3D62", fontWeight: 700 },
-  measureSection: { marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 },
-  measureSectionLabel: { fontSize: 13, color: "#4a6c85", fontWeight: 700 },
-  measureRow: { display: "flex", alignItems: "center", gap: 8 },
-  measureToggle: { border: "2px solid #C89B3C", borderRadius: 999, padding: "7px 14px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: "#fff", color: "#8B5E34", minWidth: 108 },
-  measureToggleOn: { background: "#8B5E34", color: "#fff" },
-  measureInput: { width: 72, padding: "8px 8px", borderRadius: 10, border: "2px solid #BFE3F0", fontSize: 17, fontFamily: "inherit", textAlign: "center" },
-  measureSelect: { width: 80, padding: "8px 8px", borderRadius: 10, border: "2px solid #BFE3F0", fontSize: 16, fontFamily: "inherit", textAlign: "center", background: "#fff", color: "#0B3D62", fontWeight: 700 },
-  measureUnit: { fontSize: 14, fontWeight: 700, color: "#4a6c85" },
-  intervalInput: { width: 68, padding: "8px 8px", borderRadius: 10, border: "2px solid #BFE3F0", fontSize: 18, fontFamily: "inherit", textAlign: "center" },
-  weekdayPicker: { display: "flex", gap: 6, flexWrap: "wrap" },
-  weekdayToggle: { width: 42, height: 42, borderRadius: 10, border: "2px solid", cursor: "pointer", fontSize: 16, color: "#0B3D62", fontFamily: "inherit" },
-
-  addBtn: { display: "inline-flex", alignItems: "center", gap: 4, background: "#14588C", color: "#fff", border: "none", borderRadius: 14, padding: "12px 20px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 18, marginBottom: 20 },
-  saveBtn: { width: "100%", padding: "16px 0", borderRadius: 16, border: "none", background: "linear-gradient(135deg, #FFB6C9, #F4C95D)", color: "#fff", fontWeight: 900, fontSize: 20, cursor: "pointer", boxShadow: "0 10px 20px rgba(255,143,163,0.4)", fontFamily: "inherit" },
-  deleteScheduleBtn: { width: "100%", padding: "14px 0", borderRadius: 16, border: "2px solid #FBD4DB", background: "#fff", color: "#E0526B", fontWeight: 700, fontSize: 17, cursor: "pointer", fontFamily: "inherit", marginTop: 14 },
-
-  mainWrap: { position: "relative", background: oceanBg, minHeight: 560, overflow: "hidden", paddingBottom: 30 },
-  header: { position: "relative", padding: "24px 18px 16px", zIndex: 2 },
-  headerTop: { display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 10, position: "relative" },
-  titleBanner: { background: "#fff", borderRadius: 999, padding: "10px 22px", boxShadow: "0 8px 18px rgba(11,61,98,0.3)", maxWidth: "72%", position: "relative", zIndex: 1 },
-  titleText: { fontFamily: "'Kaisei Decol', serif", color: "#0B3D62", fontSize: 24, fontWeight: 700 },
-  headerBtns: { display: "flex", gap: 8, flexShrink: 0, position: "absolute", top: 0, right: 0 },
-  iconBtn: { width: 46, height: 46, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" },
-  editDeleteRow: { display: "flex", gap: 8, marginTop: 10, justifyContent: "center", flexWrap: "wrap" },
-  editBtnSmall: { border: "2px solid rgba(255,255,255,0.6)", background: "rgba(255,255,255,0.15)", color: "#fff", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  deleteBtnSmall: { border: "2px solid #FBAEBE", background: "rgba(224,82,107,0.25)", color: "#fff", borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
-  lockNote: { color: "#EAF7FB", fontSize: 16, marginTop: 10, fontWeight: 700, textAlign: "center" },
-
-  mascotRow: { display: "flex", alignItems: "flex-start", gap: 10, marginTop: 14 },
-  growthMascotWrap: {
-    flexShrink: 0,
-    width: "clamp(56px, 20vw, 92px)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  growthMascotImgBox: { width: "100%", aspectRatio: "1" },
-  mascotFace: { width: 68, height: 68, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 6px 14px rgba(11,61,98,0.3)", animation: "bob 2.4s ease-in-out infinite" },
-  mascotBubbleWrap: { flex: 1, minWidth: 0 },
-  mascotBubble: { background: "#fff", borderRadius: 14, padding: "10px 15px", fontSize: 17, fontWeight: 800, color: "#0B3D62", display: "inline-block", boxShadow: "0 6px 14px rgba(11,61,98,0.25)" },
-  todayProgressLine: { display: "flex", alignItems: "center", gap: 8, marginTop: 7, flexWrap: "wrap" },
-  todayProgressNum: { color: "#fff", fontWeight: 900, fontSize: 18, textShadow: "0 2px 6px rgba(11,61,98,0.5)" },
-  streakBadge: { background: "linear-gradient(135deg,#FFB347,#FF8FA3)", color: "#fff", fontWeight: 900, fontSize: 14.5, padding: "4px 11px", borderRadius: 999, boxShadow: "0 3px 8px rgba(0,0,0,0.25)" },
-  todayBarTrack: { marginTop: 6, height: 13, borderRadius: 999, background: "rgba(255,255,255,0.3)", overflow: "hidden", maxWidth: 300 },
-  todayBarFill: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#FFD6E0,#F4C95D)", transition: "width 0.5s ease" },
-
-  necklaceRow: { display: "flex", alignItems: "center", gap: 6, marginTop: 14, background: "rgba(255,255,255,0.15)", padding: "12px 14px", borderRadius: 20, backdropFilter: "blur(4px)", flexWrap: "wrap", rowGap: 4 },
-  pearl: { width: 20, height: 20, borderRadius: "50%", flexShrink: 0, transition: "all 0.4s" },
-  pearlPct: { marginLeft: "auto", color: "#fff", fontWeight: 900, fontSize: 17 },
-  pearlCount: { color: "#fff", fontWeight: 700, fontSize: 12.5, opacity: 0.9, marginTop: 1 },
-  rewardPreview: { marginTop: 8, background: "rgba(255,255,255,0.18)", borderRadius: 12, padding: "8px 14px", color: "#fff", fontSize: 16, fontWeight: 700, backdropFilter: "blur(4px)", textAlign: "center" },
-
-  subjectSummaryRow: { position: "relative", zIndex: 2, display: "flex", flexWrap: "wrap", gap: 10, padding: "0 18px", marginTop: 8, justifyContent: "center" },
-  subjectSpotlight: { display: "flex", alignItems: "center", gap: 14, borderRadius: 20, padding: "14px 22px", boxShadow: "0 10px 22px rgba(11,61,98,0.3)", justifyContent: "center", flexWrap: "wrap" },
-  subjectSpotlightIcon: { width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 10px rgba(0,0,0,0.2)" },
-  subjectSpotlightTextWrap: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" },
-  subjectSpotlightName: { fontFamily: "'Kaisei Decol', serif", fontSize: 26, fontWeight: 700, color: "#0B3D62", lineHeight: 1.2 },
-  subjectSpotlightDuration: { fontSize: 16, fontWeight: 900, color: "#0B3D62", marginTop: 2 },
-  subjectSpotlightFreq: { fontSize: 13.5, fontWeight: 700, color: "#3d6a86", marginTop: 2 },
-  backlogBadgeBig: { fontSize: 13.5, color: "#B5651D", background: "#FFE9B3", borderRadius: 999, padding: "5px 12px", fontWeight: 800, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" },
-
-  calendarLegendRow: { position: "relative", zIndex: 2, display: "flex", gap: 14, padding: "10px 18px 0", flexWrap: "wrap", justifyContent: "center" },
-  calendarLegendItem: { display: "inline-flex", alignItems: "center", gap: 6, color: "#EAF7FB", fontSize: 13, fontWeight: 700 },
-  legendDot: { width: 12, height: 12, borderRadius: "50%", display: "inline-block" },
-
-  calendarPanel: { position: "relative", zIndex: 2, margin: "12px 18px 0", background: "linear-gradient(180deg,#FFFDF8,#FFF3E4)", borderRadius: 22, padding: 12, boxShadow: "0 16px 34px rgba(11,61,98,0.3)" },
-  tableHint: { fontSize: 15, color: "#5a7d94", fontWeight: 700, margin: "0 4px 10px", textAlign: "center" },
-  calendarGrid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
-  weekdayHeadCell: { textAlign: "center", fontSize: 15, fontWeight: 900, color: "#0B3D62", background: "#fff", borderRadius: 10, padding: "6px 0", boxShadow: "inset 0 0 0 2px #EAF7FB" },
-  weekdayShieldWrap: { position: "relative", width: "100%", minHeight: 78, display: "flex", alignItems: "center", justifyContent: "center" },
-  weekdayShieldFrame: { position: "absolute", top: "2%", left: "10%", width: "80%", height: "96%" },
-  weekdayShieldContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, paddingBottom: "10%" },
-  weekdayShieldLabel: { color: "#fff", fontWeight: 900, fontSize: 19, textShadow: "0 1px 3px rgba(0,0,0,0.6)" },
-
-  dayCell: { background: "#fff", borderRadius: 12, padding: "5px 4px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, boxShadow: "inset 0 0 0 2px #EAF7FB", minWidth: 0 },
-  dayCellDim: { opacity: 0.35 },
-  dayCellToday: { boxShadow: "inset 0 0 0 2px #14588C" },
-  dayCellComplete: { boxShadow: "inset 0 0 0 2px #F4C95D", background: "#FFF7DA" },
-  dayCellTopRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 3, width: "100%", flexWrap: "wrap" },
-  dayNum: { fontSize: 13, fontWeight: 800, color: "#7c98aa" },
-  memoBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3, background: "#EAF7FB", border: "1px dashed #BFE3F0", color: "#7c98aa", borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 700, cursor: "pointer", marginTop: 2 },
-  memoBtnFilled: { background: "#FFF3B0", border: "1px solid #E0C24A", color: "#8a6d00" },
-  dayHeadTodayTag: { fontSize: 9, color: "#fff", background: "#14588C", borderRadius: 999, padding: "1px 5px", fontWeight: 900 },
-  dayHeadTrophy: { fontSize: 12 },
-
-  headBubble: { width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 3px 6px rgba(0,0,0,0.15)" },
-  headLabel: { fontSize: 17, fontWeight: 800, color: "#0B3D62", lineHeight: 1.3 },
-  backlogBadge: { fontSize: 13, color: "#B5651D", background: "#FFE9B3", borderRadius: 999, padding: "2px 8px", display: "inline-block", fontWeight: 800 },
-  durationBadge: { fontSize: 13, color: "#14588C", background: "#DCEEF7", borderRadius: 999, padding: "2px 8px", display: "inline-block", fontWeight: 800 },
-
-  dayStampsRow: { display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center", width: "100%" },
-  stampSlot: { flex: "1 1 0", minWidth: 26, maxWidth: 90 },
-  achvMiniLabel: { fontSize: 8.5, fontWeight: 800, color: "#5C3A21", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" },
-  stampCellWrap: { position: "relative", width: "100%" },
-  stampCircle: { width: "100%", aspectRatio: "1", borderRadius: "50%", border: "3px dashed", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", overflow: "visible", boxSizing: "border-box" },
-  stampPopWrap: { display: "flex", alignItems: "center", justifyContent: "center", animation: "stampPop 0.45s cubic-bezier(.34,1.56,.64,1)" },
-  x2Badge: { position: "absolute", top: -8, right: -8, background: "#FF6B8A", color: "#fff", fontSize: 11, fontWeight: 900, borderRadius: 999, padding: "2px 6px", boxShadow: "0 2px 5px rgba(0,0,0,0.3)" },
-  undoBadge: { position: "absolute", top: -8, left: -8, width: 22, height: 22, borderRadius: "50%", background: "#8aa4b4", color: "#fff", fontSize: 14, fontWeight: 900, border: "2px solid #fff", boxShadow: "0 2px 5px rgba(0,0,0,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0 },
-  commentBubble: { position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", background: "#fff", color: "#FF6B8A", fontSize: 12, fontWeight: 900, padding: "3px 8px", borderRadius: 999, boxShadow: "0 4px 10px rgba(0,0,0,0.2)", animation: "floatComment 1.3s ease-out forwards", pointerEvents: "none", zIndex: 5 },
-  dashMark: { color: "#c9d8e0", fontSize: 15, fontWeight: 700 },
-
-  toast: { position: "fixed", left: "50%", bottom: 20, transform: "translateX(-50%)", background: "#0B3D62", color: "#fff", padding: "12px 22px", borderRadius: 999, fontSize: 17, fontWeight: 700, boxShadow: "0 10px 24px rgba(0,0,0,0.3)", zIndex: 50, maxWidth: "90%", textAlign: "center" },
-
-  modalOverlay: { position: "fixed", inset: 0, background: "rgba(11,61,98,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, padding: 20 },
-  modalCard: { background: "#fff", borderRadius: 20, padding: 26, maxWidth: 360, width: "100%", textAlign: "center", animation: "popIn 0.25s ease-out" },
-  noteModalCard: { background: "#fff", borderRadius: 20, maxWidth: 360, width: "100%", textAlign: "center", animation: "popIn 0.25s ease-out", display: "flex", flexDirection: "column", maxHeight: "88vh", overflow: "hidden" },
-  noteModalScrollBody: { padding: "26px 26px 0", overflowY: "auto", flex: "1 1 auto", minHeight: 0 },
-  noteModalFooter: { display: "flex", gap: 10, padding: "16px 26px 26px", flexShrink: 0, borderTop: "1px solid #E4EFF5" },
-  modalTitle: { margin: "0 0 8px", fontSize: 22, color: "#0B3D62" },
-  modalMsg: { fontSize: 17, color: "#4a6c85", lineHeight: 1.6, marginBottom: 18 },
-  noteTextarea: { width: "100%", padding: "12px 14px", borderRadius: 14, border: "2px solid #BFE3F0", fontSize: 16, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: "#fff", resize: "vertical", marginBottom: 18, color: "#0B3D62" },
-  parentCommentReadOnly: {
-    background: "#FFF7E0",
-    border: "2px solid #F4C95D",
-    borderRadius: 14,
-    padding: "12px 14px",
-    marginBottom: 18,
-  },
-  parentCommentLabel: { fontSize: 12.5, fontWeight: 800, color: "#B5651D", marginBottom: 4 },
-  parentCommentText: { fontSize: 15, color: "#5C3A21", whiteSpace: "pre-wrap", lineHeight: 1.5 },
-  achievementSection: { textAlign: "left", background: "#FFF7EC", border: "2px solid #F0DBA6", borderRadius: 14, padding: 12, marginBottom: 16 },
-  achievementSectionLabel: { fontSize: 13, fontWeight: 800, color: "#8B5E34", margin: "0 0 8px" },
-  achievementSubjectRow: { marginBottom: 8 },
-  achievementSubjectName: { fontWeight: 900, fontSize: 14.5, marginBottom: 4 },
-  achievementFieldsRow: { display: "flex", flexWrap: "wrap", gap: 10 },
-  achievementField: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 700, color: "#5C3A21" },
-  achievementInput: { width: 56, padding: "5px 6px", borderRadius: 8, border: "2px solid #E0C68A", fontSize: 14, fontFamily: "inherit", textAlign: "center" },
-  recordsListCard: { background: "#fff", borderRadius: 20, padding: 24, maxWidth: 420, width: "100%", textAlign: "left", animation: "popIn 0.25s ease-out", maxHeight: "82vh", display: "flex", flexDirection: "column" },
-  recordsListScroll: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, paddingRight: 2 },
-  recordEntryCard: { background: "#FFF7EC", border: "2px solid #F0DBA6", borderRadius: 14, padding: "10px 14px" },
-  recordEntryDate: { fontSize: 14, fontWeight: 900, color: "#8B5E34", marginBottom: 4 },
-  recordEntryAchv: { fontSize: 13.5, fontWeight: 800, marginBottom: 2 },
-  recordEntryNote: { fontSize: 14, color: "#4a6c85", lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap" },
-  recordEntryParentComment: { fontSize: 13.5, color: "#B5651D", lineHeight: 1.6, marginTop: 6, whiteSpace: "pre-wrap", background: "#FFF7E0", borderRadius: 10, padding: "6px 10px" },
-  replyOpenBtn: {
-    marginTop: 10,
-    background: "none",
-    border: "none",
-    color: "#3E6FBF",
-    fontWeight: 800,
-    fontSize: 13.5,
-    padding: 0,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  replyForm: { marginTop: 10, background: "#F5F9FB", borderRadius: 12, padding: 10 },
-  replyNameInput: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "8px 10px",
-    borderRadius: 10,
-    border: "2px solid #BFE3F0",
-    fontSize: 13.5,
-    fontFamily: "inherit",
-    marginBottom: 6,
-    color: "#0B3D62",
-  },
-  replyTextarea: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "8px 10px",
-    borderRadius: 10,
-    border: "2px solid #BFE3F0",
-    fontSize: 14,
-    fontFamily: "inherit",
-    resize: "vertical",
-    marginBottom: 8,
-    color: "#0B3D62",
-  },
-  replyCancelBtn: { flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: "#E5EEF2", color: "#4a6c85", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5 },
-  replySubmitBtn: { flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: "#3E6FBF", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5 },
-  commentEditBtn: { border: "none", background: "none", color: "#B5651D", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit", padding: 0, textDecoration: "underline" },
-  modalBtns: { display: "flex", gap: 10 },
-  modalCancel: { flex: 1, padding: "12px 0", borderRadius: 12, border: "2px solid #d7ecf3", background: "#fff", color: "#5a7d94", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 17 },
-  modalConfirm: { flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: "#14588C", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 17 },
-  modalDanger: { flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: "#E0526B", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 17 },
-
-  dayCelebrateOverlay: { position: "fixed", inset: 0, background: "rgba(11,61,98,0.25)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1210 },
-  dayCelebrateBadge: { background: "#fff", borderRadius: 20, padding: "24px 34px", textAlign: "center", animation: "popIn 0.3s ease-out", boxShadow: "0 20px 40px rgba(0,0,0,0.25)" },
-
-  weekCelebrateOverlay: { position: "fixed", inset: 0, background: "rgba(11,61,98,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1220 },
-  weekCelebrateCard: { position: "relative", background: "linear-gradient(180deg, #FFFBF3, #FFF3D6)", borderRadius: 24, padding: "34px 30px", textAlign: "center", maxWidth: 360, animation: "popIn 0.35s ease-out", boxShadow: "0 30px 60px rgba(0,0,0,0.4)" },
-  chestEmoji: { fontSize: 56, marginBottom: 6 },
-  celebrateDragonImg: { width: 120, height: 120, borderRadius: "50%", marginBottom: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.35)" },
-  dragonStampImg: { width: "82%", height: "82%", borderRadius: "50%", objectFit: "cover" },
-  backfillHint: { fontSize: 20, fontWeight: 900, color: "#c9d8e0" },
-  stampHintIcon: { display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.55 },
-  weekCelebrateTitle: { fontFamily: "'Kaisei Decol', serif", color: "#0B3D62", fontSize: 27, margin: "4px 0" },
-  weekCelebrateSub: { fontSize: 17, color: "#5a7d94", marginBottom: 16, lineHeight: 1.6 },
-  bigStamp: { display: "inline-block", border: "4px solid #FF8FA3", color: "#FF8FA3", fontWeight: 900, fontSize: 26, padding: "10px 26px", borderRadius: 14, transform: "rotate(-8deg)", marginBottom: 18, fontFamily: "'Kaisei Decol', serif" },
-  cardGetBox: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 },
-  cardGetLabel: { fontSize: 14, fontWeight: 900, color: "#B5651D", marginBottom: 8 },
-  cardGetImgWrap: {
-    width: 112,
-    height: 112,
-    borderRadius: 18,
-    padding: 10,
-    boxShadow: "0 8px 18px rgba(0,0,0,0.25), inset 0 0 0 3px rgba(255,255,255,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardGetImg: { width: "100%", height: "100%", objectFit: "contain" },
-  cardGetName: { marginTop: 8, fontSize: 16, fontWeight: 900, color: "#0B3D62", fontFamily: "'Kaisei Decol', serif" },
-  cardStatsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 10, width: "100%" },
-  cardStatChip: {
-    background: "#F5F9FB",
-    borderRadius: 10,
-    padding: "4px 2px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  cardStatLabel: { fontSize: 10, fontWeight: 700, color: "#7c98aa" },
-  cardStatValue: { fontSize: 14, fontWeight: 900, color: "#0B3D62" },
-  mascotNameLabel: {
-    position: "absolute",
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: 800,
-    color: "#fff",
-    textShadow: "0 1px 3px rgba(0,0,0,0.45)",
-    pointerEvents: "none",
-    zIndex: 0,
-    fontFamily: "'Kaisei Decol', serif",
-  },
-  rewardCard: { background: "linear-gradient(135deg,#FFF3B0,#FFD6E0)", borderRadius: 16, padding: "16px 22px", marginBottom: 18, boxShadow: "0 6px 16px rgba(0,0,0,0.15)" },
-  rewardLabel: { fontSize: 15, fontWeight: 900, color: "#B5651D", marginBottom: 4 },
-  rewardText: { fontSize: 21, fontWeight: 900, color: "#0B3D62", fontFamily: "'Kaisei Decol', serif", lineHeight: 1.4 },
-  weekCelebrateBtn: { display: "block", margin: "0 auto", padding: "12px 32px", borderRadius: 999, border: "none", background: "#14588C", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 18 },
-  hatchSkipBtn: {
-    display: "block",
-    margin: "10px auto 0",
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "none",
-    background: "none",
-    color: "#8296a8",
-    fontWeight: 700,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    fontSize: 13,
-    textDecoration: "underline",
-  },
-};
