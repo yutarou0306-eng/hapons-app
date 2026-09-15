@@ -2479,4 +2479,741 @@ function JrFeesTab({ isAdmin }) {
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <button onClick={() => { setSelectedEvent(nextEvent?.id); setShowTrialInput(false); }} disabled={!nextEvent}
             style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextEvent ? C.card : C.bg, color: nextEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: nextEvent ? "pointer" : "default" }}>
-            ← {nextEven
+            ← {nextEvent ? nextEvent.date.slice(5) : ""}
+          </button>
+          <button onClick={() => { setSelectedEvent(prevEvent?.id); setShowTrialInput(false); }} disabled={!prevEvent}
+            style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevEvent ? C.card : C.bg, color: prevEvent ? C.jr : C.textMuted, fontSize: 11, fontWeight: 700, cursor: prevEvent ? "pointer" : "default" }}>
+            {prevEvent ? prevEvent.date.slice(5) : ""} →
+          </button>
+        </div>
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{ev?.date}（{wdays[new Date(ev?.date).getDay()]}）</div>
+          <div style={{ fontSize: 26, fontWeight: 900 }}>P{getEventTotal(selectedEvent).toLocaleString()}</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{paidCount}/{feeUnits.length + trialUnits.length}グループ参加　P{unitFee}×{paidCount}グループ</div>
+        </div>
+
+        {/* 登録メンバー */}
+        {feeUnits.length === 0 && trialUnits.length === 0 && (
+          <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
+        )}
+        {feeUnits.map((unit) => {
+          const paid = isPaid(selectedEvent, unit.label);
+          const feeRecord = jrFees.find((f) => f.event_id === selectedEvent && f.family_id === unit.label);
+          return (
+            <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+                  {unit.members.length > 1 ? `👨‍👩‍👧‍👦 ${unit.label}` : unit.label}
+                </div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {unit.members.map((m) => m.name_jp).join("・")}　P{unitFee}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {isAdmin ? (
+                  <button onClick={() => togglePaid(selectedEvent, unit.label)}
+                    style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </button>
+                ) : (
+                  <span style={{ padding: "6px 14px", borderRadius: 20, fontWeight: 700, fontSize: 12, background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
+                    {paid ? "✓ 参加" : "不参加"}
+                  </span>
+                )}
+                {isAdmin && paid && feeRecord && (
+                  <button onClick={async () => {
+                    if (!window.confirm(`${unit.label}の参加記録を削除しますか？`)) return;
+                    await supabase.from("jr_fees").delete().eq("id", feeRecord.id);
+                    setJrFees(jrFees.filter((f) => f.id !== feeRecord.id));
+                  }}
+                    style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                    削除
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* その他 */}
+        {trialUnits.length > 0 && (
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.textMuted, margin: "12px 0 8px" }}>🌟 仮入部/その他</div>
+        )}
+        {trialUnits.map((t) => (
+          <div key={t.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${C.accent}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🌟 {t.label}</div>
+              <div style={{ fontSize: 11, color: C.textMuted }}>仮入部/その他　P{unitFee}</div>
+            </div>
+            {isAdmin && (
+              <button onClick={() => removeTrial(t.key)}
+                style={{ padding: "4px 10px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
+                削除
+              </button>
+            )}
+          </div>
+        ))}
+
+        {isAdmin && showTrialInput && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 360 }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 900, color: C.text }}>🌟 仮入部/その他を追加</h3>
+              <input style={S.input} placeholder="例：田中 花子" value={trialName} onChange={(e) => setTrialName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTrial()} autoFocus />
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => { setShowTrialInput(false); setTrialName(""); }}>キャンセル</button>
+                <button style={{ ...S.btn("primary"), flex: 2 }} onClick={addTrial} disabled={!trialName.trim()}>追加する</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 年間合計（選択年度）
+  const getYearTotal = (fy) => {
+    const ids = events.filter((e) => fyOfDate(e.date) === fy).map((e) => e.id);
+    return jrFees.filter((f) => ids.includes(f.event_id)).length * unitFee;
+  };
+
+  // 全履歴ページ
+  if (showHistory) {
+    // 月別グループ化（古い順・選択年度のみ）
+    const sortedEvents = [...fyEvents].sort((a, b) => a.date.localeCompare(b.date));
+    const monthGroups = {};
+    sortedEvents.forEach((e) => {
+      const month = e.date.slice(0, 7);
+      if (!monthGroups[month]) monthGroups[month] = [];
+      monthGroups[month].push(e);
+    });
+    const monthEntries = Object.entries(monthGroups).sort(([a], [b]) => a.localeCompare(b));
+
+    // 選択中の月
+    const selectedHistoryMonth = expandedMonth;
+    const historyMonths = monthEntries.map(([m]) => m);
+    const currentHistoryIdx = historyMonths.indexOf(selectedHistoryMonth);
+    const prevHistoryMonth = currentHistoryIdx > 0 ? historyMonths[currentHistoryIdx - 1] : null;
+    const nextHistoryMonth = currentHistoryIdx < historyMonths.length - 1 ? historyMonths[currentHistoryIdx + 1] : null;
+
+    // 月詳細ページ
+    if (selectedHistoryMonth && monthGroups[selectedHistoryMonth]) {
+      const monthEvs = monthGroups[selectedHistoryMonth];
+      const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+      const [y, m] = selectedHistoryMonth.split("-");
+      return (
+        <div style={S.content}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <button onClick={() => setExpandedMonth(null)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 全履歴に戻る</button>
+          </div>
+          {/* 前月・翌月ナビ */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setExpandedMonth(nextHistoryMonth)} disabled={!nextHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: nextHistoryMonth ? C.card : C.bg, color: nextHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: nextHistoryMonth ? "pointer" : "default" }}>
+              ← {nextHistoryMonth ? nextHistoryMonth.replace("-", "年") + "月" : ""}
+            </button>
+            <button onClick={() => setExpandedMonth(prevHistoryMonth)} disabled={!prevHistoryMonth}
+              style={{ flex: 1, padding: "8px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: prevHistoryMonth ? C.card : C.bg, color: prevHistoryMonth ? C.jr : C.textMuted, fontSize: 12, fontWeight: 700, cursor: prevHistoryMonth ? "pointer" : "default" }}>
+              {prevHistoryMonth ? prevHistoryMonth.replace("-", "年") + "月" : ""} →
+            </button>
+          </div>
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>{parseInt(y)}年{parseInt(m)}月</div>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>P{monthTotal.toLocaleString()}</div>
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{monthEvs.length}回の練習</div>
+            </div>
+          </div>
+          {monthEvs.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）{e.title}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted }}>{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 4 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // 月一覧ページ
+    return (
+      <div style={S.content}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <button onClick={() => setShowHistory(false)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", color: C.jr, padding: 0 }}>← 参加費管理に戻る</button>
+        </div>
+        {visibleFiscalYears.length >= 2 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {visibleFiscalYears.map((fy) => (
+              <button key={fy} onClick={() => { setSelectedFy(fy); setExpandedMonth(null); }}
+                style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+          <div style={{ fontSize: 28, fontWeight: 900 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>全{fyEvents.length}回分の記録</div>
+        </div>
+        {fyEvents.length === 0 && <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>}
+        {monthEntries.map(([month, monthEvs]) => {
+          const monthTotal = monthEvs.reduce((sum, e) => sum + getEventTotal(e.id), 0);
+          const [y, m] = month.split("-");
+          return (
+            <div key={month} onClick={() => setExpandedMonth(month)}
+              style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{parseInt(y)}年{parseInt(m)}月</div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>{monthEvs.length}回の練習</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: C.jr }}>P{monthTotal.toLocaleString()}</div>
+                  <span style={{ fontSize: 14, color: C.textMuted }}>›</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // メインページ
+  return (
+    <div style={S.content}>
+      <h2 style={{ ...S.sectionTitle, color: C.jr }}>⭐ Jr 参加費管理</h2>
+      {loading && <Loading />}
+      {!loading && (
+        <>
+          {/* 年度切替ボタン（翌年度以降の練習が登録されると自動で増える） */}
+          {visibleFiscalYears.length >= 2 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {visibleFiscalYears.map((fy) => (
+                <button key={fy} onClick={() => setSelectedFy(fy)}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.jr : C.border}`, background: activeFy === fy ? C.jrLight : C.card, color: activeFy === fy ? C.jr : C.textMuted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                  {fyName(fy)}{fy === currentFiscalYear ? "（今年度）" : ""}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* 年間合計 */}
+          <div style={{ ...S.card, background: `linear-gradient(135deg, ${C.jr} 0%, #0D47A1 100%)`, color: "#fff", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>年間累計参加費　{fyName(activeFy)}（{fyLabel(activeFy)}）</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>P{getYearTotal(activeFy).toLocaleString()}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {editingFee ? (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P</span>
+                  <input type="number" value={tempFee} onChange={(e) => setTempFee(Number(e.target.value))}
+                    style={{ width: 70, padding: "2px 6px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 700, color: C.text }} />
+                  <button onClick={() => { setUnitFee(tempFee); setEditingFee(false); }}
+                    style={{ padding: "3px 10px", borderRadius: 6, border: "none", background: "#fff", color: C.jr, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>確定</button>
+                  <button onClick={() => setEditingFee(false)}
+                    style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>参加費：P{unitFee}/グループ・回</span>
+                  {isAdmin && (
+                    <button onClick={() => { setTempFee(unitFee); setEditingFee(true); }}
+                      style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 11, cursor: "pointer" }}>変更</button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{activeFy === currentFiscalYear ? "直近4回の練習" : `${fyName(activeFy)}の直近4回`}</div>
+          </div>
+          {topEvents.length === 0 && (
+            <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>この年度の練習記録がありません</div>
+          )}
+          {topEvents.map((e) => {
+            const d = new Date(e.date);
+            const paidCount = getEventPaidCount(e.id);
+            const total = getEventTotal(e.id);
+            const totalUnits = feeUnits.length + getTrialUnits(e.id).length;
+            const pct = totalUnits > 0 ? Math.round((paidCount / totalUnits) * 100) : 0;
+            return (
+              <div key={e.id} onClick={() => setSelectedEvent(e.id)}
+                style={{ ...S.card, cursor: "pointer", borderLeft: `4px solid ${pct === 100 ? C.success : C.jr}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{e.date}（{wdays[d.getDay()]}）</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{e.title}　{e.time}</div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.jr }}>P{total.toLocaleString()}</div>
+                </div>
+                <div style={{ background: C.border, borderRadius: 99, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? C.success : C.jr, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted }}>
+                  <span>{paidCount}/{totalUnits}グループ 参加</span>
+                  <span style={{ fontWeight: 700, color: pct === 100 ? C.success : C.textMuted }}>{pct}%</span>
+                </div>
+              </div>
+            );
+          })}
+
+          {fyEvents.length > 0 && (
+            <button onClick={() => setShowHistory(true)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1.5px solid ${C.jr}`, background: C.jrLight, color: C.jr, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>
+              📋 {fyName(activeFy)}の全履歴を見る（{fyEvents.length}回分）
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── MAIN APP ──
+// ── マイグループ設定 ──
+function MyGroupSetup({ onSave, onClose, currentGroup }) {
+  const [members, setMembers] = useState([]);
+  const [jrMembers, setJrMembers] = useState([]);
+  const [selected, setSelected] = useState(currentGroup || []);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const [m, j] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position").order("created_at"),
+        supabase.from("jr_members").select("id, name_jp, parent_name").order("created_at"),
+      ]);
+      if (m.data) setMembers(m.data);
+      if (j.data) setJrMembers(j.data);
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  const toggle = (name) => {
+    setSelected((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.card, borderRadius: 20, padding: "24px 20px", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text }}>👨‍👩‍👧‍👦 マイグループ設定</h3>
+        <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+          出欠登録をまとめて行うメンバーを選択してください。お一人の場合もご自身を選択してください。練習前に未登録の場合は通知されます。
+        </p>
+        {loading && <Loading />}
+        {!loading && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.primary, marginBottom: 8 }}>🏉 大人</div>
+            {members.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.sakuraLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.primary : C.border}`, background: selected.includes(m.name_jp) ? C.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.position}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.jr, margin: "12px 0 8px" }}>⭐ Jr</div>
+            {jrMembers.map((m) => (
+              <div key={m.id} onClick={() => toggle(m.name_jp)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 6, cursor: "pointer", background: selected.includes(m.name_jp) ? C.jrLight : C.bg, border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}` }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${selected.includes(m.name_jp) ? C.jr : C.border}`, background: selected.includes(m.name_jp) ? C.jr : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {selected.includes(m.name_jp) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.name_jp}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted }}>{m.parent_name && `👨‍👩‍👧‍👦 ${m.parent_name}`}</div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={() => { localStorage.setItem("hapons_group_skipped", "1"); onClose(); }} style={{ ...S.btn("ghost"), flex: 1 }}>後で設定</button>
+          <button onClick={() => onSave(selected)} style={{ ...S.btn("primary"), flex: 2 }}>
+            {selected.length}名を登録する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function HaponsApp() {
+  const [role, setRole] = useState(() => localStorage.getItem("hapons_role") || null);
+  const [tab, setTab] = useState("home");
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showImportant, setShowImportant] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showEntryForms, setShowEntryForms] = useState(false);
+  const [showMJSPass, setShowMJSPass] = useState(false);
+  const [showClubSong, setShowClubSong] = useState(false);
+  const [showMinutes, setShowMinutes] = useState(false);
+  const [showTranslateGuide, setShowTranslateGuide] = useState(false);
+  const [slideDir, setSlideDir] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  // マイグループ機能
+  const [myGroup, setMyGroup] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hapons_my_group") || "[]"); } catch { return []; }
+  });
+  const [showGroupSetup, setShowGroupSetup] = useState(false);
+  const [showUnregisteredAlert, setShowUnregisteredAlert] = useState(false);
+  const [unregisteredEvent, setUnregisteredEvent] = useState(null);
+  const [unregisteredMembers, setUnregisteredMembers] = useState([]);
+  const [alertIsUrgent, setAlertIsUrgent] = useState(false); // 1日前はスキップ不可
+
+  const saveMyGroup = (group) => {
+    localStorage.setItem("hapons_my_group", JSON.stringify(group));
+    localStorage.removeItem("hapons_group_skipped");
+    setMyGroup(group);
+    setShowGroupSetup(false);
+  };
+
+  // グループ未設定なら初回表示（スキップ済みでなければ）
+  useEffect(() => {
+    if (role && myGroup.length === 0 && !localStorage.getItem("hapons_group_skipped")) {
+      setShowGroupSetup(true);
+    }
+  }, [role]);
+
+  // アプリ起動時に未登録チェック（7日前・3日前・1日前）
+  useEffect(() => {
+    if (myGroup.length === 0 || !role) return;
+    const checkUnregistered = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const { data: events } = await supabase.from("events")
+        .select("*").gte("date", today).lte("date", nextWeek).eq("type", "practice").order("date");
+      if (!events || events.length === 0) return;
+
+      // 直近の練習日を特定し、その日の全イベントを対象にする
+      const nextDate = String(events[0].date).slice(0, 10);
+      const sameDayEvents = events.filter((e) => String(e.date).slice(0, 10) === nextDate);
+      const nextEvent = sameDayEvents[0];
+      const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+
+      // スキップ状態を確認（同一日のイベント群をまとめて1つのキーで管理）
+      const alertKey = `hapons_alert_${nextDate}`;
+      const dismissedPhase = localStorage.getItem(alertKey);
+
+      // 表示条件：7日前（未スキップ）、3日前（7日前スキップ済みでも再表示）、1日前（常に表示）
+      let shouldShow = false;
+      if (daysUntil <= 1) {
+        shouldShow = true; // 1日前は常に表示
+      } else if (daysUntil <= 3 && dismissedPhase !== "3") {
+        shouldShow = true;
+      } else if (daysUntil <= 7 && !dismissedPhase) {
+        shouldShow = true;
+      }
+
+      if (!shouldShow) return;
+
+      // 同一日の全イベントについて出欠登録状況を取得
+      const eventIds = sameDayEvents.map((e) => e.id);
+      const { data: attendances } = await supabase.from("attendances").select("*").in("event_id", eventIds);
+      const { data: absences } = await supabase.from("absences").select("*").in("event_id", eventIds);
+
+      // 「全イベントで登録済み」のメンバーのみ登録完了とみなす
+      // = どれか1つでも未登録のイベントがあれば、そのメンバーは未登録扱い
+      const unregistered = myGroup.filter((name) => {
+        return sameDayEvents.some((ev) => {
+          const registeredForThisEvent = [
+            ...(attendances || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+            ...(absences || []).filter((a) => a.event_id === ev.id).map((a) => a.member_name),
+          ];
+          return !registeredForThisEvent.includes(name);
+        });
+      });
+
+      if (unregistered.length > 0) {
+        setUnregisteredEvent(nextEvent);
+        setUnregisteredMembers(unregistered);
+        setAlertIsUrgent(daysUntil <= 1);
+        setShowUnregisteredAlert(true);
+      }
+    };
+    checkUnregistered();
+  }, [myGroup, role]);
+
+  const isAdmin = role === "admin";
+
+  const handleLogin = (newRole) => {
+    localStorage.setItem("hapons_role", newRole);
+    setRole(newRole);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("ログアウトしますか？")) {
+      localStorage.removeItem("hapons_role");
+      setRole(null);
+      setTab("home");
+    }
+  };
+
+  const handleAdminExit = () => {
+    if (window.confirm("管理者モードを終了しますか？")) {
+      localStorage.setItem("hapons_role", "member");
+      setRole("member");
+    }
+  };
+
+  const handleAdminLogin = () => {
+    localStorage.setItem("hapons_role", "admin");
+    setRole("admin");
+    setShowAdminLogin(false);
+  };
+
+  const fetchAnnouncements = async () => {
+    const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false });
+    if (data) setAnnouncements(data);
+  };
+
+  useEffect(() => {
+    setLoadingAnnouncements(true);
+    fetchAnnouncements().then(() => setLoadingAnnouncements(false));
+
+    // 5分おきに自動更新
+    const interval = setInterval(() => {
+      fetchAnnouncements();
+    }, 5 * 60 * 1000);
+
+    // アプリを再度開いた時に更新（スマホ対応）
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAnnouncements();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  // Androidの戻るジェスチャー対応
+  useEffect(() => {
+    const handlePopState = () => {
+      // サブページが開いている場合は閉じる
+      if (showImportant) { setShowImportant(false); history.pushState(null, "", window.location.href); return; }
+      if (showRules) { setShowRules(false); history.pushState(null, "", window.location.href); return; }
+      if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
+      if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
+      if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
+      if (showMinutes) { setShowMinutes(false); history.pushState(null, "", window.location.href); return; }
+      if (showAdminLogin) { setShowAdminLogin(false); history.pushState(null, "", window.location.href); return; }
+      // メイン画面ではhomeに戻る（アプリ終了を防ぐ）
+      if (tab !== "home") { setTab("home"); history.pushState(null, "", window.location.href); return; }
+      // ホームでは履歴を維持してアプリ終了を防ぐ
+      history.pushState(null, "", window.location.href);
+    };
+
+    // 初回に履歴スタックを追加
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
+
+  if (!role) return <LoginScreen onLogin={handleLogin} />;
+  if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
+  if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
+  if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
+  if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
+  if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
+  if (showMinutes) return <MinutesPage onClose={() => setShowMinutes(false)} isAdmin={isAdmin} />;
+
+  const tabs = [
+    { id: "home", label: "ホーム", icon: "🏠" },
+    { id: "announcements", label: "お知らせ", icon: "📢" },
+    { id: "schedule", label: "日程", icon: "📅" },
+    { id: "members", label: "メンバー", icon: "🏉" },
+    { id: "fees", label: "部費", icon: "💴" },
+    { id: "docs", label: "資料", icon: "📋" },
+  ];
+
+  const tabIds = tabs.map((t) => t.id);
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null || isAnimating) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+    if (diffY > Math.abs(diffX) || Math.abs(diffX) < 70) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
+    const currentIdx = tabIds.indexOf(tab);
+    if (diffX > 0) {
+      const nextIdx = (currentIdx + 1) % tabIds.length;
+      setSlideDir("left");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    } else {
+      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
+      setSlideDir("right");
+      setIsAnimating(true);
+      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={LOGO_SRC} alt="Manila Hapons Rugby" style={{ height: 38, width: "auto" }} />
+          <div>
+            <h1 style={{ color: "#fff", fontSize: 15, fontWeight: 900, margin: 0, letterSpacing: "0.04em" }}>Manila Hapons</h1>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, marginTop: 1, letterSpacing: "0.06em" }}>RUGBY FOOTBALL CLUB · PHILIPPINES</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={() => setShowGroupSetup(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+            👨‍👩‍👧‍👦 {myGroup.length > 0 ? `${myGroup.length}名` : "設定"}
+          </button>
+          {isAdmin ? (
+            <button onClick={handleAdminExit} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "5px 10px", color: C.primaryDark, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>管理者 ✕</button>
+          ) : (
+            <button onClick={() => setShowAdminLogin(true)} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "5px 10px", color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>管理者</button>
+          )}
+          <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>ログアウト</button>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div style={{ background: C.adminBg, padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ color: C.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>⚙ 管理者モード — 全コンテンツの編集が可能です</span>
+          <span style={{ background: C.accent, color: C.primaryDark, fontSize: 10, fontWeight: 900, padding: "2px 8px", borderRadius: 20 }}>ADMIN</span>
+        </div>
+      )}
+
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
+        style={{
+          flex: 1, overflowY: "auto", overflowX: "hidden",
+          opacity: slideDir ? 0 : 1,
+          transition: slideDir ? "opacity 0.2s ease" : "opacity 0.2s ease",
+        }}>
+        {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+        {tab === "members" && <MembersTab isAdmin={isAdmin} />}
+        {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
+        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />}
+        {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
+        {tab === "docs" && <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+      </div>
+
+      <nav style={S.nav}>
+        {tabs.map((t) => (
+          <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
+            <span style={{ fontSize: 18 }}>{t.icon}</span>
+            <span style={{ fontSize: 9, fontWeight: tab === t.id ? 800 : 400 }}>{t.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {showAdminLogin && <AdminLoginModal onLogin={handleAdminLogin} onClose={() => setShowAdminLogin(false)} />}
+      {showGroupSetup && <MyGroupSetup onSave={saveMyGroup} onClose={() => setShowGroupSetup(false)} currentGroup={myGroup} />}
+
+      {/* 未登録アラート */}
+      {showUnregisteredAlert && unregisteredEvent && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380 }}>
+            <div style={{ fontSize: 24, textAlign: "center", marginBottom: 8 }}>📢</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 900, color: C.text, textAlign: "center" }}>出欠登録をお願いします！</h3>
+            <div style={{ ...S.card, borderLeft: `4px solid ${C.primary}`, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{unregisteredEvent.title}</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>{unregisteredEvent.date}　{unregisteredEvent.time}</div>
+            </div>
+            <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>
+              以下のメンバーがまだ未登録です：
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {unregisteredMembers.map((name) => (
+                  <span key={name} style={{ background: C.sakuraLight, color: C.primary, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>{name}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {!alertIsUrgent && (
+                <button onClick={() => {
+                  if (unregisteredEvent) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const nextDate = String(unregisteredEvent.date).slice(0, 10);
+                    const daysUntil = Math.ceil((new Date(nextDate) - new Date(today)) / (24 * 60 * 60 * 1000));
+                    localStorage.setItem(`hapons_alert_${nextDate}`, daysUntil <= 3 ? "3" : "7");
+                  }
+                  setShowUnregisteredAlert(false);
+                }}
+                  style={{ ...S.btn("ghost"), flex: 1 }}>後で</button>
+              )}
+              <button onClick={() => { setShowUnregisteredAlert(false); setTab("schedule"); }}
+                style={{ ...S.btn("primary"), flex: 2 }}>📅 日程を開く</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Translation Guide Modal */}
+      {showTranslateGuide && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900, color: C.text }}>🌐 How to Translate</h3>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+              This app is in Japanese. You can translate it using your browser's built-in translation feature:
+            </p>
+            <div style={{ ...S.card, marginBottom: 10, borderLeft: `4px solid #1E88E5` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 iPhone (Safari)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"AA"</strong> in the address bar → Select <strong>"Translate to English"</strong>
+              </div>
+            </div>
+            <div style={{ ...S.card, marginBottom: 16, borderLeft: `4px solid #2E7D32` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>📱 Android (Chrome)</div>
+              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6 }}>
+                Tap <strong>"⋮"</strong> (top right) → Select <strong>"Translate"</strong>
+              </div>
+            </div>
+            <button onClick={() => setShowTranslateGuide(false)}
+              style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: C.primary, color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
