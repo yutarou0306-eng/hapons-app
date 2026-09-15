@@ -737,7 +737,7 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
           </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
@@ -769,6 +769,24 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
     </div>
   );
 }
+
+// ホーム画面に追加した状態（PWAのstandaloneモード）かどうかを判定
+const isStandaloneApp = () =>
+  (typeof window !== "undefined" &&
+    (window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true));
+
+// お知らせ本文内のリンクをタップした時の処理。
+// standaloneモード（ホーム画面追加アプリ）では <a target="_blank"> が
+// 開き先を持たず反応しないことがあるため、その場合だけ同一ウィンドウ内で
+// 明示的に遷移させる（＝Safari等が起動してリンク先が開く）。
+// 通常のブラウザタブではこれまで通り新規タブで開く。
+const handleAutoLinkClick = (e) => {
+  const anchor = e.target.closest("a");
+  if (anchor && anchor.href && isStandaloneApp()) {
+    e.preventDefault();
+    window.location.href = anchor.href;
+  }
+};
 
 // URLを自動リンク化（不可視文字を除去し、既存リンクにもスタイルを補う）
 const autoLink = (html) => {
@@ -847,7 +865,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
             display: "-webkit-box",
             WebkitLineClamp: expandedIds[a.id] ? "unset" : 4,
             WebkitBoxOrient: "vertical",
-          }} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
+          }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           {a.body && a.body.length > 200 && (
             <button onClick={() => setExpandedIds((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
               style={{ background: "none", border: "none", color: C.primary, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "0 0 6px" }}>
@@ -1622,13 +1640,7 @@ function ScheduleTab({ isAdmin, myGroup = [] }) {
   };
 
   const del = async (id) => {
-    const pw = window.prompt("スケジュールを削除するにはパスワードを入力してください\n（保護者パスワード または マスターパスワード）");
-    if (pw === null) return; // キャンセル
-    if (pw.trim() !== MEMBER_PASS && pw.trim() !== "5963") {
-      alert("パスワードが正しくありません。削除できません。");
-      return;
-    }
-    if (!window.confirm("このスケジュールを削除しますか？")) return;
+    if (!window.confirm("削除しますか？")) return;
     await supabase.from("events").delete().eq("id", id);
     setEvents(events.filter((e) => e.id !== id));
   };
