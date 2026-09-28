@@ -2403,15 +2403,26 @@ function JrFeesTab({ isAdmin }) {
   const isPaid = (eventId, label) =>
     jrFees.some((f) => f.event_id === eventId && f.family_id === label);
 
+  // 保存中の (event_id + label) を記録し、連打による二重登録を防ぐ
+  const savingKeys = useRef(new Set());
+
   const togglePaid = async (eventId, label) => {
     if (!isAdmin) return;
-    const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === label);
-    if (existing) {
-      await supabase.from("jr_fees").delete().eq("id", existing.id);
-      setJrFees(jrFees.filter((f) => f.id !== existing.id));
-    } else {
-      const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: label, paid: true }]).select();
-      if (data) setJrFees([...jrFees, data[0]]);
+    const key = `${eventId}__${label}`;
+    if (savingKeys.current.has(key)) return; // 保存中は無視
+    savingKeys.current.add(key);
+    try {
+      const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === label);
+      if (existing) {
+        // 万一すでに重複がある場合も、同じ event_id + label を全て削除して確実に「未参加」に戻す
+        await supabase.from("jr_fees").delete().eq("event_id", eventId).eq("family_id", label);
+        setJrFees((prev) => prev.filter((f) => !(f.event_id === eventId && f.family_id === label)));
+      } else {
+        const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: label, paid: true }]).select();
+        if (data) setJrFees((prev) => [...prev, data[0]]);
+      }
+    } finally {
+      savingKeys.current.delete(key);
     }
   };
 
@@ -2446,9 +2457,16 @@ function JrFeesTab({ isAdmin }) {
   const addTrial = async () => {
     if (!trialName.trim()) return;
     const label = `その他:${trialName.trim()}`;
-    const { data } = await supabase.from("jr_fees").insert([{ event_id: selectedEvent, family_id: label, paid: true }]).select();
-    if (data) setJrFees([...jrFees, data[0]]);
-    setTrialName(""); setShowTrialInput(false);
+    const key = `${selectedEvent}__${label}`;
+    if (savingKeys.current.has(key)) return; // 連打による二重登録を防ぐ
+    savingKeys.current.add(key);
+    try {
+      const { data } = await supabase.from("jr_fees").insert([{ event_id: selectedEvent, family_id: label, paid: true }]).select();
+      if (data) setJrFees((prev) => [...prev, data[0]]);
+      setTrialName(""); setShowTrialInput(false);
+    } finally {
+      savingKeys.current.delete(key);
+    }
   };
 
   // 練習詳細ページ
