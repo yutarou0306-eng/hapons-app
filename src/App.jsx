@@ -160,54 +160,176 @@ function EditModal({ title, fields, data, onSave, onClose }) {
 }
 
 // ── IMPORTANT & RULES ──
-function ImportantPage({ onClose }) {
+// Hapons重要事項ページの本文はSupabaseの page_content テーブル（key, date_label, html）で管理。
+// レコードが無い場合は以下のデフォルト内容が使われる。
+
+// 見出しバー＋本文の1セクション分のHTMLを組み立てる
+const sectionHTML = (num, title, bodyHtml) => `
+  <div style="margin-bottom:16px;">
+    <div style="background:${C.primary};color:#fff;padding:8px 14px;border-radius:10px 10px 0 0;font-size:13px;font-weight:800;">${num ? `<span style="margin-right:8px;">${num}</span>` : ""}${title}</div>
+    <div style="background:${C.card};border:1px solid ${C.border};border-top:none;border-radius:0 0 10px 10px;padding:12px 14px;font-size:13px;line-height:1.8;color:${C.text};">${bodyHtml}</div>
+  </div>`;
+// 左に線の入った箇条書き1行分
+const itemHTML = (html) => `<div style="padding-left:12px;border-left:3px solid ${C.sakura};margin-bottom:8px;font-size:13px;line-height:1.7;color:${C.text};">${html}</div>`;
+// 強調テキスト
+const boldHTML = (text) => `<span style="font-weight:800;color:${C.primary};">${text}</span>`;
+
+const DEFAULT_IMPORTANT_DATE = "Manila Hapons 幹事会／第四版　2026年10月1日";
+
+const DEFAULT_IMPORTANT_HTML =
+  sectionHTML("１", "MJSグラウンド利用開始の経緯",
+    `<p style="margin:0 0 10px;">MJSグラウンドは従来、MJSの放課後倶楽部に限られていましたが、2023〜2024年に当時の幹事・赤星さん、小野さんが度重なる陳情と交渉を行い、日本人同好会としての利用が認められました。</p>`
+    + itemHTML(`${boldHTML("利用開始日：")}2024年4月7日（日）15:00〜17:00`)
+    + itemHTML(`${boldHTML("部員資格：")}日本人会会員であることが求められます`)
+  ) +
+  sectionHTML("２", "利用可能施設",
+    itemHTML("MJS グラウンド") + itemHTML("第二体育館") + itemHTML("第二体育館隣接お手洗い")
+    + `<div style="margin-top:8px;padding:6px 10px;background:#FFF3F3;border-radius:8px;font-size:12px;color:${C.danger};font-weight:700;">⚠ 対象施設以外への立ち入りは禁止</div>`
+  ) +
+  sectionHTML("３", "MJSグラウンド利用ルール",
+    itemHTML(`MJSグラウンドを利用できるのは${boldHTML("Manila Hapons且つ日本人会会員")}に限ります`)
+    + itemHTML("優先順位：学校行事 → 放課後倶楽部 → 郊外部活動")
+    + itemHTML("第二体育館ではラグビー以外の行為は原則禁止（追いかけっこ程度は許容。バスケ・バドミントン等はNG）")
+    + itemHTML(boldHTML("MJS SCHOOL ID の取得必須"))
+    + itemHTML(`駐車する場合は${boldHTML("CAR STICKER の取得必須")}`)
+    + itemHTML("雨天時は第二体育館が空いている場合に限り使用可（スパイク不可、外履きスニーカー等の運動靴は可）")
+    + itemHTML("敷地内での飲食・喫煙禁止（水分補給を除く）")
+    + itemHTML("施設・設備を破損した場合、当事者は原状回復及び修理費を弁済する責任を有します")
+    + itemHTML(`${boldHTML("Manila Haponsに関わらない活動は禁止")}（政治・宗教活動等）`)
+  ) +
+  sectionHTML("４", "施設使用料",
+    itemHTML(`${boldHTML("グラウンド：")}P1,000／時間`)
+    + itemHTML(`${boldHTML("第二体育館：")}P500／時間＋照明P200／時間`)
+  ) +
+  sectionHTML("５", "部費・練習参加費",
+    itemHTML(`${boldHTML("大人：")}P1,000／月（毎月25日〜月末払）`)
+    + `<div style="margin:4px 0 8px 12px;padding:8px 12px;background:${C.sakuraLight};border-radius:8px;font-size:12px;line-height:1.7;">振込先：BDO Unibank<br/>Manila Hapons ${boldHTML("0000 4121 9449")}<br/>または会計担当に手渡し・GCash</div>`
+    + itemHTML(`${boldHTML("子供：")}P100／回（兄弟参加の場合は1人分でOK・練習時に徴収）`)
+    + itemHTML(`${boldHTML("特別練習：")}通常練習とは別に実施する希望者のみ参加の特別練習は、通常の参加費に加えP100／回`)
+  ) +
+  sectionHTML("６", "活動の一部停止及び退部勧告",
+    `<p style="margin:0 0 8px;">以下のいずれかに該当する会員は、Manila Hapons幹事会の判断により活動の一時停止または退部を勧告することができます。</p>`
+    + itemHTML("MJS施設利用に関する規則の重大な違反を犯した者")
+    + itemHTML("特段の理由若しくは連絡がなく活動に参加しない者")
+    + itemHTML("他の部員や関係者への迷惑行為や秩序を著しく乱す行為を犯した者")
+    + itemHTML("部費の支払いや必要書類の提出など、運営上の義務を継続的に怠った者")
+    + `<p style="margin:10px 0 0;font-size:12px;color:${C.textMuted};line-height:1.8;">部員管理の目的のため、LINEグループから自主退出した者、若しくは連絡も何もなく2か月以上練習参加が無いかつ部費滞納者は自動的に部員名簿から削除します（練習に参加していなくても部費の支払いがある者は継続）。長期離脱者であっても継続意思がある場合は、幹部に連絡を入れることで継続意思を確認します。</p>`
+  ) +
+  sectionHTML("７", "Haponsの活動理念及び基本方針",
+    itemHTML("1. ラグビーを楽しむ") + itemHTML("2. 子供と大人が一緒に楽しむ") + itemHTML("3. ラグビーを広める・繋ぐ")
+  ) +
+  sectionHTML("８", "その他（入部にあたっての順守事項）",
+    `<p style="margin:0 0 8px;">入部にあたり以下のことに同意するものとします。</p>`
+    + itemHTML("1. Haponsの活動理念への同意")
+    + itemHTML("2. Hapons Rules &amp; Guidelineの順守")
+    + itemHTML("3. Hapons指定のポロシャツの購入（部員のみ。保護者は任意）")
+    + itemHTML("4. その他クラブ及び幹事会が定めるルール、取り決めの順守")
+    + itemHTML("5. クラブ活動への協力及び関与")
+  ) +
+  sectionHTML("９", "提出書類",
+    `<div style="font-weight:800;color:${C.primary};margin-bottom:6px;">① 部員 → Manila Hapons幹事会</div>`
+    + itemHTML("Manila Hapons入部届兼誓約書（Haponsのルールに同意する旨の誓約）")
+    + itemHTML("参加同意書（WAIVER）（Jrのみ・子供の怪我、SNS等に関する同意書）")
+    + `<div style="font-weight:800;color:${C.primary};margin:10px 0 6px;">② 部員 → MJS</div>`
+    + itemHTML(`MJSパス＆スティッカー申請書（部長承認済みの申請用紙）に必要事項を記入の上、a.lecias@mjs.phへメール送信<br/><span style="font-size:12px;color:${C.textMuted};">メール本文に Club Name：Manila Hapons　Club Representative：赤星敦（Akahoshi Atsushi）と記載</span>`)
+    + itemHTML("ID SCHOOL PASS申請書（有効期限：4月〜翌年3月末・毎年度更新）※未取得の帯同者は家族であっても入校不可（未就学児除く）")
+    + itemHTML("Car Sticker（有効期限：4月〜翌年3月末・毎年度更新）")
+    + `<p style="margin:8px 0 0;font-size:12px;color:${C.textMuted};">申請ルート：申請者 → 部長承認 → MJS（メール申請）／毎年3月中旬を目途に申請してください</p>`
+  );
+
+function ImportantPage({ onClose, isAdmin }) {
+  const [dateLabel, setDateLabel] = useState(DEFAULT_IMPORTANT_DATE);
+  const [html, setHtml] = useState(DEFAULT_IMPORTANT_HTML);
+  const [pdfUrl, setPdfUrl] = useState(DEFAULT_DOC_LINKS.important_pdf);
+  const [editing, setEditing] = useState(false);
+  const [editingPdf, setEditingPdf] = useState(false);
+  const [editDateLabel, setEditDateLabel] = useState("");
+  const [editHtml, setEditHtml] = useState("");
+  const [editPdfUrl, setEditPdfUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      const { data } = await supabase.from("page_content").select("*").eq("key", "important").maybeSingle();
+      if (data) { setDateLabel(data.date_label || DEFAULT_IMPORTANT_DATE); setHtml(data.html || DEFAULT_IMPORTANT_HTML); }
+      const { data: link } = await supabase.from("doc_links").select("*").eq("key", "important_pdf").maybeSingle();
+      if (link) setPdfUrl(link.url);
+    };
+    fetchContent();
+  }, []);
+
+  const startEdit = () => { setEditDateLabel(dateLabel); setEditHtml(html); setEditing(true); };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("page_content").upsert({ key: "important", date_label: editDateLabel, html: editHtml });
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setDateLabel(editDateLabel); setHtml(editHtml); setEditing(false); setSaving(false);
+  };
+
+  const startEditPdf = () => { setEditPdfUrl(pdfUrl); setEditingPdf(true); };
+
+  const savePdfUrl = async () => {
+    if (!editPdfUrl.trim()) { alert("URLを入力してください"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("doc_links").upsert({ key: "important_pdf", url: editPdfUrl.trim() });
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setPdfUrl(editPdfUrl.trim()); setEditingPdf(false); setSaving(false);
+  };
+
   return (
     <DocViewer title="Hapons 重要事項" onClose={onClose}>
-      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>2026年1月28日　Manila Hapons 幹事会／第三版　2026年2月24日</div>
-      <DocSection num="１" title="MJSグラウンド利用開始の経緯">
-        <p style={{ margin: "0 0 10px", fontSize: 13, lineHeight: 1.8 }}>MJSグラウンドは従来、MJSの放課後倶楽部に限られていましたが、2023〜2024年に当時の幹事・赤星さん、小野さんが度重なる陳情と交渉を行い、日本人同好会としての利用が認められました。</p>
-        <Item><Bold>利用開始日：</Bold>2024年4月7日（日）15:00〜17:00</Item>
-        <Item><Bold>部員資格：</Bold>日本人会会員であることが求められます</Item>
-      </DocSection>
-      <DocSection num="２" title="利用可能施設">
-        <Item>MJS グラウンド</Item><Item>第二体育館</Item><Item>第二体育館隣接お手洗い</Item>
-        <div style={{ marginTop: 8, padding: "6px 10px", background: "#FFF3F3", borderRadius: 8, fontSize: 12, color: C.danger, fontWeight: 700 }}>⚠ 対象施設以外への立ち入りは禁止</div>
-      </DocSection>
-      <DocSection num="３" title="MJSグラウンド利用ルール">
-        <Item>MJSグラウンドを利用できるのは<Bold>Manila Hapons且つ日本人会会員</Bold>に限ります</Item>
-        <Item>優先順位：学校行事 → 放課後倶楽部 → 郊外部活動</Item>
-        <Item>第二体育館ではラグビー以外の行為は原則禁止</Item>
-        <Item><Bold>MJS SCHOOL ID の取得必須</Bold></Item>
-        <Item>駐車する場合は<Bold>CAR STICKER の取得必須</Bold></Item>
-        <Item>雨天時は第二体育館が空いている場合に限り使用可（スパイク不可）</Item>
-        <Item>敷地内での飲食・喫煙禁止（水分補給を除く）</Item>
-      </DocSection>
-      <DocSection num="４" title="施設使用料">
-        <Item><Bold>グラウンド：</Bold>P1,000／時間</Item>
-        <Item><Bold>第二体育館：</Bold>P500／時間＋照明P200／時間</Item>
-      </DocSection>
-      <DocSection num="５" title="部費・練習参加費">
-        <Item><Bold>大人：</Bold>P1,000／月（毎月25日〜月末払）</Item>
-        <div style={{ margin: "4px 0 8px 12px", padding: "8px 12px", background: C.sakuraLight, borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>振込先：BDO Unibank<br />Manila Hapons <Bold>0000 4121 9449</Bold><br />または会計担当に手渡し・GCash</div>
-        <Item><Bold>子供：</Bold>P100／回（兄弟参加の場合は1人分でOK）</Item>
-        <Item><Bold>特別練習：</Bold>P100／回・人（兄弟参加の場合は人数×P100）</Item>
-      </DocSection>
-      <DocSection num="６" title="活動停止・退部勧告">
-        <Item>MJS施設利用に関する規則の重大な違反</Item>
-        <Item>特段の理由・連絡なく活動に参加しない</Item>
-        <Item>他の部員や関係者への迷惑行為</Item>
-        <Item>部費の支払いや必要書類の提出を継続的に怠った場合</Item>
-        <Item>LINEグループから自主退出した者、または連絡なく2か月以上不参加かつ部費滞納者は自動的に部員名簿から削除</Item>
-      </DocSection>
-      <DocSection num="７" title="提出書類">
-        <div style={{ fontWeight: 800, color: C.primary, marginBottom: 6 }}>① 部員 → Manila Hapons幹事会</div>
-        <Item>入部届兼誓約書</Item><Item>参加同意書（WAIVER）（Jrのみ）</Item>
-        <div style={{ fontWeight: 800, color: C.primary, margin: "10px 0 6px" }}>② 部員 → MJS</div>
-        <Item>MJSパス＆スティッカー申請書 → a.lecias@mjs.ph へメール<br /><span style={{ fontSize: 12, color: C.textMuted }}>Club Name：Manila Hapons　Rep：赤星敦（Akahoshi Atsushi）</span></Item>
-        <Item>ID SCHOOL PASS申請書（毎年4月〜翌年3月更新）</Item>
-        <Item>Car Sticker（毎年4月〜翌年3月更新）</Item>
-      </DocSection>
-      <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16 }}>ご不明な点は赤星・栗生までお問い合わせください</div>
+      {isAdmin && (
+        <button onClick={startEdit} style={{ ...S.btn("accent", "sm"), width: "100%", marginBottom: 14 }}>✎ この内容を編集する</button>
+      )}
+      <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>{dateLabel}</div>
+
+      <div onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(html) }} />
+
+      <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16, marginBottom: 12 }}>ご不明な点は大澤・栗生までお問い合わせください</div>
+
+      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 16px", background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, borderRadius: 12, cursor: "pointer" }}>
+          <span style={{ fontSize: 18 }}>📄</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>全文はこちら（PDF）</span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>↗</span>
+        </div>
+      </a>
+      {isAdmin && (
+        <button onClick={startEditPdf} style={{ ...S.btn("ghost", "sm"), width: "100%", marginTop: 8 }}>PDFリンクを編集</button>
+      )}
+
+      {/* 本文編集モーダル */}
+      {editing && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 440, maxHeight: "85vh", overflowY: "auto" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 900, color: C.text }}>📝 Hapons重要事項を編集</h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>版・日付表示</label>
+            <input style={S.input} placeholder="例：Manila Hapons 幹事会／第五版　2026年〇月〇日" value={editDateLabel} onChange={(e) => setEditDateLabel(e.target.value)} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>本文</label>
+            <RichTextEditor value={editHtml} onChange={setEditHtml} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditing(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveEdit} disabled={saving}>{saving ? "保存中..." : "保存する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDFリンク編集モーダル */}
+      {editingPdf && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>📝 全文PDFのリンクを編集</h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+            <input style={S.input} placeholder="https://drive.google.com/..." value={editPdfUrl} onChange={(e) => setEditPdfUrl(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditingPdf(false)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={savePdfUrl} disabled={saving}>{saving ? "保存中..." : "保存する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DocViewer>
   );
 }
@@ -320,6 +442,7 @@ function AdminLoginModal({ onLogin, onClose }) {
 const DEFAULT_DOC_LINKS = {
   entry_form: "https://drive.google.com/file/d/1LkvOidZ4mDTXZyYBiHepVfm7L32hqVvP/view?usp=drive_link",
   waiver: "https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing",
+  important_pdf: "https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview",
 };
 
 function EntryFormsPage({ onClose, isAdmin }) {
@@ -330,7 +453,7 @@ function EntryFormsPage({ onClose, isAdmin }) {
 
   useEffect(() => {
     const fetchLinks = async () => {
-      const { data } = await supabase.from("doc_links").select("*").in("key", Object.keys(DEFAULT_DOC_LINKS));
+      const { data } = await supabase.from("doc_links").select("*").in("key", ["entry_form", "waiver"]);
       if (data && data.length > 0) {
         const merged = { ...DEFAULT_DOC_LINKS };
         data.forEach((d) => { merged[d.key] = d.url; });
@@ -3129,7 +3252,7 @@ export default function HaponsApp() {
   }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
 
   if (!role) return <LoginScreen onLogin={handleLogin} />;
-  if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
+  if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} isAdmin={isAdmin} />;
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
   if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} isAdmin={isAdmin} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
