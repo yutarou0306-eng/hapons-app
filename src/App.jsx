@@ -291,7 +291,7 @@ function ImportantPage({ onClose, isAdmin }) {
       <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 16px", background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, borderRadius: 12, cursor: "pointer" }}>
           <span style={{ fontSize: 18 }}>📄</span>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>全文はこちら（PDF）</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>活動に関する重要事項について全文</span>
           <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>↗</span>
         </div>
       </a>
