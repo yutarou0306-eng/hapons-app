@@ -315,7 +315,42 @@ function AdminLoginModal({ onLogin, onClose }) {
 }
 
 // ── 入部書類ページ ──
-function EntryFormsPage({ onClose }) {
+// リンク先は Supabase の doc_links テーブル（key, url）で管理。
+// レコードが無い場合はここに書いたURLがデフォルトとして使われる。
+const DEFAULT_DOC_LINKS = {
+  entry_form: "https://drive.google.com/file/d/1LkvOidZ4mDTXZyYBiHepVfm7L32hqVvP/view?usp=drive_link",
+  waiver: "https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing",
+};
+
+function EntryFormsPage({ onClose, isAdmin }) {
+  const [links, setLinks] = useState(DEFAULT_DOC_LINKS);
+  const [editingKey, setEditingKey] = useState(null); // 編集中のドキュメントkey（entry_form/waiver）
+  const [editUrl, setEditUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchLinks = async () => {
+      const { data } = await supabase.from("doc_links").select("*").in("key", Object.keys(DEFAULT_DOC_LINKS));
+      if (data && data.length > 0) {
+        const merged = { ...DEFAULT_DOC_LINKS };
+        data.forEach((d) => { merged[d.key] = d.url; });
+        setLinks(merged);
+      }
+    };
+    fetchLinks();
+  }, []);
+
+  const startEdit = (key) => { setEditingKey(key); setEditUrl(links[key]); };
+
+  const saveLink = async () => {
+    if (!editUrl.trim()) { alert("URLを入力してください"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("doc_links").upsert({ key: editingKey, url: editUrl.trim() });
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setLinks({ ...links, [editingKey]: editUrl.trim() });
+    setEditingKey(null); setSaving(false);
+  };
+
   return (
     <DocViewer title="入部書類" onClose={onClose}>
       <div style={{ background: C.jrLight, border: `1px solid ${C.jr}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
@@ -337,17 +372,23 @@ function EntryFormsPage({ onClose }) {
 
       {/* 入部届兼誓約書 */}
       <div style={{ ...S.card, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 24 }}>📄</span>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>入部届兼誓約書</div>
-            <div style={{ fontSize: 12, color: C.textMuted }}>大人・Jr共通</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>📄</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>入部届兼誓約書</div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>大人・Jr共通</div>
+            </div>
           </div>
+          {isAdmin && (
+            <button onClick={() => startEdit("entry_form")}
+              style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 11, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>リンク編集</button>
+          )}
         </div>
         <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
           入部にあたり、クラブの規則・ルールに同意する旨を記入・署名して提出してください。大人・Jr問わず全員が対象です。
         </div>
-        <a href="https://drive.google.com/file/d/1imsUFwo4HHP_mjItKJ76kfCNqpi2Hcqy/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+        <a href={links.entry_form} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
             <span style={{ fontSize: 16 }}>📥</span>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
@@ -357,23 +398,46 @@ function EntryFormsPage({ onClose }) {
 
       {/* 参加同意書 */}
       <div style={S.card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 24 }}>📄</span>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>参加同意書（WAIVER）</div>
-            <div style={{ ...S.badge(C.jr), fontSize: 11 }}>Jr のみ</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>📄</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>参加同意書（WAIVER）</div>
+              <div style={{ ...S.badge(C.jr), fontSize: 11 }}>Jr のみ</div>
+            </div>
           </div>
+          {isAdmin && (
+            <button onClick={() => startEdit("waiver")}
+              style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 11, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>リンク編集</button>
+          )}
         </div>
         <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
           Jrメンバーの入部には、保護者による参加同意書（WAIVER）の提出が必要です。怪我・SNS等に関する同意書となります。保護者が記入・署名してください。
         </div>
-        <a href="https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+        <a href={links.waiver} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.jr, borderRadius: 10, cursor: "pointer" }}>
             <span style={{ fontSize: 16 }}>📥</span>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
           </div>
         </a>
       </div>
+
+      {/* リンク編集モーダル（管理者のみ） */}
+      {editingKey && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900, color: C.text }}>
+              📝 {editingKey === "entry_form" ? "入部届兼誓約書" : "参加同意書（WAIVER）"}のリンクを編集
+            </h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>Google Drive URL</label>
+            <input style={S.input} placeholder="https://drive.google.com/..." value={editUrl} onChange={(e) => setEditUrl(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditingKey(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveLink} disabled={saving}>{saving ? "保存中..." : "保存する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DocViewer>
   );
 }
@@ -3067,7 +3131,7 @@ export default function HaponsApp() {
   if (!role) return <LoginScreen onLogin={handleLogin} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} />;
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
-  if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} />;
+  if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} isAdmin={isAdmin} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
   if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
   if (showMinutes) return <MinutesPage onClose={() => setShowMinutes(false)} isAdmin={isAdmin} />;
