@@ -1320,6 +1320,8 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   // 次の役職は当番対象外
   const CLEANUP_EXEMPT = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
   const [dutyAssignments, setDutyAssignments] = useState([]); // この練習の duty_assignments（最大2件）
+  const [reassignTarget, setReassignTarget] = useState(null); // 管理者が手動で担当者を変更中の duty_assignments 行
+  const [reassignName, setReassignName] = useState("");
   const dutyEnsured = useRef(false);
 
   // 名簿順（役職順→登録順）での当番対象者リスト。ローテーションの基準になる並びで、
@@ -1399,6 +1401,20 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
       setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, cleanup_count: newCount } : m));
       await supabase.from("members").update({ cleanup_count: newCount }).eq("id", member.id);
     }
+  };
+
+  // 管理者が「当日できなかったので実際は別の人がやった」等の理由で、担当者を直接変更する
+  const startReassign = (assignment) => { setReassignTarget(assignment); setReassignName(assignment.member_name); };
+  const saveReassign = async () => {
+    if (!reassignTarget || !reassignName) return;
+    if (reassignName === reassignTarget.member_name) { setReassignTarget(null); return; }
+    const skipped = [...(reassignTarget.skipped_names || "").split(",").map((s) => s.trim()).filter(Boolean), reassignTarget.member_name].join(",");
+    const { data, error } = await supabase.from("duty_assignments")
+      .update({ member_name: reassignName, skipped_names: skipped })
+      .eq("id", reassignTarget.id).select();
+    if (error) { alert("変更に失敗しました：" + error.message); return; }
+    if (data) setDutyAssignments((prev) => prev.map((d) => d.id === reassignTarget.id ? data[0] : d));
+    setReassignTarget(null);
   };
 
   // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
@@ -1601,6 +1617,12 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
                     欠席のため次に送る →
                   </button>
                 )}
+                {isAdmin && !duty.done && (
+                  <button onClick={() => startReassign(duty)}
+                    style={{ padding: "2px 9px", borderRadius: 20, border: `1.5px solid ${C.border}`, background: "#fff", color: C.textMuted, fontSize: 10, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                    ✎ 担当者を変更
+                  </button>
+                )}
               </div>
             );
           })()}
@@ -1735,7 +1757,6 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
                 <div style={{ border: `1.5px solid ${C.jr}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.jrLight }}>
                   <div style={{ padding: "9px 12px", fontSize: 12, fontWeight: 800, color: C.text }}>
                     🧹 今回の片づけ＆準備当番：{dutyAssignments.map((d) => d.member_name).join("・")}
-                    <span style={{ fontWeight: 400, color: C.textMuted }}>（大人一覧の本人の行に印が付いています）</span>
                   </div>
                   <div onClick={() => setShowRemaining((v) => !v)} style={{ padding: "0 12px 9px", cursor: "pointer", fontSize: 11, color: C.text, fontWeight: 700 }}>
                     👥 全員の当番回数を見る　{showRemaining ? "▲" : "▼"}
@@ -1794,6 +1815,24 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
           )}
         </div>
       </div>
+
+      {/* 管理者による当番の担当者変更（当日やむを得ず別の人が対応した場合など） */}
+      {reassignTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380 }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 900, color: C.text }}>✎ 担当者を変更</h3>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 14 }}>元の当番：{reassignTarget.member_name}さん</div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>実際に担当する人</label>
+            <select value={reassignName} onChange={(e) => setReassignName(e.target.value)} style={{ ...S.input, marginBottom: 16 }}>
+              {dutyRoster().map((m) => <option key={m.id} value={m.name_jp}>{m.name_jp}</option>)}
+            </select>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setReassignTarget(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveReassign}>この人に変更する</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
