@@ -1310,37 +1310,91 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
-  // 片づけ当番チェック（大人メンバー・全員完了で自動リセット／管理者のみ操作可）
+  // 片づけ＆準備当番：
+  // ・通常のローテーションは名簿順に完全に一周させる（回数は見ない＝新入部員ばかりに
+  //   偏らないようにする）。1回の練習につき2人、persistent な「次はどこから」ポインタ
+  //   （app_counters.duty_rotation_index）を名簿順に2つずつ進める。
+  // ・当番本人が欠席のため「次に送る」を押した時だけ、その人の名簿順の直後から
+  //   順に（他方のスロットが占有中の人はスキップしつつ）候補を2人集め、その中で
+  //   片づけ回数が少ない方に送る（例：3番と4番が候補なら回数の少ない方を選ぶ）。
   // 次の役職は当番対象外
   const CLEANUP_EXEMPT = ["Jr Head Coach", "Jr Coach", "PR", "Parent Relation"];
-  const cleanupEligible = members.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
-  const cleanupRemaining = cleanupEligible.filter((m) => !m.cleanup_done).length;
+  const [dutyAssignments, setDutyAssignments] = useState([]); // この練習の duty_assignments（最大2件）
+  const dutyEnsured = useRef(false);
 
-  const toggleCleanup = async (member) => {
-    if (!isAdmin || !member || CLEANUP_EXEMPT.includes(member.position)) return;
-    const newVal = !member.cleanup_done;
-    const afterToggle = members.map((m) => m.id === member.id ? { ...m, cleanup_done: newVal } : m);
-    const eligibleAfter = afterToggle.filter((m) => !CLEANUP_EXEMPT.includes(m.position));
-    const allDone = eligibleAfter.length > 0 && eligibleAfter.every((m) => m.cleanup_done);
-    if (newVal && allDone) {
-      // 全員完了 → 全員リセット（次の周へ）
-      setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
-      const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
-      if (error) alert("更新に失敗しました：" + error.message);
-    } else {
-      setMembers(afterToggle);
-      const { error } = await supabase.from("members").update({ cleanup_done: newVal }).eq("id", member.id);
-      if (error) alert("更新に失敗しました：" + error.message);
-    }
+  // 名簿順（役職順→登録順）での当番対象者リスト。ローテーションの基準になる並びで、
+  // 回数では並べ替えない。
+  const dutyRoster = () => [...members].filter((m) => !CLEANUP_EXEMPT.includes(m.position))
+    .sort((a, b) => posRank(a.position) - posRank(b.position) || String(a.id).localeCompare(String(b.id)));
+
+  // 表示用：回数が少ない順（次に回ってきやすい順の目安として）
+  const dutyEligible = () => [...dutyRoster()].sort((a, b) => (a.cleanup_count || 0) - (b.cleanup_count || 0));
+
+  // この練習の当番がまだ決まっていなければ、名簿順のポインタから2人を自動指名してDBに保存
+  const ensureDutyAssignments = async (currentMembers, existingAssignments) => {
+    if (existingAssignments.length >= 2 || dutyEnsured.current) return;
+    dutyEnsured.current = true;
+    const roster = [...currentMembers].filter((m) => !CLEANUP_EXEMPT.includes(m.position))
+      .sort((a, b) => posRank(a.position) - posRank(b.position) || String(a.id).localeCompare(String(b.id)));
+    if (roster.length === 0) return;
+    const { data: counterRow } = await supabase.from("app_counters").select("value").eq("key", "duty_rotation_index").maybeSingle();
+    const startIdx = ((counterRow?.value || 0) % roster.length + roster.length) % roster.length;
+    const slotCount = Math.min(2, roster.length);
+    const picked = Array.from({ length: slotCount }, (_, i) => roster[(startIdx + i) % roster.length]);
+    const rows = picked.map((m, i) => ({ event_id: event.id, slot: i + 1, original_member: m.name_jp, member_name: m.name_jp, skipped_names: "", done: false }));
+    const { data, error } = await supabase.from("duty_assignments").insert(rows).select();
+    if (error || !data) return;
+    setDutyAssignments(data);
+    // ポインタを進める（名簿を一周させる）
+    await supabase.from("app_counters").upsert({ key: "duty_rotation_index", value: (startIdx + slotCount) % roster.length });
   };
 
-  // 管理者による手動リセット
-  const resetCleanup = async () => {
+  // 当番本人が欠席のため、次の人に当番を渡す。
+  // その人の名簿順の直後から順に（他方のスロット担当者は除く）候補を2人集め、
+  // 片づけ＆準備の回数が少ない方に送る。
+  const passDuty = async (assignment) => {
+    const roster = dutyRoster();
+    if (roster.length === 0) return;
+    const otherSlotNames = new Set(dutyAssignments.filter((d) => d.id !== assignment.id).map((d) => d.member_name));
+    const skipped = new Set((assignment.skipped_names || "").split(",").map((s) => s.trim()).filter(Boolean));
+    const startPos = roster.findIndex((m) => m.name_jp === assignment.member_name);
+    const candidates = [];
+    const seen = new Set();
+    for (let step = 1; step <= roster.length && candidates.length < 2; step++) {
+      const cand = roster[((startPos < 0 ? 0 : startPos) + step) % roster.length];
+      if (!cand || seen.has(cand.name_jp)) continue;
+      seen.add(cand.name_jp);
+      if (cand.name_jp === assignment.member_name) continue;
+      if (otherSlotNames.has(cand.name_jp)) continue;
+      if (skipped.has(cand.name_jp)) continue;
+      candidates.push(cand);
+    }
+    if (candidates.length === 0) { alert("交代できる方が見つかりませんでした。管理者にご連絡ください。"); return; }
+    // 候補の中で片づけ＆準備の回数が少ない方（同数なら名簿順が先の方）を選ぶ
+    const next = candidates.reduce((best, c) => (c.cleanup_count || 0) < (best.cleanup_count || 0) ? c : best, candidates[0]);
+    const newSkipped = [...skipped, assignment.member_name].join(",");
+    const { data, error } = await supabase.from("duty_assignments")
+      .update({ member_name: next.name_jp, skipped_names: newSkipped })
+      .eq("id", assignment.id).select();
+    if (error) { alert("交代の保存に失敗しました：" + error.message); return; }
+    if (data) setDutyAssignments((prev) => prev.map((d) => d.id === assignment.id ? data[0] : d));
+  };
+
+  // 管理者が「完了」をON/OFFし、実際に行った人の回数をカウント
+  const toggleDutyDone = async (assignment) => {
     if (!isAdmin) return;
-    if (!window.confirm("片づけ当番のチェックを全員分リセットしますか？")) return;
-    setMembers(members.map((m) => ({ ...m, cleanup_done: false })));
-    const { error } = await supabase.from("members").update({ cleanup_done: false }).eq("cleanup_done", true);
-    if (error) alert("リセットに失敗しました：" + error.message);
+    const newDone = !assignment.done;
+    const { data, error } = await supabase.from("duty_assignments")
+      .update({ done: newDone, done_at: newDone ? new Date().toISOString() : null })
+      .eq("id", assignment.id).select();
+    if (error) { alert("更新に失敗しました：" + error.message); return; }
+    if (data) setDutyAssignments((prev) => prev.map((d) => d.id === assignment.id ? data[0] : d));
+    const member = members.find((m) => m.name_jp === assignment.member_name);
+    if (member) {
+      const newCount = Math.max(0, (member.cleanup_count || 0) + (newDone ? 1 : -1));
+      setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, cleanup_count: newCount } : m));
+      await supabase.from("members").update({ cleanup_count: newCount }).eq("id", member.id);
+    }
   };
 
   // スワイプでタブ切替（右スワイプ→Jr、左スワイプ→サポーター を含む循環移動）
@@ -1372,19 +1426,22 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [m, j, s, a, ab] = await Promise.all([
-        supabase.from("members").select("id, name_jp, position, cleanup_done").order("created_at"),
+      const [m, j, s, a, ab, d] = await Promise.all([
+        supabase.from("members").select("id, name_jp, position, cleanup_count").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
         supabase.from("supporters").select("id, name_jp").order("join_date", { ascending: true }),
         supabase.from("attendances").select("*").eq("event_id", event.id),
         supabase.from("absences").select("*").eq("event_id", event.id),
+        supabase.from("duty_assignments").select("*").eq("event_id", event.id).order("slot"),
       ]);
       if (m.data) setMembers(m.data);
       if (j.data) setJrMembers(j.data);
       if (s.data) setSupporters(s.data);
       if (a.data) setAttendances(a.data);
       if (ab.data) setAbsences(ab.data);
+      if (d.data) setDutyAssignments(d.data);
       setLoading(false);
+      if (m.data) await ensureDutyAssignments(m.data, d.data || []);
     };
     fetchAll();
   }, [event.id]);
@@ -1512,14 +1569,6 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
     background: on ? C.jrLight : C.card, color: on ? C.jr : C.textMuted, fontFamily: "inherit",
   });
 
-  const cleanupBoxStyle = (done, clickable) => ({
-    width: 40, height: 28, borderRadius: 8, boxSizing: "border-box", flexShrink: 0, padding: 0,
-    border: `2px solid ${done ? C.success : C.border}`,
-    background: done ? C.success : "#fff", color: "#fff", fontSize: 14, fontWeight: 900,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    cursor: clickable ? "pointer" : "default", fontFamily: "inherit",
-  });
-
   const renderMember = (name, subLabel, type, key) => {
     const status = getStatus(name, type);
     const isPend = false;
@@ -1542,19 +1591,6 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
               </button>
             ) : (
               <div style={{ width: 60, flexShrink: 0 }} />
-            )
-          )}
-          {type === "adult" && (
-            !CLEANUP_EXEMPT.includes(subLabel) ? (() => {
-              const mem = members.find((mm) => mm.id === key);
-              const done = !!mem?.cleanup_done;
-              return (
-                <button onClick={() => toggleCleanup(mem)} disabled={!isAdmin} style={cleanupBoxStyle(done, isAdmin)} title="片づけ当番（管理者のみ）">
-                  {done ? "✓" : ""}
-                </button>
-              );
-            })() : (
-              <div style={{ width: 40, flexShrink: 0 }} />
             )
           )}
         </div>
@@ -1665,31 +1701,55 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
               })()}
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
 
-              {/* 片づけ当番（各メンバー行の「片づけ済」列でチェック。全員完了で自動リセット） */}
-              {cleanupEligible.length > 0 && (
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.bg }}>
-                  <div onClick={() => setShowRemaining((v) => !v)}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 12px", cursor: "pointer" }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ当番　残り{cleanupRemaining}人　{showRemaining ? "▲" : "▼"}</span>
-                    {isAdmin && (
-                      <button onClick={(e) => { e.stopPropagation(); resetCleanup(); }}
-                        style={{ padding: "5px 12px", borderRadius: 8, border: `1.5px solid ${C.danger}`, background: "#fff", color: C.danger, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                        リセット
-                      </button>
-                    )}
+              {/* 片づけ＆準備当番：名簿順・回数の少ない人から自動で2人指名。
+                  欠席登録した本人が「次に送る」を押した時だけ次の人へ交代する。 */}
+              {dutyAssignments.length > 0 && (
+                <div style={{ border: `2px solid ${C.jr}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.jrLight }}>
+                  <div style={{ padding: "9px 12px 2px", fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ＆準備当番（この練習）</div>
+                  <div style={{ padding: "4px 12px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {dutyAssignments.map((d) => {
+                      const mem = members.find((mm) => mm.name_jp === d.member_name);
+                      const count = mem?.cleanup_count || 0;
+                      const status = getStatus(d.member_name, "adult");
+                      const passed = d.original_member !== d.member_name;
+                      return (
+                        <div key={d.id} style={{ background: C.card, borderRadius: 10, padding: "8px 10px", border: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <div>
+                              <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{d.member_name}</span>
+                              <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 6 }}>（これまで{count}回）</span>
+                            </div>
+                            {isAdmin && (
+                              <button onClick={() => toggleDutyDone(d)}
+                                style={{ padding: "4px 10px", borderRadius: 8, border: `1.5px solid ${d.done ? C.success : C.border}`, background: d.done ? C.success : "#fff", color: d.done ? "#fff" : C.textMuted, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                                {d.done ? "✓ 完了済" : "完了にする"}
+                              </button>
+                            )}
+                          </div>
+                          {passed && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>（元々は{d.original_member}さんの番でした）</div>}
+                          {status === "absent" && !d.done && (
+                            <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#FFF3F3", borderRadius: 8, padding: "6px 8px" }}>
+                              <span style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>⚠ 欠席のため当番できません</span>
+                              <button onClick={() => passDuty(d)}
+                                style={{ padding: "5px 10px", borderRadius: 8, border: "none", background: C.danger, color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                                次に送る →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div onClick={() => setShowRemaining((v) => !v)} style={{ padding: "6px 12px 10px", cursor: "pointer", fontSize: 11, color: C.text, fontWeight: 700 }}>
+                    👥 全員の当番回数を見る　{showRemaining ? "▲" : "▼"}
                   </div>
                   {showRemaining && (
-                    <div style={{ padding: "0 12px 10px" }}>
-                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>まだ片づけをしていない人</div>
-                      {cleanupRemaining === 0 ? (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.success }}>全員が片づけ済みです 🎉</div>
-                      ) : (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {cleanupEligible.filter((m) => !m.cleanup_done).map((m) => (
-                            <span key={m.id} style={{ fontSize: 12, fontWeight: 700, color: C.text, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px" }}>{m.name_jp}</span>
-                          ))}
-                        </div>
-                      )}
+                    <div style={{ padding: "0 12px 10px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {dutyEligible().map((m) => (
+                        <span key={m.id} style={{ fontSize: 12, fontWeight: 700, color: C.text, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px" }}>
+                          {m.name_jp}　{m.cleanup_count || 0}回
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1709,12 +1769,11 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, padding: "0 14px 6px" }}>
                   <span style={{ width: 76, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.textMuted }}>出欠</span>
                   <span style={{ width: 60, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.jr }}>Jr補助</span>
-                  <span style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: C.success }}>片づけ済</span>
                 </div>
               )}
               {activeTab === "adult" && (members.length === 0
                 ? <div style={{ textAlign: "center", color: C.textMuted, fontSize: 13 }}>メンバーが登録されていません</div>
-                : sortedMembers.map((m) => renderMember(m.name_jp, m.position || "", "adult", m.id))
+                : sortedMembers.map((m) => renderMember(m.name_jp, (m.position || "") + (!CLEANUP_EXEMPT.includes(m.position) ? `　🧹${m.cleanup_count || 0}回` : ""), "adult", m.id))
               )}
               {activeTab === "jr" && jrUnits.length > 0 && (
                 <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", padding: "0 14px 6px" }}>
