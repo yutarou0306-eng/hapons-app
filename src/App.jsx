@@ -1312,8 +1312,9 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
 
   // 片づけ＆準備当番：
   // ・通常のローテーションは名簿順に完全に一周させる（回数は見ない＝新入部員ばかりに
-  //   偏らないようにする）。1回の練習につき2人、persistent な「次はどこから」ポインタ
-  //   （app_counters.duty_rotation_index）を名簿順に2つずつ進める。
+  //   偏らないようにする）。1回の練習につき2人。
+  //   開始位置は「同じ種別のイベントを日付順に並べた中でのこの練習の順番」から機械的に
+  //   計算する（＝練習日に連動して自動的に進む。パネルを開いた順番には左右されない）。
   // ・当番本人が欠席のため「次に送る」を押した時だけ、その人の名簿順の直後から
   //   順に（他方のスロットが占有中の人はスキップしつつ）候補を2人集め、その中で
   //   片づけ回数が少ない方に送る（例：3番と4番が候補なら回数の少ない方を選ぶ）。
@@ -1332,16 +1333,27 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
   // 表示用：回数が少ない順（次に回ってきやすい順の目安として）
   const dutyEligible = () => [...dutyRoster()].sort((a, b) => (a.cleanup_count || 0) - (b.cleanup_count || 0));
 
-  // この練習の当番がまだ決まっていなければ、名簿順のポインタから2人を自動指名してDBに保存
+  // この練習の当番がまだ決まっていなければ、日付順の並びから機械的に開始位置を計算して
+  // 2人を自動指名してDBに保存する。
+  // （以前は「次はどこから」という共有ポインタを使っていたが、パネルを開く順番に結果が
+  //   左右されてしまう問題があった。日付そのものから計算することで、練習日に正しく連動する）
   const ensureDutyAssignments = async (currentMembers, existingAssignments) => {
     if (existingAssignments.length >= 2 || dutyEnsured.current) return;
     dutyEnsured.current = true;
     const roster = [...currentMembers].filter((m) => !CLEANUP_EXEMPT.includes(m.position))
       .sort((a, b) => posRank(a.position) - posRank(b.position) || String(a.id).localeCompare(String(b.id)));
     if (roster.length === 0) return;
-    const { data: counterRow } = await supabase.from("app_counters").select("value").eq("key", "duty_rotation_index").maybeSingle();
-    const startIdx = ((counterRow?.value || 0) % roster.length + roster.length) % roster.length;
+    // 同じ種別（練習／試合／イベント／幹事会）のイベントを日付順に並べ、その中でこのイベントが
+    // 何番目か（0始まり）を求める。これが「名簿を何人分進めるか」の基準になる。
+    const { data: sameTypeEvents } = await supabase.from("events")
+      .select("id, date, time")
+      .eq("type", event.type)
+      .order("date").order("time").order("id");
+    const list = sameTypeEvents && sameTypeEvents.length > 0 ? sameTypeEvents : [event];
+    let rank = list.findIndex((e) => e.id === event.id);
+    if (rank < 0) rank = list.length; // 念のため見つからない場合は末尾扱い
     const slotCount = Math.min(2, roster.length);
+    const startIdx = (((rank * slotCount) % roster.length) + roster.length) % roster.length;
     const picked = Array.from({ length: slotCount }, (_, i) => roster[(startIdx + i) % roster.length]);
     const rows = picked.map((m, i) => ({ event_id: event.id, slot: i + 1, original_member: m.name_jp, member_name: m.name_jp, skipped_names: "", done: false }));
     const { data, error } = await supabase.from("duty_assignments").insert(rows).select();
@@ -1351,8 +1363,6 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
       return;
     }
     setDutyAssignments(data);
-    // ポインタを進める（名簿を一周させる）
-    await supabase.from("app_counters").upsert({ key: "duty_rotation_index", value: (startIdx + slotCount) % roster.length });
   };
 
   // 当番本人が欠席のため、次の人に当番を渡す。
