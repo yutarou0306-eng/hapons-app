@@ -1343,7 +1343,11 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
     const picked = Array.from({ length: slotCount }, (_, i) => roster[(startIdx + i) % roster.length]);
     const rows = picked.map((m, i) => ({ event_id: event.id, slot: i + 1, original_member: m.name_jp, member_name: m.name_jp, skipped_names: "", done: false }));
     const { data, error } = await supabase.from("duty_assignments").insert(rows).select();
-    if (error || !data) return;
+    if (error || !data) {
+      if (error) console.error("duty_assignments insert failed:", error);
+      if (error && isAdmin) alert("当番の自動指名に失敗しました（管理者向け表示）：" + error.message);
+      return;
+    }
     setDutyAssignments(data);
     // ポインタを進める（名簿を一周させる）
     await supabase.from("app_counters").upsert({ key: "duty_rotation_index", value: (startIdx + slotCount) % roster.length });
@@ -1427,7 +1431,7 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
     const fetchAll = async () => {
       setLoading(true);
       const [m, j, s, a, ab, d] = await Promise.all([
-        supabase.from("members").select("id, name_jp, position, cleanup_count").order("created_at"),
+        supabase.from("members").select("*").order("created_at"),
         supabase.from("jr_members").select("id, name_jp, grade, parent_name").order("created_at"),
         supabase.from("supporters").select("id, name_jp").order("join_date", { ascending: true }),
         supabase.from("attendances").select("*").eq("event_id", event.id),
@@ -1579,6 +1583,27 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
           <div style={{ fontSize: 11, color: status === "attend" ? C.success : status === "absent" ? C.danger : C.textMuted, fontWeight: status !== "none" ? 700 : 400 }}>
             {subLabel}
           </div>
+          {type === "adult" && (() => {
+            const duty = dutyAssignments.find((d) => d.member_name === name);
+            if (!duty) return null;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: C.jr, borderRadius: 20, padding: "2px 9px" }}>🧹準備＆片づけ</span>
+                {isAdmin && (
+                  <button onClick={() => toggleDutyDone(duty)}
+                    style={{ padding: "2px 9px", borderRadius: 20, border: `1.5px solid ${duty.done ? C.success : C.border}`, background: duty.done ? C.success : "#fff", color: duty.done ? "#fff" : C.textMuted, fontSize: 10, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                    {duty.done ? "✓ 完了済" : "完了にする"}
+                  </button>
+                )}
+                {status === "absent" && !duty.done && (
+                  <button onClick={() => passDuty(duty)}
+                    style={{ padding: "2px 9px", borderRadius: 20, border: "none", background: C.danger, color: "#fff", fontSize: 10, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                    欠席のため次に送る →
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <button onClick={() => cycleStatus(name, type)} style={{ ...statusBtnStyle(status, isPend), width: 76, boxSizing: "border-box", textAlign: "center" }}>
@@ -1702,45 +1727,17 @@ function AttendancePanel({ event, onClose, myGroup, isAdmin }) {
               <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>タップ：未登録 → 参加 → 未定 → 欠席 → 未登録　（タップで即時保存）</div>
 
               {/* 片づけ＆準備当番：名簿順・回数の少ない人から自動で2人指名。
-                  欠席登録した本人が「次に送る」を押した時だけ次の人へ交代する。 */}
+                  欠席登録した本人が「次に送る」を押した時だけ次の人へ交代する。
+                  当番本人の表示（タグ・完了ボタン・次に送るボタン）は下の大人一覧の
+                  各本人の行に表示される。ここでは今回の当番の名前の要約と、
+                  全員の回数一覧だけを示す。 */}
               {dutyAssignments.length > 0 && (
-                <div style={{ border: `2px solid ${C.jr}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.jrLight }}>
-                  <div style={{ padding: "9px 12px 2px", fontSize: 12, fontWeight: 800, color: C.text }}>🧹 片づけ＆準備当番（この練習）</div>
-                  <div style={{ padding: "4px 12px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    {dutyAssignments.map((d) => {
-                      const mem = members.find((mm) => mm.name_jp === d.member_name);
-                      const count = mem?.cleanup_count || 0;
-                      const status = getStatus(d.member_name, "adult");
-                      const passed = d.original_member !== d.member_name;
-                      return (
-                        <div key={d.id} style={{ background: C.card, borderRadius: 10, padding: "8px 10px", border: `1px solid ${C.border}` }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                            <div>
-                              <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{d.member_name}</span>
-                              <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 6 }}>（これまで{count}回）</span>
-                            </div>
-                            {isAdmin && (
-                              <button onClick={() => toggleDutyDone(d)}
-                                style={{ padding: "4px 10px", borderRadius: 8, border: `1.5px solid ${d.done ? C.success : C.border}`, background: d.done ? C.success : "#fff", color: d.done ? "#fff" : C.textMuted, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                                {d.done ? "✓ 完了済" : "完了にする"}
-                              </button>
-                            )}
-                          </div>
-                          {passed && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>（元々は{d.original_member}さんの番でした）</div>}
-                          {status === "absent" && !d.done && (
-                            <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#FFF3F3", borderRadius: 8, padding: "6px 8px" }}>
-                              <span style={{ fontSize: 11, color: C.danger, fontWeight: 700 }}>⚠ 欠席のため当番できません</span>
-                              <button onClick={() => passDuty(d)}
-                                style={{ padding: "5px 10px", borderRadius: 8, border: "none", background: C.danger, color: "#fff", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                                次に送る →
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                <div style={{ border: `1.5px solid ${C.jr}`, borderRadius: 12, marginBottom: 14, overflow: "hidden", background: C.jrLight }}>
+                  <div style={{ padding: "9px 12px", fontSize: 12, fontWeight: 800, color: C.text }}>
+                    🧹 今回の片づけ＆準備当番：{dutyAssignments.map((d) => d.member_name).join("・")}
+                    <span style={{ fontWeight: 400, color: C.textMuted }}>（大人一覧の本人の行に印が付いています）</span>
                   </div>
-                  <div onClick={() => setShowRemaining((v) => !v)} style={{ padding: "6px 12px 10px", cursor: "pointer", fontSize: 11, color: C.text, fontWeight: 700 }}>
+                  <div onClick={() => setShowRemaining((v) => !v)} style={{ padding: "0 12px 9px", cursor: "pointer", fontSize: 11, color: C.text, fontWeight: 700 }}>
                     👥 全員の当番回数を見る　{showRemaining ? "▲" : "▼"}
                   </div>
                   {showRemaining && (
