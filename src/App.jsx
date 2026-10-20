@@ -3189,10 +3189,19 @@ export default function HaponsApp() {
   const [showClubSong, setShowClubSong] = useState(false);
   const [showMinutes, setShowMinutes] = useState(false);
   const [showTranslateGuide, setShowTranslateGuide] = useState(false);
-  const [slideDir, setSlideDir] = useState(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const touchStartX = useRef(null);
-  const touchStartY = useRef(null);
+  // タブ切替スワイプ：指の動きに追従して画面をドラッグし、離した時の移動量／勢いで
+  // 次へ進むか・元に戻るかを決める（画面幅の0.25以上動かすか、素早く払えば切り替わる）
+  const [dragX, setDragX] = useState(0); // 現在のドラッグ量（px）。アニメーション中もこの値を変化させる
+  const [dragging, setDragging] = useState(false); // 指で操作中かどうか（隣の画面を覗かせるかの判定にも使う）
+  const [isAnimating, setIsAnimating] = useState(false); // 指を離した後のスナップ/確定アニメーション中か
+  const [settleAnim, setSettleAnim] = useState(false); // trueの間だけCSS transitionを効かせる
+  const [viewportW, setViewportW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 375));
+  const dragInfo = useRef({ startX: 0, startY: 0, startT: 0, locked: null });
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // マイグループ機能
   const [myGroup, setMyGroup] = useState(() => {
@@ -3374,34 +3383,82 @@ export default function HaponsApp() {
   ];
 
   const tabIds = tabs.map((t) => t.id);
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+  const currentTabIdx = tabIds.indexOf(tab);
+  const nextTabId = tabIds[(currentTabIdx + 1) % tabIds.length];
+  const prevTabId = tabIds[(currentTabIdx - 1 + tabIds.length) % tabIds.length];
+
+  // 各タブのコンテンツ本体（ドラッグ中に隣の画面を覗かせるため、3枠ぶん同じ描画を使い回す）
+  const renderTabContent = (id) => {
+    switch (id) {
+      case "home": return <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
+      case "members": return <MembersTab isAdmin={isAdmin} />;
+      case "announcements": return <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />;
+      case "schedule": return <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />;
+      case "fees": return <FeesWrapper isAdmin={isAdmin} />;
+      case "docs": return <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
+      default: return null;
+    }
   };
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null || isAnimating) return;
-    const diffX = touchStartX.current - e.changedTouches[0].clientX;
-    const diffY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
-    if (diffY > Math.abs(diffX) || Math.abs(diffX) < 70) {
-      touchStartX.current = null;
-      touchStartY.current = null;
+
+  const goToTab = (id) => {
+    if (isAnimating) return;
+    setTab(id);
+  };
+
+  const handleTouchStart = (e) => {
+    if (isAnimating) return;
+    dragInfo.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startT: Date.now(), locked: null };
+  };
+  const handleTouchMove = (e) => {
+    if (isAnimating) return;
+    const info = dragInfo.current;
+    if (info.startT === 0) return;
+    const dx = e.touches[0].clientX - info.startX;
+    const dy = e.touches[0].clientY - info.startY;
+    if (info.locked === null) {
+      // 最初の一定量の動きで、横スワイプか縦スクロールかを判定して以後固定する
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      info.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (info.locked === "x") setDragging(true);
+    }
+    if (info.locked !== "x") return; // 縦スクロールはブラウザ標準の動きに任せる
+    // 指の動きにそのまま追従。画面幅を超えて引っ張った分はゴムのように抵抗をかける
+    let clamped = dx;
+    const max = viewportW;
+    if (clamped > max) clamped = max + (clamped - max) * 0.25;
+    if (clamped < -max) clamped = -max + (clamped + max) * 0.25;
+    setDragX(clamped);
+  };
+  const handleTouchEnd = () => {
+    const info = dragInfo.current;
+    if (info.locked !== "x") {
+      dragInfo.current = { startX: 0, startY: 0, startT: 0, locked: null };
+      setDragging(false);
       return;
     }
-    const currentIdx = tabIds.indexOf(tab);
-    if (diffX > 0) {
-      const nextIdx = (currentIdx + 1) % tabIds.length;
-      setSlideDir("left");
-      setIsAnimating(true);
-      setTimeout(() => { setTab(tabIds[nextIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+    const dt = Math.max(Date.now() - info.startT, 1);
+    const velocity = dragX / dt; // px / ms（マイナス＝左へ払った＝次へ）
+    const distanceThreshold = viewportW * 0.25;
+    const flickVelocity = 0.5;
+    let commit = 0; // 1=次のタブへ、-1=前のタブへ
+    if (dragX <= -distanceThreshold || velocity <= -flickVelocity) commit = 1;
+    else if (dragX >= distanceThreshold || velocity >= flickVelocity) commit = -1;
+    dragInfo.current = { startX: 0, startY: 0, startT: 0, locked: null };
+    setDragging(false);
+    setIsAnimating(true);
+    setSettleAnim(true);
+    if (commit === 1) {
+      setDragX(-viewportW);
+      setTimeout(() => { setTab(nextTabId); setDragX(0); setSettleAnim(false); setIsAnimating(false); }, 260);
+    } else if (commit === -1) {
+      setDragX(viewportW);
+      setTimeout(() => { setTab(prevTabId); setDragX(0); setSettleAnim(false); setIsAnimating(false); }, 260);
     } else {
-      const prevIdx = (currentIdx - 1 + tabIds.length) % tabIds.length;
-      setSlideDir("right");
-      setIsAnimating(true);
-      setTimeout(() => { setTab(tabIds[prevIdx]); setSlideDir(null); setIsAnimating(false); }, 300);
+      setDragX(0);
+      setTimeout(() => { setSettleAnim(false); setIsAnimating(false); }, 260);
     }
-    touchStartX.current = null;
-    touchStartY.current = null;
   };
+  const showNeighbors = dragging || isAnimating;
 
   return (
     <div style={S.app}>
@@ -3433,23 +3490,29 @@ export default function HaponsApp() {
         </div>
       )}
 
-      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
-        style={{
-          flex: 1, overflowY: "auto", overflowX: "hidden",
-          opacity: slideDir ? 0 : 1,
-          transition: slideDir ? "opacity 0.2s ease" : "opacity 0.2s ease",
+      <div
+        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+        style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        <div style={{
+          display: "flex", height: "100%", width: viewportW * 3,
+          transform: `translateX(${-viewportW + dragX}px)`,
+          transition: settleAnim ? "transform 0.26s cubic-bezier(0.22,0.61,0.36,1)" : "none",
         }}>
-        {tab === "home" && <HomeTab announcements={announcements} loading={loadingAnnouncements} isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
-        {tab === "members" && <MembersTab isAdmin={isAdmin} />}
-        {tab === "announcements" && <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />}
-        {tab === "schedule" && <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />}
-        {tab === "fees" && <FeesWrapper isAdmin={isAdmin} />}
-        {tab === "docs" && <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />}
+          <div style={{ width: viewportW, height: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden" }}>
+            {showNeighbors && renderTabContent(prevTabId)}
+          </div>
+          <div style={{ width: viewportW, height: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden" }}>
+            {renderTabContent(tab)}
+          </div>
+          <div style={{ width: viewportW, height: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden" }}>
+            {showNeighbors && renderTabContent(nextTabId)}
+          </div>
+        </div>
       </div>
 
       <nav style={S.nav}>
         {tabs.map((t) => (
-          <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => setTab(t.id)}>
+          <button key={t.id} style={S.navBtn(tab === t.id)} onClick={() => goToTab(t.id)}>
             <span style={{ fontSize: 18 }}>{t.icon}</span>
             <span style={{ fontSize: 9, fontWeight: tab === t.id ? 800 : 400 }}>{t.label}</span>
           </button>
