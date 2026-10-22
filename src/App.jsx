@@ -3407,6 +3407,10 @@ export default function HaponsApp() {
 
   const handleTouchStart = (e) => {
     if (isAnimating) return;
+    // 前回のジェスチャーがtouchendを受け取れずに終わっていた場合の保険（画面がズレたまま
+    // 固まるのを防ぐ）。新しい操作を始める前に必ず原点に戻しておく。
+    if (dragX !== 0) { setDragX(0); setSettleAnim(false); }
+    setDragging(false);
     dragInfo.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startT: Date.now(), locked: null };
   };
   const handleTouchMove = (e) => {
@@ -3458,6 +3462,17 @@ export default function HaponsApp() {
       setTimeout(() => { setSettleAnim(false); setIsAnimating(false); }, 260);
     }
   };
+  // iOSの端スワイプ（戻る操作）やマルチタッチなど、システム側にジェスチャーを奪われて
+  // touchendが発火しないままになるケースがある。その場合に画面がズレた位置で固まって
+  // しまわないよう、touchcancelでも必ず原点に戻す。
+  const handleTouchCancel = () => {
+    dragInfo.current = { startX: 0, startY: 0, startT: 0, locked: null };
+    setDragging(false);
+    setIsAnimating(true);
+    setSettleAnim(true);
+    setDragX(0);
+    setTimeout(() => { setSettleAnim(false); setIsAnimating(false); }, 260);
+  };
   const showNeighbors = dragging || isAnimating;
 
   return (
@@ -3491,7 +3506,7 @@ export default function HaponsApp() {
       )}
 
       <div
-        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchCancel}
         style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <div style={{
           display: "flex", height: "100%", width: viewportW * 3,
