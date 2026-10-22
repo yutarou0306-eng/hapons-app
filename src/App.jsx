@@ -3530,8 +3530,15 @@ export default function HaponsApp() {
         style={{ flex: 1, overflow: "hidden", position: "relative" }}>
         <div style={{
           display: "flex", height: "100%", width: viewportW * 3,
-          transform: `translateX(${-viewportW + dragX}px)`,
-          transition: settleAnim ? "transform 0.26s cubic-bezier(0.22,0.61,0.36,1)" : "none",
+          // 注意：ここは意図的に transform ではなく position+left でスライドさせている。
+          // 祖先要素に transform を付けると、その内部にある position:"fixed" な
+          // モーダル（出席登録パネルなど）の基準位置が「画面」ではなくこの
+          // 要素自身（3画面分の幅で、しかも横にズレている）に変わってしまい、
+          // モーダルの表示が丸ごと崩れる（実際に発生した不具合）。left指定なら
+          // この問題が起きない。
+          position: "relative",
+          left: `${-viewportW + dragX}px`,
+          transition: settleAnim ? "left 0.26s cubic-bezier(0.22,0.61,0.36,1)" : "none",
         }}>
           <div style={{ width: viewportW, height: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden" }}>
             {showNeighbors && renderTabContent(prevTabId)}
