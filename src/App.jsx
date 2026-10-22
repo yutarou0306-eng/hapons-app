@@ -3203,6 +3203,26 @@ export default function HaponsApp() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // iOSのSafariは、ページ側でピンチズームを禁止する指定（user-scalable=no）を
+  // 端末のアクセシビリティ上の理由で無視してしまうことがある。スワイプ操作中に
+  // 誤って2本指で触れるなどしてズームされてしまうと、画面の内容が全体的に
+  // ズレて表示される（今回起きていた不具合）。ここでピンチズーム自体を
+  // JavaScript側でも明示的に無効化しておく。
+  useEffect(() => {
+    const preventGesture = (e) => e.preventDefault();
+    const preventMultiTouchMove = (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); };
+    document.addEventListener("gesturestart", preventGesture);
+    document.addEventListener("gesturechange", preventGesture);
+    document.addEventListener("gestureend", preventGesture);
+    document.addEventListener("touchmove", preventMultiTouchMove, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("gestureend", preventGesture);
+      document.removeEventListener("touchmove", preventMultiTouchMove);
+    };
+  }, []);
+
   // マイグループ機能
   const [myGroup, setMyGroup] = useState(() => {
     try { return JSON.parse(localStorage.getItem("hapons_my_group") || "[]"); } catch { return []; }
