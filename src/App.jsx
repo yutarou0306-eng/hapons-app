@@ -20,7 +20,7 @@ const C = {
 };
 
 const S = {
-  app: { minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80 },
+  app: { minHeight: "100vh", backgroundColor: C.bg, fontFamily: "'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif", maxWidth: 480, margin: "0 auto", paddingBottom: 80, overflowX: "hidden" },
   header: { background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: `2px solid ${C.border}`, display: "flex", zIndex: 100, boxShadow: "0 -2px 12px rgba(204,31,31,0.08)" },
   navBtn: (active) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px 6px", cursor: "pointer", background: active ? C.sakuraLight : "none", border: "none", color: active ? C.primary : C.textMuted, gap: 2 }),
@@ -284,7 +284,7 @@ function ImportantPage({ onClose, isAdmin }) {
       )}
       <div style={{ background: C.sakuraLight, border: `1px solid ${C.sakura}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>{dateLabel}</div>
 
-      <div onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(html) }} />
+      <div style={{ overflowWrap: "anywhere", wordBreak: "break-word" }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(html) }} />
 
       <div style={{ textAlign: "center", color: C.textMuted, fontSize: 11, marginTop: 16, marginBottom: 12 }}>ご不明な点は大澤・栗生までお問い合わせください</div>
 
@@ -931,7 +931,7 @@ function HomeTab({ announcements, loading, isAdmin, onOpenImportant, onOpenRules
             {a.important && <span style={S.badge(C.primary)}>重要</span>}
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{a.title}</span>
           </div>
-          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6 }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
+          <div style={{ fontSize: 13, color: C.textMuted, margin: "0 0 4px", lineHeight: 1.6, overflowWrap: "anywhere", wordBreak: "break-word" }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           <span style={{ fontSize: 11, color: C.textMuted }}>{a.date}</span>
         </div>
       ))}
@@ -1053,6 +1053,7 @@ function AnnouncementsTab({ isAdmin, announcements, setAnnouncements, loading })
             display: "-webkit-box",
             WebkitLineClamp: expandedIds[a.id] ? "unset" : 4,
             WebkitBoxOrient: "vertical",
+            overflowWrap: "anywhere", wordBreak: "break-word",
           }} onClick={handleAutoLinkClick} dangerouslySetInnerHTML={{ __html: autoLink(a.body) }} />
           {a.body && a.body.length > 200 && (
             <button onClick={() => setExpandedIds((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
@@ -3195,10 +3196,16 @@ export default function HaponsApp() {
   const [dragging, setDragging] = useState(false); // 指で操作中かどうか（隣の画面を覗かせるかの判定にも使う）
   const [isAnimating, setIsAnimating] = useState(false); // 指を離した後のスナップ/確定アニメーション中か
   const [settleAnim, setSettleAnim] = useState(false); // trueの間だけCSS transitionを効かせる
-  const [viewportW, setViewportW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 375));
+  // アプリ本体は S.app の maxWidth:480 で中央寄せの「スマホ幅」に固定されているため、
+  // スワイプの基準幅もウィンドウ全体の幅ではなく、実際に表示されている幅
+  // （PCなら480、それより狭いスマホならその画面幅）に合わせる。
+  // ここをwindow.innerWidthのままにすると、PC（横幅の広いブラウザ）で
+  // 当り判定・描画幅が実際の表示枠より大幅に広くなり、表示が崩れてしまう。
+  const getViewportW = () => (typeof window !== "undefined" ? Math.min(window.innerWidth, 480) : 375);
+  const [viewportW, setViewportW] = useState(getViewportW);
   const dragInfo = useRef({ startX: 0, startY: 0, startT: 0, locked: null });
   useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth);
+    const onResize = () => setViewportW(getViewportW());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
