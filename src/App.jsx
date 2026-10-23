@@ -443,7 +443,92 @@ const DEFAULT_DOC_LINKS = {
   entry_form: "https://drive.google.com/file/d/1LkvOidZ4mDTXZyYBiHepVfm7L32hqVvP/view?usp=drive_link",
   waiver: "https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing",
   important_pdf: "https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview",
+  rugby_tag_guide: "https://drive.google.com/file/d/1CWd7oEbf_UR1kSVvt3VpCkezuO9TCvqn/view?usp=drive_link",
+  // ラグビー初心者向けルールガイド：アプリ内（public/）に置いたPDF。管理者が別URLに変更も可能
+  rugby_beginner_guide: "/rugby-beginner-guide.pdf",
 };
+
+// ラグビーのルール（資料の選択ページ）
+function RugbyRulesPage({ onClose, isAdmin }) {
+  const [links, setLinks] = useState(DEFAULT_DOC_LINKS);
+  const [editingKey, setEditingKey] = useState(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchLinks = async () => {
+      const { data } = await supabase.from("doc_links").select("*").in("key", ["rugby_tag_guide", "rugby_beginner_guide"]);
+      if (data && data.length > 0) {
+        const merged = { ...DEFAULT_DOC_LINKS };
+        data.forEach((d) => { merged[d.key] = d.url; });
+        setLinks(merged);
+      }
+    };
+    fetchLinks();
+  }, []);
+
+  const startEdit = (key) => { setEditingKey(key); setEditUrl(links[key]); };
+  const saveLink = async () => {
+    if (!editUrl.trim()) { alert("URLを入力してください"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("doc_links").upsert({ key: editingKey, url: editUrl.trim() });
+    if (error) { alert("保存に失敗しました：" + error.message); setSaving(false); return; }
+    setLinks({ ...links, [editingKey]: editUrl.trim() });
+    setEditingKey(null); setSaving(false);
+  };
+
+  const docs = [
+    { key: "rugby_beginner_guide", icon: "🏉", title: "ラグビー初心者向けルールガイド", badge: "大人・Jr保護者", color: C.primary, desc: "ラグビーをはじめて観る・はじめる人向けに、得点の入り方、基本ルール、タックル、試合の流れ、用語集をまとめたガイドです。（全4ページ）", btn: "ガイドを開く（PDF）" },
+    { key: "rugby_tag_guide", icon: "🏷️", title: "タグラグビー保護者向けガイド", badge: "Jr保護者", color: C.jr, desc: "Jrが取り組むタグラグビーについて、ルールや活動の様子、保護者の方へのお願いをまとめたガイドです。", btn: "ガイドを開く（Google Drive）" },
+  ];
+
+  return (
+    <DocViewer title="ラグビーのルール" onClose={onClose}>
+      <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.8, marginBottom: 14 }}>
+        読みたい資料を選んでください。
+      </div>
+      {docs.map((d) => (
+        <div key={d.key} style={{ ...S.card, marginBottom: 12, borderLeft: `4px solid ${d.color}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 24 }}>{d.icon}</span>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{d.title}</div>
+                <div style={{ ...S.badge(d.color), fontSize: 11 }}>{d.badge}</div>
+              </div>
+            </div>
+            {isAdmin && (
+              <button onClick={() => startEdit(d.key)}
+                style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 11, cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>リンク編集</button>
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>{d.desc}</div>
+          <a href={links[d.key]} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: d.color, borderRadius: 10, cursor: "pointer" }}>
+              <span style={{ fontSize: 16 }}>📖</span>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{d.btn}</span>
+            </div>
+          </a>
+        </div>
+      ))}
+
+      {editingKey && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 900, color: C.text }}>リンクを編集</h3>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 14 }}>{docs.find((d) => d.key === editingKey)?.title}</div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 }}>URL</label>
+            <input style={{ ...S.input, marginBottom: 16 }} value={editUrl} onChange={(e) => setEditUrl(e.target.value)} placeholder="https://..." />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setEditingKey(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={saveLink} disabled={saving}>{saving ? "保存中..." : "保存"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DocViewer>
+  );
+}
 
 function EntryFormsPage({ onClose, isAdmin }) {
   const [links, setLinks] = useState(DEFAULT_DOC_LINKS);
@@ -781,7 +866,7 @@ function MinutesPage({ onClose, isAdmin }) {
 }
 
 // ── DOCS TAB ──
-function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
+function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenRugbyRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   return (
     <div style={S.content}>
       <h2 style={S.sectionTitle}>📋 クラブ資料</h2>
@@ -793,6 +878,11 @@ function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenEntryForms, onOp
       <div onClick={onOpenRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.sakura}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🌸</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>Rules & Guidelines</div><div style={{ fontSize: 12, color: C.textMuted }}>クラブのルールとガイドライン</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenRugbyRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏉</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーのルール</div><div style={{ fontSize: 12, color: C.textMuted }}>初心者向けルールガイド・タグラグビー保護者向けガイド</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
       <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
@@ -3185,6 +3275,7 @@ export default function HaponsApp() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showImportant, setShowImportant] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showRugbyRules, setShowRugbyRules] = useState(false);
   const [showEntryForms, setShowEntryForms] = useState(false);
   const [showMJSPass, setShowMJSPass] = useState(false);
   const [showClubSong, setShowClubSong] = useState(false);
@@ -3375,6 +3466,7 @@ export default function HaponsApp() {
       // サブページが開いている場合は閉じる
       if (showImportant) { setShowImportant(false); history.pushState(null, "", window.location.href); return; }
       if (showRules) { setShowRules(false); history.pushState(null, "", window.location.href); return; }
+      if (showRugbyRules) { setShowRugbyRules(false); history.pushState(null, "", window.location.href); return; }
       if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
       if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
       if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
@@ -3390,11 +3482,12 @@ export default function HaponsApp() {
     history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [showImportant, showRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
+  }, [showImportant, showRules, showRugbyRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
 
   if (!role) return <LoginScreen onLogin={handleLogin} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} isAdmin={isAdmin} />;
   if (showRules) return <RulesPage onClose={() => setShowRules(false)} />;
+  if (showRugbyRules) return <RugbyRulesPage onClose={() => setShowRugbyRules(false)} isAdmin={isAdmin} />;
   if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} isAdmin={isAdmin} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
   if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
@@ -3422,7 +3515,7 @@ export default function HaponsApp() {
       case "announcements": return <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />;
       case "schedule": return <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />;
       case "fees": return <FeesWrapper isAdmin={isAdmin} />;
-      case "docs": return <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
+      case "docs": return <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenRugbyRules={() => setShowRugbyRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
       default: return null;
     }
   };
