@@ -479,8 +479,8 @@ function RugbyRulesPage({ onClose, isAdmin }) {
   };
 
   const docs = [
-    { key: "rugby_beginner_guide", icon: "🏉", title: "ラグビー初心者向けガイド", badge: "大人・Jr保護者", color: C.primary, desc: "ラグビーをはじめて観る・はじめる人向けに、得点の入り方、基本ルール、タックル、試合の流れ、用語集をまとめたガイドです。（全4ページ）", btn: "ガイドを開く（Google Drive）" },
-    { key: "rugby_tag_guide", icon: "🏷️", title: "タグラグビー保護者向けガイド", badge: "Jr保護者", color: C.jr, desc: "Jrが取り組むタグラグビーについて、ルールや活動の様子、保護者の方へのお願いをまとめたガイドです。", btn: "ガイドを開く（Google Drive）" },
+    { key: "rugby_beginner_guide", icon: "🏉", title: "ラグビー初心者向けガイド", badge: "大人・Jr保護者", color: C.primary, desc: "ラグビーをはじめて観る・はじめる人向けに、得点の入り方、基本ルール、タックル、試合の流れ、用語集をまとめたガイドです。（全4ページ）", btn: "ガイドを開く" },
+    { key: "rugby_tag_guide", icon: "🏷️", title: "タグラグビー保護者向けガイド", badge: "Jr保護者", color: C.jr, desc: "Jrが取り組むタグラグビーについて、ルールや活動の様子、保護者の方へのお願いをまとめたガイドです。", btn: "ガイドを開く" },
   ];
 
   return (
