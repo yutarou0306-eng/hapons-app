@@ -444,8 +444,9 @@ const DEFAULT_DOC_LINKS = {
   waiver: "https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing",
   important_pdf: "https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview",
   rugby_tag_guide: "https://drive.google.com/file/d/1CWd7oEbf_UR1kSVvt3VpCkezuO9TCvqn/view?usp=drive_link",
-  // ラグビー初心者向けルールガイド：アプリ内（public/）に置いたPDF。管理者が別URLに変更も可能
-  rugby_beginner_guide: "/rugby-beginner-guide.pdf",
+  // ラグビー初心者向けガイド：Google Drive上のファイル。管理者が「リンク編集」から差し替え可能。
+  // （空のままにすると「準備中」と表示される）
+  rugby_beginner_guide: "https://docs.google.com/document/d/138B7EVY1B6zF_e2DWiFBramZGrwQRGmC/edit?usp=sharing&rtpof=true&sd=true",
 };
 
 // ラグビーのルール（資料の選択ページ）
@@ -478,7 +479,7 @@ function RugbyRulesPage({ onClose, isAdmin }) {
   };
 
   const docs = [
-    { key: "rugby_beginner_guide", icon: "🏉", title: "ラグビー初心者向けルールガイド", badge: "大人・Jr保護者", color: C.primary, desc: "ラグビーをはじめて観る・はじめる人向けに、得点の入り方、基本ルール、タックル、試合の流れ、用語集をまとめたガイドです。（全4ページ）", btn: "ガイドを開く（PDF）" },
+    { key: "rugby_beginner_guide", icon: "🏉", title: "ラグビー初心者向けガイド", badge: "大人・Jr保護者", color: C.primary, desc: "ラグビーをはじめて観る・はじめる人向けに、得点の入り方、基本ルール、タックル、試合の流れ、用語集をまとめたガイドです。（全4ページ）", btn: "ガイドを開く（Google Drive）" },
     { key: "rugby_tag_guide", icon: "🏷️", title: "タグラグビー保護者向けガイド", badge: "Jr保護者", color: C.jr, desc: "Jrが取り組むタグラグビーについて、ルールや活動の様子、保護者の方へのお願いをまとめたガイドです。", btn: "ガイドを開く（Google Drive）" },
   ];
 
@@ -503,12 +504,18 @@ function RugbyRulesPage({ onClose, isAdmin }) {
             )}
           </div>
           <div style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.7, marginBottom: 12 }}>{d.desc}</div>
-          <a href={links[d.key]} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: d.color, borderRadius: 10, cursor: "pointer" }}>
-              <span style={{ fontSize: 16 }}>📖</span>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{d.btn}</span>
+          {links[d.key] ? (
+            <a href={links[d.key]} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: d.color, borderRadius: 10, cursor: "pointer" }}>
+                <span style={{ fontSize: 16 }}>📖</span>
+                <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{d.btn}</span>
+              </div>
+            </a>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.border, borderRadius: 10 }}>
+              <span style={{ color: C.textMuted, fontWeight: 800, fontSize: 14 }}>準備中{isAdmin ? "（右上の「リンク編集」からURLを登録）" : ""}</span>
             </div>
-          </a>
+          )}
         </div>
       ))}
 
@@ -882,7 +889,7 @@ function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenRugbyRules, onOp
       </div>
       <div onClick={onOpenRugbyRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏉</div>
-        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーのルール</div><div style={{ fontSize: 12, color: C.textMuted }}>初心者向けルールガイド・タグラグビー保護者向けガイド</div></div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーのルール</div><div style={{ fontSize: 12, color: C.textMuted }}>初心者向けガイド・タグラグビー保護者向けガイド</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
       <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
