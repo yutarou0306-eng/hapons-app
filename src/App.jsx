@@ -443,7 +443,7 @@ const DEFAULT_DOC_LINKS = {
   entry_form: "https://drive.google.com/file/d/1LkvOidZ4mDTXZyYBiHepVfm7L32hqVvP/view?usp=drive_link",
   waiver: "https://drive.google.com/file/d/18bsXleKQziggnxu5ztoQt3mjt_SNjm3N/view?usp=sharing",
   important_pdf: "https://drive.google.com/file/d/1giuEY0dfbTQlh01BfjAkb7LWGs9faGJW/preview",
-  rugby_tag_guide: "https://drive.google.com/file/d/1CWd7oEbf_UR1kSVvt3VpCkezuO9TCvqn/view?usp=drive_link",
+  rugby_tag_guide: "https://drive.google.com/file/d/1oQ54S4QO379jfWUn325ueq0bckuVJCQc/view?usp=drivesdk",
   // ラグビー初心者向けガイド：Google Drive上のファイル。管理者が「リンク編集」から差し替え可能。
   // （空のままにすると「準備中」と表示される）
   rugby_beginner_guide: "https://docs.google.com/document/d/138B7EVY1B6zF_e2DWiFBramZGrwQRGmC/edit?usp=sharing&rtpof=true&sd=true",
