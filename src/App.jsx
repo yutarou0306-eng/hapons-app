@@ -2789,24 +2789,36 @@ function JrFeesTab({ isAdmin }) {
 
   const feeUnits = getFeeUnits();
 
-  // jr_feesはlabelをキーとして保存
-  const isPaid = (eventId, label) =>
-    jrFees.some((f) => f.event_id === eventId && f.family_id === label);
+  // jr_feesの family_id には「その時点でのグループ名（保護者名、または単独のJr本人の名前）」が保存される。
+  // 兄弟姉妹を追加すると、それまで単独だった家族が「保護者名のグループ」に変わり、
+  // 表示名（label）が変わってしまう。すると過去の支払い記録（旧い名前で保存済み）が
+  // 見つからなくなり、全部「不参加」に見えてしまっていた。
+  // そこで、1つのグループに対応しうる名前（保護者名・各Jr本人の名前）をまとめて「別名」として扱い、
+  // どの名前で保存された記録でも同じグループの支払いとして扱う。
+  const aliasesOf = (unit) => new Set([unit.label, ...unit.members.flatMap((m) => [m.name_jp, m.parent_name])].filter(Boolean));
+  const unitOfFamilyId = (familyId) => feeUnits.find((u) => aliasesOf(u).has(familyId));
+  const recordsOf = (eventId, unit) => {
+    const aliases = aliasesOf(unit);
+    return jrFees.filter((f) => f.event_id === eventId && aliases.has(f.family_id));
+  };
+  const isPaid = (eventId, unit) => recordsOf(eventId, unit).length > 0;
 
   // 保存中の (event_id + label) を記録し、連打による二重登録を防ぐ
   const savingKeys = useRef(new Set());
 
-  const togglePaid = async (eventId, label) => {
+  const togglePaid = async (eventId, unit) => {
     if (!isAdmin) return;
+    const label = unit.label;
     const key = `${eventId}__${label}`;
     if (savingKeys.current.has(key)) return; // 保存中は無視
     savingKeys.current.add(key);
     try {
-      const existing = jrFees.find((f) => f.event_id === eventId && f.family_id === label);
-      if (existing) {
-        // 万一すでに重複がある場合も、同じ event_id + label を全て削除して確実に「未参加」に戻す
-        await supabase.from("jr_fees").delete().eq("event_id", eventId).eq("family_id", label);
-        setJrFees((prev) => prev.filter((f) => !(f.event_id === eventId && f.family_id === label)));
+      const existingRecords = recordsOf(eventId, unit);
+      if (existingRecords.length > 0) {
+        // 旧い名前で保存された記録や重複があっても、このグループの記録を全て削除して確実に「不参加」に戻す
+        const ids = existingRecords.map((f) => f.id);
+        await supabase.from("jr_fees").delete().in("id", ids);
+        setJrFees((prev) => prev.filter((f) => !ids.includes(f.id)));
       } else {
         const { data } = await supabase.from("jr_fees").insert([{ event_id: eventId, family_id: label, paid: true }]).select();
         if (data) setJrFees((prev) => [...prev, data[0]]);
@@ -2816,7 +2828,11 @@ function JrFeesTab({ isAdmin }) {
     }
   };
 
-  const getEventPaidCount = (eventId) => jrFees.filter((f) => f.event_id === eventId).length;
+  // 支払い済みグループ数。同じグループに旧い名前・新しい名前の記録が両方あっても1グループとして数える
+  // （どのグループにも対応しない記録＝退会済み・その他/体験 などは、従来どおり1件ずつ数える）
+  const getEventPaidCount = (eventId) => new Set(
+    jrFees.filter((f) => f.event_id === eventId).map((f) => { const u = unitOfFamilyId(f.family_id); return u ? `unit_${u.key}` : `rec_${f.id}`; })
+  ).size;
   const getEventTotal = (eventId) => getEventPaidCount(eventId) * unitFee;
   const wdays = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -2905,8 +2921,8 @@ function JrFeesTab({ isAdmin }) {
           <div style={{ ...S.card, textAlign: "center", color: C.textMuted, fontSize: 13 }}>Jrメンバーが登録されていません</div>
         )}
         {feeUnits.map((unit) => {
-          const paid = isPaid(selectedEvent, unit.label);
-          const feeRecord = jrFees.find((f) => f.event_id === selectedEvent && f.family_id === unit.label);
+          const paid = isPaid(selectedEvent, unit);
+          const feeRecords = recordsOf(selectedEvent, unit);
           return (
             <div key={unit.key} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: `4px solid ${paid ? C.success : C.border}` }}>
               <div>
@@ -2919,7 +2935,7 @@ function JrFeesTab({ isAdmin }) {
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {isAdmin ? (
-                  <button onClick={() => togglePaid(selectedEvent, unit.label)}
+                  <button onClick={() => togglePaid(selectedEvent, unit)}
                     style={{ padding: "6px 14px", borderRadius: 20, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", background: paid ? "#2E7D3220" : "#1565C020", color: paid ? C.success : C.jr }}>
                     {paid ? "✓ 参加" : "不参加"}
                   </button>
@@ -2928,11 +2944,12 @@ function JrFeesTab({ isAdmin }) {
                     {paid ? "✓ 参加" : "不参加"}
                   </span>
                 )}
-                {isAdmin && paid && feeRecord && (
+                {isAdmin && paid && feeRecords.length > 0 && (
                   <button onClick={async () => {
                     if (!window.confirm(`${unit.label}の参加記録を削除しますか？`)) return;
-                    await supabase.from("jr_fees").delete().eq("id", feeRecord.id);
-                    setJrFees(jrFees.filter((f) => f.id !== feeRecord.id));
+                    const ids = feeRecords.map((f) => f.id);
+                    await supabase.from("jr_fees").delete().in("id", ids);
+                    setJrFees((prev) => prev.filter((f) => !ids.includes(f.id)));
                   }}
                     style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: C.border, color: C.textMuted, fontSize: 11, cursor: "pointer" }}>
                     削除
@@ -2981,7 +2998,7 @@ function JrFeesTab({ isAdmin }) {
   // 年間合計（選択年度）
   const getYearTotal = (fy) => {
     const ids = events.filter((e) => fyOfDate(e.date) === fy).map((e) => e.id);
-    return jrFees.filter((f) => ids.includes(f.event_id)).length * unitFee;
+    return ids.reduce((sum, id) => sum + getEventPaidCount(id), 0) * unitFee;
   };
 
   // 全履歴ページ
