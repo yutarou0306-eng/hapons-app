@@ -872,8 +872,234 @@ function MinutesPage({ onClose, isAdmin }) {
   );
 }
 
+// ── 戦績ページ ──
+// 試合結果（match_results）と大会成績（tournament_results）の2つの表。
+// 管理者は「＋追加」と、行をタップして編集・削除ができる。
+const RESULT_MARKS = [
+  { v: "○", label: "勝ち", color: "#2E7D32" },
+  { v: "●", label: "負け", color: "#9B0000" },
+  { v: "△", label: "引き分け", color: "#D4A800" },
+];
+const markColor = (v) => (RESULT_MARKS.find((m) => m.v === v) || {}).color || C.textMuted;
+
+function DateCell({ date }) {
+  if (!date) return <span>-</span>;
+  const [y, m, d] = String(date).split("-");
+  return (
+    <div style={{ lineHeight: 1.3 }}>
+      <div style={{ fontSize: 10, color: C.textMuted }}>{y}</div>
+      <div style={{ fontWeight: 800 }}>{Number(m)}/{Number(d)}</div>
+    </div>
+  );
+}
+
+function ResultsPage({ onClose, isAdmin }) {
+  const [matches, setMatches] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [form, setForm] = useState(null); // { kind: "match"|"tournament", id?, values }
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const m = await supabase.from("match_results").select("*").order("date", { ascending: false }).order("id", { ascending: false });
+      const t = await supabase.from("tournament_results").select("*").order("date", { ascending: false }).order("id", { ascending: false });
+      if (m.error || t.error) setLoadError((m.error || t.error).message);
+      if (m.data) setMatches(m.data);
+      if (t.data) setTournaments(t.data);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const today = () => new Date().toISOString().slice(0, 10);
+  const openNew = (kind) => setForm({
+    kind,
+    values: kind === "match"
+      ? { date: today(), opponent: "", result: "○", try_scorers: "", tournament: "" }
+      : { date: today(), tournament: "", category: "", rank: "" },
+  });
+  const openEdit = (kind, row) => setForm({ kind, id: row.id, values: { ...row } });
+  const setVal = (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } });
+
+  const save = async () => {
+    const v = form.values;
+    const table = form.kind === "match" ? "match_results" : "tournament_results";
+    if (!v.date) { alert("日時を入力してください"); return; }
+    let payload;
+    if (form.kind === "match") {
+      if (!v.opponent.trim()) { alert("対戦相手を入力してください"); return; }
+      payload = { date: v.date, opponent: v.opponent.trim(), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
+    } else {
+      if (!v.tournament.trim()) { alert("大会名を入力してください"); return; }
+      payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim() };
+    }
+    setSaving(true);
+    const q = form.id ? supabase.from(table).update(payload).eq("id", form.id).select() : supabase.from(table).insert([payload]).select();
+    const { data, error } = await q;
+    setSaving(false);
+    if (error) { alert("保存に失敗しました：" + error.message); return; }
+    const row = data && data[0];
+    const setter = form.kind === "match" ? setMatches : setTournaments;
+    const list = form.kind === "match" ? matches : tournaments;
+    const next = form.id ? list.map((r) => (r.id === form.id ? row : r)) : [row, ...list];
+    next.sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id - a.id);
+    setter(next);
+    setForm(null);
+  };
+
+  const remove = async () => {
+    if (!window.confirm("この行を削除しますか？")) return;
+    const table = form.kind === "match" ? "match_results" : "tournament_results";
+    const { error } = await supabase.from(table).delete().eq("id", form.id);
+    if (error) { alert("削除に失敗しました：" + error.message); return; }
+    if (form.kind === "match") setMatches(matches.filter((r) => r.id !== form.id));
+    else setTournaments(tournaments.filter((r) => r.id !== form.id));
+    setForm(null);
+  };
+
+  const tally = RESULT_MARKS.map((m) => ({ ...m, n: matches.filter((r) => r.result === m.v).length }));
+
+  const th = { padding: "8px 4px", fontSize: 11, fontWeight: 800, color: C.textMuted, textAlign: "left", background: C.sakuraLight, borderBottom: `1px solid ${C.border}` };
+  const td = { padding: "8px 4px", fontSize: 12, color: C.text, borderBottom: `1px solid ${C.border}`, verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" };
+  const rowStyle = { cursor: isAdmin ? "pointer" : "default" };
+
+  const sectionHead = (title, kind) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0 8px" }}>
+      <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{title}</div>
+      {isAdmin && <button onClick={() => openNew(kind)} style={{ ...S.btn("accent", "sm") }}>＋ 追加</button>}
+    </div>
+  );
+
+  const labelStyle = { fontSize: 12, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 4 };
+
+  return (
+    <DocViewer title="戦績（試合結果）" onClose={onClose}>
+      {loading && <Loading />}
+      {loadError && (
+        <div style={{ ...S.card, color: C.danger, fontSize: 12 }}>読み込みに失敗しました：{loadError}<br />（Supabaseにテーブルが未作成の可能性があります）</div>
+      )}
+      {isAdmin && <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>⚙ 行をタップすると編集・削除できます</div>}
+
+      {sectionHead("🏉 試合結果", "match")}
+      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        {tally.map((t) => (
+          <span key={t.v} style={{ ...S.badge(t.color), fontSize: 12 }}>{t.v} {t.label} {t.n}</span>
+        ))}
+      </div>
+      <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, width: "14%", paddingLeft: 8 }}>日時</th>
+              <th style={{ ...th, width: "24%" }}>対戦相手</th>
+              <th style={{ ...th, width: "10%", textAlign: "center" }}>結果</th>
+              <th style={{ ...th, width: "26%" }}>トライ者</th>
+              <th style={{ ...th, width: "26%", paddingRight: 8 }}>大会名</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matches.length === 0 && !loading && (
+              <tr><td colSpan={5} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>試合結果が登録されていません</td></tr>
+            )}
+            {matches.map((r) => (
+              <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
+                <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
+                <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
+                <td style={{ ...td, textAlign: "center", fontSize: 18, fontWeight: 900, color: markColor(r.result) }}>{r.result}</td>
+                <td style={td}>{r.try_scorers || "-"}</td>
+                <td style={{ ...td, paddingRight: 8 }}>{r.tournament || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ height: 14 }} />
+      {sectionHead("🏆 大会成績", "tournament")}
+      <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+        <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, width: "16%", paddingLeft: 8 }}>日時</th>
+              <th style={{ ...th, width: "46%" }}>大会名</th>
+              <th style={{ ...th, width: "38%", paddingRight: 8 }}>結果</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tournaments.length === 0 && !loading && (
+              <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>大会成績が登録されていません</td></tr>
+            )}
+            {tournaments.map((r) => (
+              <tr key={r.id} onClick={isAdmin ? () => openEdit("tournament", r) : undefined} style={rowStyle}>
+                <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
+                <td style={{ ...td, fontWeight: 700 }}>{r.tournament}</td>
+                <td style={{ ...td, paddingRight: 8, fontWeight: 800, color: C.primary }}>
+                  {[r.category, r.rank ? `${r.rank}位` : ""].filter(Boolean).join(" ") || "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {form && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 400, maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 900, color: C.text }}>
+              {form.kind === "match" ? "🏉 試合結果" : "🏆 大会成績"}を{form.id ? "編集" : "追加"}
+            </h3>
+            <label style={labelStyle}>日時</label>
+            <input type="date" style={S.input} value={form.values.date || ""} onChange={(e) => setVal("date", e.target.value)} />
+            {form.kind === "match" ? (
+              <>
+                <label style={labelStyle}>対戦相手</label>
+                <input style={S.input} value={form.values.opponent} onChange={(e) => setVal("opponent", e.target.value)} />
+                <label style={labelStyle}>結果</label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {RESULT_MARKS.map((m) => {
+                    const on = form.values.result === m.v;
+                    return (
+                      <button key={m.v} onClick={() => setVal("result", m.v)}
+                        style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: `2px solid ${on ? m.color : C.border}`, background: on ? m.color : C.bg, color: on ? "#fff" : m.color, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>
+                        {m.v}<div style={{ fontSize: 10, fontWeight: 700 }}>{m.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <label style={labelStyle}>トライ者名（複数は「、」区切り）</label>
+                <input style={S.input} value={form.values.try_scorers || ""} onChange={(e) => setVal("try_scorers", e.target.value)} placeholder="例：山田、鈴木②" />
+                <label style={labelStyle}>大会名</label>
+                <input style={S.input} value={form.values.tournament || ""} onChange={(e) => setVal("tournament", e.target.value)} />
+              </>
+            ) : (
+              <>
+                <label style={labelStyle}>大会名</label>
+                <input style={S.input} value={form.values.tournament} onChange={(e) => setVal("tournament", e.target.value)} />
+                <label style={labelStyle}>カテゴリー</label>
+                <input style={S.input} value={form.values.category || ""} onChange={(e) => setVal("category", e.target.value)} placeholder="例：一般の部／U12" />
+                <label style={labelStyle}>順位（数字）</label>
+                <input type="number" inputMode="numeric" style={S.input} value={form.values.rank ?? ""} onChange={(e) => setVal("rank", e.target.value)} placeholder="例：3" />
+              </>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button style={{ ...S.btn("ghost"), flex: 1 }} onClick={() => setForm(null)}>キャンセル</button>
+              <button style={{ ...S.btn("primary"), flex: 2 }} onClick={save} disabled={saving}>{saving ? "保存中..." : "保存"}</button>
+            </div>
+            {form.id && (
+              <button onClick={remove} style={{ marginTop: 10, width: "100%", padding: "8px", borderRadius: 8, border: "none", background: C.border, color: C.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>この行を削除</button>
+            )}
+          </div>
+        </div>
+      )}
+    </DocViewer>
+  );
+}
+
 // ── DOCS TAB ──
-function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenRugbyRules, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
+function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenRugbyRules, onOpenResults, onOpenEntryForms, onOpenMJSPass, onOpenClubSong, onOpenMinutes }) {
   return (
     <div style={S.content}>
       <h2 style={S.sectionTitle}>📋 クラブ資料</h2>
@@ -890,6 +1116,11 @@ function DocsTab({ isAdmin, onOpenImportant, onOpenRules, onOpenRugbyRules, onOp
       <div onClick={onOpenRugbyRules} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.jr}` }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.jrLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏉</div>
         <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>ラグビーのルール</div><div style={{ fontSize: 12, color: C.textMuted }}>初心者向けガイド・タグラグビー保護者向けガイド</div></div>
+        <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
+      </div>
+      <div onClick={onOpenResults} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.sakuraLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏆</div>
+        <div><div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 2 }}>戦績（試合結果）</div><div style={{ fontSize: 12, color: C.textMuted }}>試合結果・大会成績</div></div>
         <div style={{ marginLeft: "auto", color: C.textMuted, fontSize: 18 }}>›</div>
       </div>
       <div onClick={onOpenMinutes} style={{ ...S.card, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderLeft: `4px solid ${C.primary}` }}>
@@ -3304,6 +3535,7 @@ export default function HaponsApp() {
   const [showMJSPass, setShowMJSPass] = useState(false);
   const [showClubSong, setShowClubSong] = useState(false);
   const [showMinutes, setShowMinutes] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [showTranslateGuide, setShowTranslateGuide] = useState(false);
   // タブ切替スワイプ：指の動きに追従して画面をドラッグし、離した時の移動量／勢いで
   // 次へ進むか・元に戻るかを決める（画面幅の0.25以上動かすか、素早く払えば切り替わる）
@@ -3494,6 +3726,7 @@ export default function HaponsApp() {
       if (showEntryForms) { setShowEntryForms(false); history.pushState(null, "", window.location.href); return; }
       if (showMJSPass) { setShowMJSPass(false); history.pushState(null, "", window.location.href); return; }
       if (showClubSong) { setShowClubSong(false); history.pushState(null, "", window.location.href); return; }
+      if (showResults) { setShowResults(false); history.pushState(null, "", window.location.href); return; }
       if (showMinutes) { setShowMinutes(false); history.pushState(null, "", window.location.href); return; }
       if (showAdminLogin) { setShowAdminLogin(false); history.pushState(null, "", window.location.href); return; }
       // メイン画面ではhomeに戻る（アプリ終了を防ぐ）
@@ -3506,7 +3739,7 @@ export default function HaponsApp() {
     history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [showImportant, showRules, showRugbyRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showAdminLogin, tab]);
+  }, [showImportant, showRules, showRugbyRules, showEntryForms, showMJSPass, showClubSong, showMinutes, showResults, showAdminLogin, tab]);
 
   if (!role) return <LoginScreen onLogin={handleLogin} />;
   if (showImportant) return <ImportantPage onClose={() => setShowImportant(false)} isAdmin={isAdmin} />;
@@ -3515,6 +3748,7 @@ export default function HaponsApp() {
   if (showEntryForms) return <EntryFormsPage onClose={() => setShowEntryForms(false)} isAdmin={isAdmin} />;
   if (showMJSPass) return <MJSPassPage onClose={() => setShowMJSPass(false)} />;
   if (showClubSong) return <ClubSongPage onClose={() => setShowClubSong(false)} />;
+  if (showResults) return <ResultsPage onClose={() => setShowResults(false)} isAdmin={isAdmin} />;
   if (showMinutes) return <MinutesPage onClose={() => setShowMinutes(false)} isAdmin={isAdmin} />;
 
   const tabs = [
@@ -3539,7 +3773,7 @@ export default function HaponsApp() {
       case "announcements": return <AnnouncementsTab isAdmin={isAdmin} announcements={announcements} setAnnouncements={setAnnouncements} loading={loadingAnnouncements} />;
       case "schedule": return <ScheduleTab isAdmin={isAdmin} myGroup={myGroup} />;
       case "fees": return <FeesWrapper isAdmin={isAdmin} />;
-      case "docs": return <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenRugbyRules={() => setShowRugbyRules(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
+      case "docs": return <DocsTab isAdmin={isAdmin} onOpenImportant={() => setShowImportant(true)} onOpenRules={() => setShowRules(true)} onOpenRugbyRules={() => setShowRugbyRules(true)} onOpenResults={() => setShowResults(true)} onOpenEntryForms={() => setShowEntryForms(true)} onOpenMJSPass={() => setShowMJSPass(true)} onOpenClubSong={() => setShowClubSong(true)} onOpenMinutes={() => setShowMinutes(true)} />;
       default: return null;
     }
   };
