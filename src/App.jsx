@@ -904,7 +904,6 @@ function ResultsPage({ onClose, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(null); // { kind: "match"|"tournament", id?, values }
-  const [selectedFy, setSelectedFy] = useState(null); // 試合結果の表示年度（nullなら今年度）
   const [view, setView] = useState("match"); // 表示中のタブ：match=試合結果 / tournament=大会成績
   const [saving, setSaving] = useState(false);
 
@@ -973,12 +972,10 @@ function ResultsPage({ onClose, isAdmin }) {
   const nowD = new Date();
   const currentFy = nowD.getMonth() >= 9 ? nowD.getFullYear() : nowD.getFullYear() - 1;
   const matchFys = [...new Set([currentFy, ...matches.map((r) => fyOfDateStr(r.date))])].sort((a, b) => b - a);
-  const activeFy = selectedFy != null && matchFys.includes(selectedFy) ? selectedFy : currentFy;
-  const fyMatches = matches.filter((r) => fyOfDateStr(r.date) === activeFy);
   const tallyRow = (label, list) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: C.text }}>
-      <span style={{ fontWeight: 800, minWidth: 64, color: C.textMuted }}>{label}</span>
-      {countMarks(list).map((t) => (<span key={t.v} style={{ fontWeight: 800 }}>{t.v} {t.n}</span>))}
+    <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 13, color: C.textMuted }}>
+      {label && <span style={{ fontWeight: 800, color: C.text }}>{label}</span>}
+      {countMarks(list).map((t) => (<span key={t.v} style={{ fontWeight: 700 }}>{t.v} {t.n}</span>))}
     </div>
   );
 
@@ -1012,49 +1009,50 @@ function ResultsPage({ onClose, isAdmin }) {
 
       {view === "match" && (<>
       {sectionHead("試合結果", "match")}
-      {matchFys.length >= 2 && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          {matchFys.map((fy) => (
-            <button key={fy} onClick={() => setSelectedFy(fy)}
-              style={{ padding: "6px 14px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-              {fyNameOf(fy)}{fy === currentFy ? "（今年度）" : ""}
-            </button>
-          ))}
-        </div>
-      )}
-      <div style={{ ...S.card, display: "flex", flexDirection: "column", gap: 6, padding: "10px 14px" }}>
-        {tallyRow(fyNameOf(activeFy), fyMatches)}
-        {tallyRow("通算", matches)}
-      </div>
-      <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ ...th, width: "13%", paddingLeft: 8 }}>日時</th>
-              <th style={{ ...th, width: "21%" }}>対戦相手</th>
-              <th style={{ ...th, width: "14%" }}>スコア<span style={{ display: "block", fontSize: 8, fontWeight: 700 }}>相手-Hapons</span></th>
-              <th style={{ ...th, width: "10%", textAlign: "center" }}>結果</th>
-              <th style={{ ...th, width: "21%" }}>トライ者</th>
-              <th style={{ ...th, width: "21%", paddingRight: 8 }}>大会名</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fyMatches.length === 0 && !loading && (
-              <tr><td colSpan={6} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>この年度の試合結果は登録されていません</td></tr>
-            )}
-            {fyMatches.map((r) => (
-              <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
-                <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
-                <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
-                <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_opp} - ${r.score_hapons}` : "-"}</td>
-                <td style={{ ...td, textAlign: "center", fontSize: 16, fontWeight: 900 }}>{r.result}</td>
-                <td style={td}>{r.try_scorers || "-"}</td>
-                <td style={{ ...td, paddingRight: 8 }}>{r.tournament || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div style={{ ...S.card, padding: "10px 14px" }}>{tallyRow("通算", matches)}</div>
+
+      {matchFys.map((fy) => {
+        const list = matches.filter((r) => fyOfDateStr(r.date) === fy);
+        return (
+          <div key={fy} style={{ marginTop: 16 }}>
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
+                {fyNameOf(fy)}<span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>（{fy}年10月〜{fy + 1}年9月）</span>
+              </div>
+              <div style={{ marginTop: 4 }}>{tallyRow("", list)}</div>
+            </div>
+            <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+              <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, width: "13%", paddingLeft: 8 }}>日時</th>
+                    <th style={{ ...th, width: "21%" }}>対戦相手</th>
+                    <th style={{ ...th, width: "14%" }}>スコア<span style={{ display: "block", fontSize: 8, fontWeight: 700 }}>相手-Hapons</span></th>
+                    <th style={{ ...th, width: "10%", textAlign: "center" }}>結果</th>
+                    <th style={{ ...th, width: "21%" }}>大会名</th>
+                    <th style={{ ...th, width: "21%", paddingRight: 8 }}>トライ者</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.length === 0 && !loading && (
+                    <tr><td colSpan={6} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>この年度の試合結果は登録されていません</td></tr>
+                  )}
+                  {list.map((r) => (
+                    <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
+                      <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
+                      <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_opp} - ${r.score_hapons}` : "-"}</td>
+                      <td style={{ ...td, textAlign: "center", fontSize: 16, color: C.textMuted }}>{r.result}</td>
+                      <td style={td}>{r.tournament || "-"}</td>
+                      <td style={{ ...td, paddingRight: 8 }}>{r.try_scorers || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
 
       </>)}
 
