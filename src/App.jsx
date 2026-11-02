@@ -899,6 +899,7 @@ function ResultsPage({ onClose, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(null); // { kind: "match"|"tournament", id?, values }
+  const [view, setView] = useState("match"); // 表示中のタブ：match=試合結果 / tournament=大会成績
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -983,7 +984,15 @@ function ResultsPage({ onClose, isAdmin }) {
       )}
       {isAdmin && <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10 }}>⚙ 行をタップすると編集・削除できます</div>}
 
-      {sectionHead("🏉 試合結果", "match")}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, background: C.sakuraLight, borderRadius: 12, padding: 4 }}>
+        {[{ id: "match", label: "🏉 試合結果" }, { id: "tournament", label: "🏆 大会成績" }].map((t) => (
+          <button key={t.id} onClick={() => setView(t.id)}
+            style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", background: view === t.id ? C.primary : "transparent", color: view === t.id ? "#fff" : C.textMuted }}>{t.label}</button>
+        ))}
+      </div>
+
+      {view === "match" && (<>
+      {sectionHead("試合結果（新しい順）", "match")}
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         {tally.map((t) => (
           <span key={t.v} style={{ ...S.badge(t.color), fontSize: 12 }}>{t.v} {t.label} {t.n}</span>
@@ -1017,8 +1026,10 @@ function ResultsPage({ onClose, isAdmin }) {
         </table>
       </div>
 
-      <div style={{ height: 14 }} />
-      {sectionHead("🏆 大会成績", "tournament")}
+      </>)}
+
+      {view === "tournament" && (<>
+      {sectionHead("大会成績（新しい順）", "tournament")}
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
           <thead>
@@ -1044,6 +1055,7 @@ function ResultsPage({ onClose, isAdmin }) {
           </tbody>
         </table>
       </div>
+      </>)}
 
       {form && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
