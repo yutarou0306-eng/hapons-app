@@ -876,11 +876,16 @@ function MinutesPage({ onClose, isAdmin }) {
 // 試合結果（match_results）と大会成績（tournament_results）の2つの表。
 // 管理者は「＋追加」と、行をタップして編集・削除ができる。
 const RESULT_MARKS = [
-  { v: "○", label: "勝ち", color: "#2E7D32" },
-  { v: "●", label: "負け", color: "#9B0000" },
-  { v: "△", label: "引き分け", color: "#D4A800" },
+  { v: "○", label: "勝ち" },
+  { v: "●", label: "負け" },
+  { v: "△", label: "引き分け" },
 ];
-const markColor = (v) => (RESULT_MARKS.find((m) => m.v === v) || {}).color || C.textMuted;
+// 会計年度（10月〜翌9月）。アプリの他の画面と同じ区切りで、終了年を「◯◯年度」と呼ぶ
+const fyOfDateStr = (dateStr) => {
+  const [y, m] = String(dateStr).split("-").map(Number);
+  return m >= 10 ? y : y - 1;
+};
+const fyNameOf = (fy) => `${fy + 1}年度`;
 
 function DateCell({ date }) {
   if (!date) return <span>-</span>;
@@ -899,6 +904,7 @@ function ResultsPage({ onClose, isAdmin }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(null); // { kind: "match"|"tournament", id?, values }
+  const [selectedFy, setSelectedFy] = useState(null); // 試合結果の表示年度（nullなら今年度）
   const [view, setView] = useState("match"); // 表示中のタブ：match=試合結果 / tournament=大会成績
   const [saving, setSaving] = useState(false);
 
@@ -919,12 +925,14 @@ function ResultsPage({ onClose, isAdmin }) {
   const openNew = (kind) => setForm({
     kind,
     values: kind === "match"
-      ? { date: today(), opponent: "", result: "○", try_scorers: "", tournament: "" }
+      ? { date: today(), opponent: "", score_opp: "", score_hapons: "", result: "○", try_scorers: "", tournament: "" }
       : { date: today(), tournament: "", category: "", rank: "" },
   });
   const openEdit = (kind, row) => setForm({ kind, id: row.id, values: { ...row } });
   const setVal = (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } });
 
+  // スコアは数字だけを保存（空欄は未入力＝null）。区切り記号の表記ゆれが出ないようにする
+  const toScore = (x) => (x === "" || x == null || isNaN(Number(x)) ? null : Math.max(0, Math.floor(Number(x))));
   const save = async () => {
     const v = form.values;
     const table = form.kind === "match" ? "match_results" : "tournament_results";
@@ -932,7 +940,7 @@ function ResultsPage({ onClose, isAdmin }) {
     let payload;
     if (form.kind === "match") {
       if (!v.opponent.trim()) { alert("対戦相手を入力してください"); return; }
-      payload = { date: v.date, opponent: v.opponent.trim(), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
+      payload = { date: v.date, opponent: v.opponent.trim(), score_opp: toScore(v.score_opp), score_hapons: toScore(v.score_hapons), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
     } else {
       if (!v.tournament.trim()) { alert("大会名を入力してください"); return; }
       payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim() };
@@ -961,7 +969,18 @@ function ResultsPage({ onClose, isAdmin }) {
     setForm(null);
   };
 
-  const tally = RESULT_MARKS.map((m) => ({ ...m, n: matches.filter((r) => r.result === m.v).length }));
+  const countMarks = (list) => RESULT_MARKS.map((m) => ({ ...m, n: list.filter((r) => r.result === m.v).length }));
+  const nowD = new Date();
+  const currentFy = nowD.getMonth() >= 9 ? nowD.getFullYear() : nowD.getFullYear() - 1;
+  const matchFys = [...new Set([currentFy, ...matches.map((r) => fyOfDateStr(r.date))])].sort((a, b) => b - a);
+  const activeFy = selectedFy != null && matchFys.includes(selectedFy) ? selectedFy : currentFy;
+  const fyMatches = matches.filter((r) => fyOfDateStr(r.date) === activeFy);
+  const tallyRow = (label, list) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: C.text }}>
+      <span style={{ fontWeight: 800, minWidth: 64, color: C.textMuted }}>{label}</span>
+      {countMarks(list).map((t) => (<span key={t.v} style={{ fontWeight: 800 }}>{t.v} {t.n}</span>))}
+    </div>
+  );
 
   const th = { padding: "8px 4px", fontSize: 11, fontWeight: 800, color: C.textMuted, textAlign: "left", background: C.sakuraLight, borderBottom: `1px solid ${C.border}` };
   const td = { padding: "8px 4px", fontSize: 12, color: C.text, borderBottom: `1px solid ${C.border}`, verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" };
@@ -992,32 +1011,43 @@ function ResultsPage({ onClose, isAdmin }) {
       </div>
 
       {view === "match" && (<>
-      {sectionHead("試合結果（新しい順）", "match")}
-      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {tally.map((t) => (
-          <span key={t.v} style={{ ...S.badge(t.color), fontSize: 12 }}>{t.v} {t.label} {t.n}</span>
-        ))}
+      {sectionHead("試合結果", "match")}
+      {matchFys.length >= 2 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          {matchFys.map((fy) => (
+            <button key={fy} onClick={() => setSelectedFy(fy)}
+              style={{ padding: "6px 14px", borderRadius: 20, border: `2px solid ${activeFy === fy ? C.primary : C.border}`, background: activeFy === fy ? C.sakuraLight : C.card, color: activeFy === fy ? C.primary : C.textMuted, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              {fyNameOf(fy)}{fy === currentFy ? "（今年度）" : ""}
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ ...S.card, display: "flex", flexDirection: "column", gap: 6, padding: "10px 14px" }}>
+        {tallyRow(fyNameOf(activeFy), fyMatches)}
+        {tallyRow("通算", matches)}
       </div>
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...th, width: "14%", paddingLeft: 8 }}>日時</th>
-              <th style={{ ...th, width: "24%" }}>対戦相手</th>
+              <th style={{ ...th, width: "13%", paddingLeft: 8 }}>日時</th>
+              <th style={{ ...th, width: "21%" }}>対戦相手</th>
+              <th style={{ ...th, width: "14%" }}>スコア<span style={{ display: "block", fontSize: 8, fontWeight: 700 }}>相手-Hapons</span></th>
               <th style={{ ...th, width: "10%", textAlign: "center" }}>結果</th>
-              <th style={{ ...th, width: "26%" }}>トライ者</th>
-              <th style={{ ...th, width: "26%", paddingRight: 8 }}>大会名</th>
+              <th style={{ ...th, width: "21%" }}>トライ者</th>
+              <th style={{ ...th, width: "21%", paddingRight: 8 }}>大会名</th>
             </tr>
           </thead>
           <tbody>
-            {matches.length === 0 && !loading && (
-              <tr><td colSpan={5} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>試合結果が登録されていません</td></tr>
+            {fyMatches.length === 0 && !loading && (
+              <tr><td colSpan={6} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>この年度の試合結果は登録されていません</td></tr>
             )}
-            {matches.map((r) => (
+            {fyMatches.map((r) => (
               <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
                 <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
                 <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
-                <td style={{ ...td, textAlign: "center", fontSize: 18, fontWeight: 900, color: markColor(r.result) }}>{r.result}</td>
+                <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_opp} - ${r.score_hapons}` : "-"}</td>
+                <td style={{ ...td, textAlign: "center", fontSize: 16, fontWeight: 900 }}>{r.result}</td>
                 <td style={td}>{r.try_scorers || "-"}</td>
                 <td style={{ ...td, paddingRight: 8 }}>{r.tournament || "-"}</td>
               </tr>
@@ -1029,7 +1059,7 @@ function ResultsPage({ onClose, isAdmin }) {
       </>)}
 
       {view === "tournament" && (<>
-      {sectionHead("大会成績（新しい順）", "tournament")}
+      {sectionHead("大会成績", "tournament")}
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
           <thead>
@@ -1069,13 +1099,19 @@ function ResultsPage({ onClose, isAdmin }) {
               <>
                 <label style={labelStyle}>対戦相手</label>
                 <input style={S.input} value={form.values.opponent} onChange={(e) => setVal("opponent", e.target.value)} />
+                <label style={labelStyle}>スコア（左：対戦相手　右：Hapons）</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <input type="number" inputMode="numeric" min="0" style={{ ...S.input, marginBottom: 0, textAlign: "center" }} value={form.values.score_opp ?? ""} onChange={(e) => setVal("score_opp", e.target.value)} placeholder="相手" />
+                  <span style={{ fontWeight: 900, color: C.textMuted }}>－</span>
+                  <input type="number" inputMode="numeric" min="0" style={{ ...S.input, marginBottom: 0, textAlign: "center" }} value={form.values.score_hapons ?? ""} onChange={(e) => setVal("score_hapons", e.target.value)} placeholder="Hapons" />
+                </div>
                 <label style={labelStyle}>結果</label>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   {RESULT_MARKS.map((m) => {
                     const on = form.values.result === m.v;
                     return (
                       <button key={m.v} onClick={() => setVal("result", m.v)}
-                        style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: `2px solid ${on ? m.color : C.border}`, background: on ? m.color : C.bg, color: on ? "#fff" : m.color, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>
+                        style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: `2px solid ${on ? C.primary : C.border}`, background: on ? C.primary : C.bg, color: on ? "#fff" : C.text, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>
                         {m.v}<div style={{ fontSize: 10, fontWeight: 700 }}>{m.label}</div>
                       </button>
                     );
