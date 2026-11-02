@@ -980,7 +980,7 @@ function ResultsPage({ onClose, isAdmin }) {
   );
 
   const th = { padding: "8px 4px", fontSize: 11, fontWeight: 800, color: C.textMuted, textAlign: "left", background: C.sakuraLight, borderBottom: `1px solid ${C.border}` };
-  const td = { padding: "8px 4px", fontSize: 12, color: C.text, borderBottom: `1px solid ${C.border}`, verticalAlign: "top", overflowWrap: "anywhere", wordBreak: "break-word" };
+  const td = { padding: "8px 4px", fontSize: 12, color: C.text, borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", overflowWrap: "anywhere", wordBreak: "break-word" };
   const rowStyle = { cursor: isAdmin ? "pointer" : "default" };
 
   const sectionHead = (title, kind) => (
