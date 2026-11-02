@@ -925,7 +925,7 @@ function ResultsPage({ onClose, isAdmin }) {
     kind,
     values: kind === "match"
       ? { date: today(), opponent: "", score_opp: "", score_hapons: "", result: "○", try_scorers: "", tournament: "" }
-      : { date: today(), tournament: "", category: "", rank: "" },
+      : { date: today(), tournament: "", category: "", rank: "", note: "" },
   });
   const openEdit = (kind, row) => setForm({ kind, id: row.id, values: { ...row } });
   const setVal = (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } });
@@ -942,7 +942,7 @@ function ResultsPage({ onClose, isAdmin }) {
       payload = { date: v.date, opponent: v.opponent.trim(), score_opp: toScore(v.score_opp), score_hapons: toScore(v.score_hapons), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
     } else {
       if (!v.tournament.trim()) { alert("大会名を入力してください"); return; }
-      payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim() };
+      payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim(), note: (v.note || "").trim() };
     }
     setSaving(true);
     const q = form.id ? supabase.from(table).update(payload).eq("id", form.id).select() : supabase.from(table).insert([payload]).select();
@@ -1070,22 +1070,24 @@ function ResultsPage({ onClose, isAdmin }) {
               <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={{ ...th, width: "16%", paddingLeft: 8 }}>日時</th>
-                    <th style={{ ...th, width: "46%" }}>大会名</th>
-                    <th style={{ ...th, width: "38%", paddingRight: 8 }}>結果</th>
+                    <th style={{ ...th, width: "14%", paddingLeft: 8 }}>日時</th>
+                    <th style={{ ...th, width: "32%" }}>大会名</th>
+                    <th style={{ ...th, width: "28%" }}>結果</th>
+                    <th style={{ ...th, width: "26%", paddingRight: 8 }}>その他</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.length === 0 && !loading && (
-                    <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>この年度の大会成績は登録されていません</td></tr>
+                    <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: C.textMuted, padding: 20 }}>この年度の大会成績は登録されていません</td></tr>
                   )}
                   {list.map((r) => (
                     <tr key={r.id} onClick={isAdmin ? () => openEdit("tournament", r) : undefined} style={rowStyle}>
                       <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
                       <td style={{ ...td, fontWeight: 700 }}>{r.tournament}</td>
-                      <td style={{ ...td, paddingRight: 8, fontWeight: 800, color: C.primary }}>
+                      <td style={{ ...td, fontWeight: 800, color: C.primary }}>
                         {[r.category, r.rank ? `${r.rank}位` : ""].filter(Boolean).join(" ") || "-"}
                       </td>
+                      <td style={{ ...td, paddingRight: 8 }}>{r.note || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1139,6 +1141,8 @@ function ResultsPage({ onClose, isAdmin }) {
                 <input style={S.input} value={form.values.category || ""} onChange={(e) => setVal("category", e.target.value)} placeholder="例：一般の部／U12" />
                 <label style={labelStyle}>順位（数字）</label>
                 <input type="number" inputMode="numeric" style={S.input} value={form.values.rank ?? ""} onChange={(e) => setVal("rank", e.target.value)} placeholder="例：3" />
+                <label style={labelStyle}>その他</label>
+                <input style={S.input} value={form.values.note || ""} onChange={(e) => setVal("note", e.target.value)} placeholder="例：MVP受賞、全勝 など" />
               </>
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
