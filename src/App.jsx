@@ -1027,7 +1027,7 @@ function ResultsPage({ onClose, isAdmin }) {
                   <tr>
                     <th style={{ ...th, width: "13%", paddingLeft: 8 }}>日時</th>
                     <th style={{ ...th, width: "21%" }}>対戦相手</th>
-                    <th style={{ ...th, width: "14%" }}>スコア<span style={{ display: "block", fontSize: 8, fontWeight: 700 }}>相手-Hapons</span></th>
+                    <th style={{ ...th, width: "14%" }}>スコア<span style={{ display: "block", fontSize: 8, fontWeight: 700 }}>Hapons-相手</span></th>
                     <th style={{ ...th, width: "10%", textAlign: "center" }}>結果</th>
                     <th style={{ ...th, width: "21%" }}>大会名</th>
                     <th style={{ ...th, width: "21%", paddingRight: 8 }}>トライ者</th>
@@ -1041,7 +1041,7 @@ function ResultsPage({ onClose, isAdmin }) {
                     <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
                       <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
                       <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_opp} - ${r.score_hapons}` : "-"}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_hapons} - ${r.score_opp}` : "-"}</td>
                       <td style={{ ...td, textAlign: "center", fontSize: 16, color: C.textMuted }}>{r.result}</td>
                       <td style={td}>{r.tournament || "-"}</td>
                       <td style={{ ...td, paddingRight: 8 }}>{r.try_scorers || "-"}</td>
@@ -1097,11 +1097,11 @@ function ResultsPage({ onClose, isAdmin }) {
               <>
                 <label style={labelStyle}>対戦相手</label>
                 <input style={S.input} value={form.values.opponent} onChange={(e) => setVal("opponent", e.target.value)} />
-                <label style={labelStyle}>スコア（左：対戦相手　右：Hapons）</label>
+                <label style={labelStyle}>スコア（左：Hapons　右：対戦相手）</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <input type="number" inputMode="numeric" min="0" style={{ ...S.input, marginBottom: 0, textAlign: "center" }} value={form.values.score_opp ?? ""} onChange={(e) => setVal("score_opp", e.target.value)} placeholder="相手" />
-                  <span style={{ fontWeight: 900, color: C.textMuted }}>－</span>
                   <input type="number" inputMode="numeric" min="0" style={{ ...S.input, marginBottom: 0, textAlign: "center" }} value={form.values.score_hapons ?? ""} onChange={(e) => setVal("score_hapons", e.target.value)} placeholder="Hapons" />
+                  <span style={{ fontWeight: 900, color: C.textMuted }}>－</span>
+                  <input type="number" inputMode="numeric" min="0" style={{ ...S.input, marginBottom: 0, textAlign: "center" }} value={form.values.score_opp ?? ""} onChange={(e) => setVal("score_opp", e.target.value)} placeholder="相手" />
                 </div>
                 <label style={labelStyle}>結果</label>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
