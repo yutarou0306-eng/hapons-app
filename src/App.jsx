@@ -928,7 +928,7 @@ function ResultsPage({ onClose, isAdmin }) {
     kind,
     values: kind === "match"
       ? { date: today(), team: "adult", opponent: "", score_opp: "", score_hapons: "", result: "○", try_scorers: "", tournament: "" }
-      : { date: today(), tournament: "", category: "", rank: "", note: "" },
+      : { date: today(), team: "adult", tournament: "", category: "", rank: "", note: "" },
   });
   const openEdit = (kind, row) => setForm({ kind, id: row.id, values: { ...row } });
   const setVal = (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } });
@@ -945,7 +945,7 @@ function ResultsPage({ onClose, isAdmin }) {
       payload = { date: v.date, team: v.team === "jr" ? "jr" : "adult", opponent: v.opponent.trim(), score_opp: toScore(v.score_opp), score_hapons: toScore(v.score_hapons), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
     } else {
       if (!v.tournament.trim()) { alert("大会名を入力してください"); return; }
-      payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim(), note: (v.note || "").trim() };
+      payload = { date: v.date, team: v.team === "jr" ? "jr" : "adult", tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim(), note: (v.note || "").trim() };
     }
     setSaving(true);
     const q = form.id ? supabase.from(table).update(payload).eq("id", form.id).select() : supabase.from(table).insert([payload]).select();
@@ -1066,6 +1066,10 @@ function ResultsPage({ onClose, isAdmin }) {
 
       {view === "tournament" && (<>
       {sectionHead("大会成績", "tournament")}
+      <div style={{ display: "flex", gap: 14, fontSize: 12, fontWeight: 700, margin: "0 2px 2px" }}>
+        <span style={{ color: teamColor("adult") }}>● 大人</span>
+        <span style={{ color: teamColor("jr") }}>● Jr</span>
+      </div>
       {tournamentFys.map((fy) => {
         const list = tournaments.filter((r) => fyOfDateStr(r.date) === fy);
         return (
@@ -1090,8 +1094,8 @@ function ResultsPage({ onClose, isAdmin }) {
                   {list.map((r) => (
                     <tr key={r.id} onClick={isAdmin ? () => openEdit("tournament", r) : undefined} style={rowStyle}>
                       <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
-                      <td style={{ ...td, fontWeight: 700 }}>{r.tournament}</td>
-                      <td style={{ ...td, fontWeight: 800, color: C.primary }}>
+                      <td style={{ ...td, fontWeight: 700, color: teamColor(r.team) }}>{r.tournament}</td>
+                      <td style={{ ...td, fontWeight: 800, color: teamColor(r.team) }}>
                         {[r.category, r.rank ? `${r.rank}位` : ""].filter(Boolean).join(" ") || "-"}
                       </td>
                       <td style={{ ...td, paddingRight: 8 }}>{r.note || "-"}</td>
@@ -1113,17 +1117,17 @@ function ResultsPage({ onClose, isAdmin }) {
             </h3>
             <label style={labelStyle}>日時</label>
             <input type="date" style={S.input} value={form.values.date || ""} onChange={(e) => setVal("date", e.target.value)} />
+        <label style={labelStyle}>区分</label>
+        <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+          {[{ v: "adult", label: "大人" }, { v: "jr", label: "Jr" }].map((o) => (
+            <label key={o.v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: teamColor(o.v), cursor: "pointer" }}>
+              <input type="radio" name="team" value={o.v} checked={(form.values.team || "adult") === o.v} onChange={() => setVal("team", o.v)} style={{ width: 18, height: 18, accentColor: teamColor(o.v), margin: 0 }} />
+              {o.label}
+            </label>
+          ))}
+        </div>
             {form.kind === "match" ? (
               <>
-                <label style={labelStyle}>区分</label>
-                <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
-                  {[{ v: "adult", label: "大人" }, { v: "jr", label: "Jr" }].map((o) => (
-                    <label key={o.v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: teamColor(o.v), cursor: "pointer" }}>
-                      <input type="radio" name="match-team" value={o.v} checked={(form.values.team || "adult") === o.v} onChange={() => setVal("team", o.v)} style={{ width: 18, height: 18, accentColor: teamColor(o.v), margin: 0 }} />
-                      {o.label}
-                    </label>
-                  ))}
-                </div>
                 <label style={labelStyle}>対戦相手</label>
                 <input style={S.input} value={form.values.opponent} onChange={(e) => setVal("opponent", e.target.value)} />
                 <label style={labelStyle}>スコア（左：Hapons　右：対戦相手）</label>
