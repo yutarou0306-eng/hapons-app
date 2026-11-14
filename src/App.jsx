@@ -887,6 +887,9 @@ const fyOfDateStr = (dateStr) => {
 };
 const fyNameOf = (fy) => `${fy + 1}年度`;
 
+// 大人＝赤、Jr＝青で文字色を分ける（アプリ内の大人/Jrの色分けと同じ）
+const teamColor = (t) => (t === "jr" ? C.jr : C.primary);
+
 function DateCell({ date }) {
   if (!date) return <span>-</span>;
   const [y, m, d] = String(date).split("-");
@@ -924,7 +927,7 @@ function ResultsPage({ onClose, isAdmin }) {
   const openNew = (kind) => setForm({
     kind,
     values: kind === "match"
-      ? { date: today(), opponent: "", score_opp: "", score_hapons: "", result: "○", try_scorers: "", tournament: "" }
+      ? { date: today(), team: "adult", opponent: "", score_opp: "", score_hapons: "", result: "○", try_scorers: "", tournament: "" }
       : { date: today(), tournament: "", category: "", rank: "", note: "" },
   });
   const openEdit = (kind, row) => setForm({ kind, id: row.id, values: { ...row } });
@@ -939,7 +942,7 @@ function ResultsPage({ onClose, isAdmin }) {
     let payload;
     if (form.kind === "match") {
       if (!v.opponent.trim()) { alert("対戦相手を入力してください"); return; }
-      payload = { date: v.date, opponent: v.opponent.trim(), score_opp: toScore(v.score_opp), score_hapons: toScore(v.score_hapons), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
+      payload = { date: v.date, team: v.team === "jr" ? "jr" : "adult", opponent: v.opponent.trim(), score_opp: toScore(v.score_opp), score_hapons: toScore(v.score_hapons), result: v.result, try_scorers: (v.try_scorers || "").trim(), tournament: (v.tournament || "").trim() };
     } else {
       if (!v.tournament.trim()) { alert("大会名を入力してください"); return; }
       payload = { date: v.date, tournament: v.tournament.trim(), category: (v.category || "").trim(), rank: String(v.rank ?? "").trim(), note: (v.note || "").trim() };
@@ -1011,6 +1014,10 @@ function ResultsPage({ onClose, isAdmin }) {
       {view === "match" && (<>
       {sectionHead("試合結果", "match")}
       <div style={{ ...S.card, padding: "10px 14px" }}>{tallyRow("通算", matches)}</div>
+      <div style={{ display: "flex", gap: 14, fontSize: 12, fontWeight: 700, margin: "2px 2px 0" }}>
+        <span style={{ color: teamColor("adult") }}>● 大人</span>
+        <span style={{ color: teamColor("jr") }}>● Jr</span>
+      </div>
 
       {matchFys.map((fy) => {
         const list = matches.filter((r) => fyOfDateStr(r.date) === fy);
@@ -1041,8 +1048,8 @@ function ResultsPage({ onClose, isAdmin }) {
                   {list.map((r) => (
                     <tr key={r.id} onClick={isAdmin ? () => openEdit("match", r) : undefined} style={rowStyle}>
                       <td style={{ ...td, paddingLeft: 8 }}><DateCell date={r.date} /></td>
-                      <td style={{ ...td, fontWeight: 700 }}>{r.opponent}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_hapons} - ${r.score_opp}` : "-"}</td>
+                      <td style={{ ...td, fontWeight: 700, color: teamColor(r.team) }}>{r.opponent}</td>
+                      <td style={{ ...td, fontWeight: 700, color: teamColor(r.team) }}>{r.score_opp != null && r.score_hapons != null ? `${r.score_hapons} - ${r.score_opp}` : "-"}</td>
                       <td style={{ ...td, textAlign: "center", fontSize: 16, color: C.textMuted }}>{r.result}</td>
                       <td style={td}>{r.tournament || "-"}</td>
                       <td style={{ ...td, paddingRight: 8 }}>{r.try_scorers || "-"}</td>
@@ -1108,6 +1115,15 @@ function ResultsPage({ onClose, isAdmin }) {
             <input type="date" style={S.input} value={form.values.date || ""} onChange={(e) => setVal("date", e.target.value)} />
             {form.kind === "match" ? (
               <>
+                <label style={labelStyle}>区分</label>
+                <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+                  {[{ v: "adult", label: "大人" }, { v: "jr", label: "Jr" }].map((o) => (
+                    <label key={o.v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: teamColor(o.v), cursor: "pointer" }}>
+                      <input type="radio" name="match-team" value={o.v} checked={(form.values.team || "adult") === o.v} onChange={() => setVal("team", o.v)} style={{ width: 18, height: 18, accentColor: teamColor(o.v), margin: 0 }} />
+                      {o.label}
+                    </label>
+                  ))}
+                </div>
                 <label style={labelStyle}>対戦相手</label>
                 <input style={S.input} value={form.values.opponent} onChange={(e) => setVal("opponent", e.target.value)} />
                 <label style={labelStyle}>スコア（左：Hapons　右：対戦相手）</label>
