@@ -716,7 +716,7 @@ function MJSPassPage({ onClose }) {
             <div style={{ fontSize: 12, color: C.textMuted }}>有効期限：4月〜翌年3月（毎年更新）</div>
           </div>
         </div>
-        <a href="https://drive.google.com/file/d/1FK-pkBr5RimIT-eFjjBtu1ryNk9-8W3A/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+        <a href="https://drive.google.com/file/d/1R3Ic4lkfKqXc7Pz2mH3hq9enNEHLlDAX/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: C.primary, borderRadius: 10, cursor: "pointer" }}>
             <span style={{ fontSize: 16 }}>📥</span>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>ダウンロード（Google Drive）</span>
