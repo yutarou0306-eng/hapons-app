@@ -231,7 +231,7 @@ const DEFAULT_IMPORTANT_HTML =
     + itemHTML("Manila Hapons入部届兼誓約書（Haponsのルールに同意する旨の誓約）")
     + itemHTML("参加同意書（WAIVER）（Jrのみ・子供の怪我、SNS等に関する同意書）")
     + `<div style="font-weight:800;color:${C.primary};margin:10px 0 6px;">② 部員 → MJS</div>`
-    + itemHTML(`MJSパス＆スティッカー申請書（部長承認済みの申請用紙）に必要事項を記入の上、a.lecias@mjs.phへメール送信<br/><span style="font-size:12px;color:${C.textMuted};">メール本文に Club Name：Manila Hapons　Club Representative：赤星敦（Akahoshi Atsushi）と記載</span>`)
+    + itemHTML(`MJSパス＆スティッカー申請書（部長承認済みの申請用紙）に必要事項を記入の上、a.lecias@mjs.phへメール送信<br/><span style="font-size:12px;color:${C.textMuted};">メール本文に Club Name：Manila Hapons　Club Representative：大澤剛（Osawa Tsuyoshi）と記載</span>`)
     + itemHTML("ID SCHOOL PASS申請書（有効期限：4月〜翌年3月末・毎年度更新）※未取得の帯同者は家族であっても入校不可（未就学児除く）")
     + itemHTML("Car Sticker（有効期限：4月〜翌年3月末・毎年度更新）")
     + `<p style="margin:8px 0 0;font-size:12px;color:${C.textMuted};">申請ルート：申請者 → 部長承認 → MJS（メール申請）／毎年3月中旬を目途に申請してください</p>`
@@ -682,7 +682,7 @@ function MJSPassPage({ onClose }) {
         <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "flex-start" }}>
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>2</div>
           <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
-            記入した申請書を<strong>部長（赤星敦）に提出</strong>し、承認サインをもらう
+            記入した申請書を<strong>部長（大澤剛）に提出</strong>し、承認サインをもらう
           </div>
         </div>
 
@@ -695,7 +695,7 @@ function MJSPassPage({ onClose }) {
               <div style={{ marginBottom: 4 }}>📝 メール本文に以下を記載：</div>
               <div style={{ paddingLeft: 12, color: C.textMuted }}>
                 Club Name：<strong style={{ color: C.text }}>Manila Hapons</strong><br />
-                Club Representative：<strong style={{ color: C.text }}>赤星敦（Akahoshi Atsushi）</strong>
+                Club Representative：<strong style={{ color: C.text }}>大澤剛（Osawa Tsuyoshi）</strong>
               </div>
             </div>
           </div>
